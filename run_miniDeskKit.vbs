@@ -1,0 +1,1 @@
+CreateObject("Wscript.Shell").Run "C:\Users\alone\miniDeskKit\run.bat", 0, False
