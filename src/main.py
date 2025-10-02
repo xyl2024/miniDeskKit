@@ -1,4 +1,5 @@
 import sys
+
 from PySide6.QtCore import Qt, QPoint
 from PySide6.QtGui import QPainter, QPainterPath, QRegion, QColor, QIcon, QAction
 from PySide6.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QVBoxLayout, QWidget
@@ -15,11 +16,12 @@ class MainWindow(QWidget):
         self.config_manager = ConfigManager()
         self.window_config = self.config_manager.get_window_config()
         self.setup_window()
-        self.create_main_layout()
-        # self.setup_drag_functionality()
+        self.setup_inner_widgets()
         self.setup_system_tray()
 
-        # 添加组件
+    def setup_inner_widgets(self):
+        """设置内部组件"""
+        self.create_main_layout()
         self.minutely_weather_widget = PrecipWidget()
         self.add_widget(self.minutely_weather_widget)
 
@@ -34,9 +36,7 @@ class MainWindow(QWidget):
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
 
-        # 恢复上次的位置
-        last_pos = self.config_manager.get_window_position()
-        self.move(last_pos)
+        self.move(self.config_manager.get_window_position())
 
     def create_main_layout(self):
         """创建主布局"""
@@ -87,37 +87,6 @@ class MainWindow(QWidget):
         else:
             painter.fillPath(path, QColor(225, 240, 249, 200))
 
-    def setup_drag_functionality(self):
-        """设置拖拽功能"""
-        self.drag_position = QPoint()
-
-    # def mousePressEvent(self, event):
-    #     """处理鼠标按下事件"""
-    #     if event.button() == Qt.LeftButton:
-    #         self.drag_position = (
-    #             event.globalPosition().toPoint() - self.frameGeometry().topLeft()
-    #         )
-    #         event.accept()
-
-    # def mouseMoveEvent(self, event):
-    #     """处理鼠标移动事件"""
-    #     if event.buttons() == Qt.LeftButton:
-    #         new_pos = event.globalPosition().toPoint() - self.drag_position
-    #         self.move(new_pos)
-    #         event.accept()
-
-    # def mouseReleaseEvent(self, event):
-    #     """处理鼠标释放事件"""
-    #     if event.button() == Qt.RightButton:
-    #         self.hide_window()
-
-    # def moveEvent(self, event):
-    #     """窗口移动事件 - 保存位置"""
-    #     # 保存当前窗口位置
-    #     pos = self.pos()
-    #     self.config_manager.set_window_position(pos.x(), pos.y())
-    #     event.accept()
-
     def setup_system_tray(self):
         """设置系统托盘"""
         if QSystemTrayIcon.isSystemTrayAvailable():
@@ -128,12 +97,8 @@ class MainWindow(QWidget):
 
             # 创建右键菜单
             self.tray_menu = QMenu()
-            show_action = QAction("显示", self)
-            show_action.triggered.connect(self.show)
             quit_action = QAction("退出", self)
             quit_action.triggered.connect(self.quit_app)
-
-            self.tray_menu.addAction(show_action)
             self.tray_menu.addAction(quit_action)
 
             self.tray_icon.setContextMenu(self.tray_menu)
@@ -144,23 +109,7 @@ class MainWindow(QWidget):
     def on_tray_icon_activated(self, reason):
         """托盘图标激活事件"""
         if reason == QSystemTrayIcon.DoubleClick:
-            self.show()
-
-    def show_context_menu(self, pos):
-        """显示右键菜单"""
-        menu = QMenu()
-        show_action = QAction("显示", self)
-        show_action.triggered.connect(self.show)
-        quit_action = QAction("退出", self)
-        quit_action.triggered.connect(self.quit_app)
-
-        menu.addAction(show_action)
-        menu.addAction(quit_action)
-        menu.exec(pos)
-
-    def hide_window(self):
-        """隐藏界面"""
-        self.hide()
+            self.hide() if self.isVisible() else self.show()
 
     def quit_app(self):
         """退出应用"""

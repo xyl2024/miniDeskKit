@@ -165,4 +165,8 @@ class PrecipWidget(QWidget):
     def closeEvent(self, event):
         """窗口关闭事件"""
         self.hide_emojis()
-        super().closeEvent(event)
+        if self.precip_worker:
+            self.precip_worker.stop()
+            self.precip_worker.wait()
+        if event:
+            event.accept()

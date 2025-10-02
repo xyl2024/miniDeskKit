@@ -1,3 +1,4 @@
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QWidget, QVBoxLayout
 
 from utils.utils import Utils
@@ -99,6 +100,12 @@ class SystemMonitorWidget(QWidget):
     def handle_error(self, error_msg):
         """处理错误"""
         print(f"系统信息获取错误: {error_msg}")
+
+    def mouseDoubleClickEvent(self, event):
+        """鼠标双击事件"""
+        if event.button() == Qt.LeftButton:
+            Utils.open_task_manager()
+        super().mouseDoubleClickEvent(event)
 
     def closeEvent(self, event):
         """窗口关闭事件"""
