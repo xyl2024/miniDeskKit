@@ -122,3 +122,7 @@ class ConfigManager:
     def get_minutely_weather_config(self):
         """获取分钟级天气组件配置"""
         return self.config.get("minutely_weather", {})
+
+    def get_music_player_config(self):
+        """获取音乐播放器配置"""
+        return self.config.get("music_player", {})

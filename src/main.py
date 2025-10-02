@@ -8,6 +8,7 @@ from utils.logger import logger
 from utils.config_manager import ConfigManager
 from system_monitor.system_monitor_widget import SystemMonitorWidget
 from weather.precip_widget import PrecipWidget
+from music.music_player_widget import MusicPlayerWidget
 
 
 class MainWindow(QWidget):
@@ -24,6 +25,9 @@ class MainWindow(QWidget):
         self.create_main_layout()
         self.minutely_weather_widget = PrecipWidget()
         self.add_widget(self.minutely_weather_widget)
+
+        self.music_player = MusicPlayerWidget()
+        self.add_widget(self.music_player)
 
         self.system_monitor = SystemMonitorWidget()
         self.add_widget(self.system_monitor)
