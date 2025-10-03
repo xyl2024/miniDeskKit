@@ -1,14 +1,11 @@
 import sys
-
-from PySide6.QtCore import Qt, QPoint
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QPainter, QPainterPath, QRegion, QColor, QIcon, QAction
 from PySide6.QtWidgets import QApplication, QSystemTrayIcon, QMenu, QVBoxLayout, QWidget
 
 from utils.logger import logger
 from utils.config_manager import ConfigManager
-from system_monitor.system_monitor_widget import SystemMonitorWidget
-from weather.precip_widget import PrecipWidget
-from music.music_player_widget import MusicPlayerWidget
+
 
 
 class MainWindow(QWidget):
@@ -21,14 +18,18 @@ class MainWindow(QWidget):
         self.setup_system_tray()
 
     def setup_inner_widgets(self):
-        """设置内部组件"""
+        """设置内部组件, 后续可以增加设置功能, 在这里按需加载哪些部件"""
         self.create_main_layout()
+        
+        from weather.precip_widget import PrecipWidget
         self.minutely_weather_widget = PrecipWidget()
         self.add_widget(self.minutely_weather_widget)
 
+        from music.music_player_widget import MusicPlayerWidget
         self.music_player = MusicPlayerWidget()
         self.add_widget(self.music_player)
 
+        from system_monitor.system_monitor_widget import SystemMonitorWidget
         self.system_monitor = SystemMonitorWidget()
         self.add_widget(self.system_monitor)
 
