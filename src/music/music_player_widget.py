@@ -1,14 +1,15 @@
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QToolTip
-from PySide6.QtCore import Qt, QUrl
-from PySide6.QtGui import QFont
-from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
-
+from PySide6.QtWidgets import (QWidget, QHBoxLayout, QLabel, QToolTip, 
+                               QVBoxLayout, QPushButton, QSlider, QLayout)
+from PySide6.QtCore import Qt, QUrl, QTimer
+from PySide6.QtGui import QFont, QPalette
 import os
 import random
 from pathlib import Path
 
 from utils.config_manager import ConfigManager
 from utils.logger import logger
+
+from music.music_detail_widget import MusicDetailWidget
 
 
 class MusicPlayerWidget(QWidget):
@@ -47,10 +48,15 @@ class MusicPlayerWidget(QWidget):
         self.music_label.mousePressEvent = self.label_mouse_press_event
 
         layout.addWidget(self.music_label)
+        
+        # 创建音乐详情界面
+        self.detail_widget = MusicDetailWidget(self)
+        
 
     def setup_player(self):
         """设置音频播放器"""
         try:
+            from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
             self.audio_output = QAudioOutput()
             self.player = QMediaPlayer()
             self.player.setAudioOutput(self.audio_output)
@@ -103,6 +109,59 @@ class MusicPlayerWidget(QWidget):
                 self.player.play()
                 self.is_playing = True
                 logger.info(f"开始播放: {os.path.basename(music_file)}")
+                
+                # 更新音乐详情界面的歌曲信息
+                self.detail_widget.update_song_info(music_file)
+            except Exception as e:
+                logger.error(f"播放音乐失败: {e}")
+        else:
+            logger.error("音频播放器未初始化")
+
+    def play_next_music(self):
+        """播放下一首音乐"""
+        if not self.playlist:
+            logger.warning("没有找到音乐文件")
+            return
+
+        # 选择下一首（循环播放）
+        self.current_index = (self.current_index + 1) % len(self.playlist)
+        music_file = self.playlist[self.current_index]
+
+        if self.player:
+            try:
+                url = QUrl.fromLocalFile(music_file)
+                self.player.setSource(url)
+                self.player.play()
+                self.is_playing = True
+                logger.info(f"开始播放: {os.path.basename(music_file)}")
+                
+                # 更新音乐详情界面的歌曲信息
+                self.detail_widget.update_song_info(music_file)
+            except Exception as e:
+                logger.error(f"播放音乐失败: {e}")
+        else:
+            logger.error("音频播放器未初始化")
+
+    def play_prev_music(self):
+        """播放上一首音乐"""
+        if not self.playlist:
+            logger.warning("没有找到音乐文件")
+            return
+
+        # 选择上一首（循环播放）
+        self.current_index = (self.current_index - 1) % len(self.playlist)
+        music_file = self.playlist[self.current_index]
+
+        if self.player:
+            try:
+                url = QUrl.fromLocalFile(music_file)
+                self.player.setSource(url)
+                self.player.play()
+                self.is_playing = True
+                logger.info(f"开始播放: {os.path.basename(music_file)}")
+                
+                # 更新音乐详情界面的歌曲信息
+                self.detail_widget.update_song_info(music_file)
             except Exception as e:
                 logger.error(f"播放音乐失败: {e}")
         else:
@@ -136,20 +195,30 @@ class MusicPlayerWidget(QWidget):
 
     def on_media_status_changed(self, status):
         """媒体状态变化处理"""
+        from PySide6.QtMultimedia import QMediaPlayer
         if status == QMediaPlayer.EndOfMedia:
             # 播放结束，播放下一首随机音乐
             if self.playlist:
-                self.play_random_music()
+                self.play_next_music()
 
     def label_mouse_press_event(self, event):
-        """鼠标点击事件"""
+        """鼠标点击事件 - 显示/隐藏音乐详情界面"""
         if event.button() == Qt.LeftButton:
-            self.toggle_play_pause()
-            # 更新UI状态（可以添加不同状态的emoji）
-            if self.is_playing:
-                self.music_label.setText("⏸️")  # 暂停状态
+            if self.detail_widget.isVisible():
+                self.detail_widget.hide()
             else:
-                self.music_label.setText("🎵")  # 播放状态
+                # 计算详情窗口的位置（相对于主窗口）
+                pos = self.mapToGlobal(self.rect().topRight())
+                # 向右偏移一点距离
+                pos.setX(pos.x() + 5)
+                self.detail_widget.move(pos)
+                self.detail_widget.show()
+                
+                # 更新播放/暂停按钮状态
+                if self.is_playing:
+                    self.detail_widget.play_pause_button.setText("⏸️")
+                else:
+                    self.detail_widget.play_pause_button.setText("▶️")
         super(type(self.music_label), self.music_label).mousePressEvent(event)
 
     def label_enter_event(self, event):
@@ -174,7 +243,11 @@ class MusicPlayerWidget(QWidget):
 
     def closeEvent(self, event):
         """窗口关闭事件"""
+        if self.timer:
+            self.timer.stop()
         if self.player:
             self.player.stop()
             self.player = None
+        if self.detail_widget:
+            self.detail_widget.close()
         event.accept()
