@@ -5,8 +5,10 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "agentscope>=1.0.4",
     "pillow>=11.3.0",
     "psutil>=7.1.0",
+    "pydantic-ai>=1.0.13",
     "pyinstaller>=6.16.0",
     "pyside6>=6.9.3",
     "pywin32>=311",

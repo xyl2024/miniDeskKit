@@ -1,6 +1,14 @@
-from PySide6.QtWidgets import (QWidget, QHBoxLayout, QLabel, QToolTip, 
-                               QVBoxLayout, QPushButton, QSlider, QLayout)
-from PySide6.QtCore import Qt, QUrl, QTimer
+from PySide6.QtWidgets import (
+    QWidget,
+    QHBoxLayout,
+    QLabel,
+    QToolTip,
+    QVBoxLayout,
+    QPushButton,
+    QSlider,
+    QLayout,
+)
+from PySide6.QtCore import Qt, QUrl, QTimer, QPropertyAnimation, QEasingCurve, QParallelAnimationGroup
 from PySide6.QtGui import QFont, QPalette
 import os
 import random
@@ -23,6 +31,10 @@ class MusicPlayerWidget(QWidget):
         self.playlist = []
         self.current_index = -1
         self.is_playing = False
+
+        # 添加动画相关属性
+        self.animation = None
+        self.animation_group = None
 
         self.setup_ui()
         self.setup_player()
@@ -48,15 +60,17 @@ class MusicPlayerWidget(QWidget):
         self.music_label.mousePressEvent = self.label_mouse_press_event
 
         layout.addWidget(self.music_label)
-        
+
         # 创建音乐详情界面
         self.detail_widget = MusicDetailWidget(self)
-        
+        # 设置初始透明度为0（完全透明/隐藏）
+        self.detail_widget.setWindowOpacity(0.0)
 
     def setup_player(self):
         """设置音频播放器"""
         try:
             from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
+
             self.audio_output = QAudioOutput()
             self.player = QMediaPlayer()
             self.player.setAudioOutput(self.audio_output)
@@ -109,7 +123,7 @@ class MusicPlayerWidget(QWidget):
                 self.player.play()
                 self.is_playing = True
                 logger.info(f"开始播放: {os.path.basename(music_file)}")
-                
+
                 # 更新音乐详情界面的歌曲信息
                 self.detail_widget.update_song_info(music_file)
             except Exception as e:
@@ -134,7 +148,7 @@ class MusicPlayerWidget(QWidget):
                 self.player.play()
                 self.is_playing = True
                 logger.info(f"开始播放: {os.path.basename(music_file)}")
-                
+
                 # 更新音乐详情界面的歌曲信息
                 self.detail_widget.update_song_info(music_file)
             except Exception as e:
@@ -159,7 +173,7 @@ class MusicPlayerWidget(QWidget):
                 self.player.play()
                 self.is_playing = True
                 logger.info(f"开始播放: {os.path.basename(music_file)}")
-                
+
                 # 更新音乐详情界面的歌曲信息
                 self.detail_widget.update_song_info(music_file)
             except Exception as e:
@@ -196,6 +210,7 @@ class MusicPlayerWidget(QWidget):
     def on_media_status_changed(self, status):
         """媒体状态变化处理"""
         from PySide6.QtMultimedia import QMediaPlayer
+
         if status == QMediaPlayer.EndOfMedia:
             # 播放结束，播放下一首随机音乐
             if self.playlist:
@@ -205,21 +220,65 @@ class MusicPlayerWidget(QWidget):
         """鼠标点击事件 - 显示/隐藏音乐详情界面"""
         if event.button() == Qt.LeftButton:
             if self.detail_widget.isVisible():
-                self.detail_widget.hide()
+                # 隐藏动画：从完全不透明到完全透明
+                self.start_hide_animation()
             else:
-                # 计算详情窗口的位置（相对于主窗口）
-                pos = self.mapToGlobal(self.rect().topRight())
-                # 向右偏移一点距离
-                pos.setX(pos.x() + 5)
-                self.detail_widget.move(pos)
-                self.detail_widget.show()
-                
-                # 更新播放/暂停按钮状态
-                if self.is_playing:
-                    self.detail_widget.play_pause_button.setText("⏸️")
-                else:
-                    self.detail_widget.play_pause_button.setText("▶️")
+                # 显示动画：从完全透明到完全不透明
+                self.start_show_animation()
         super(type(self.music_label), self.music_label).mousePressEvent(event)
+
+    def start_show_animation(self):
+        """开始显示动画"""
+        # 设置初始透明度为0
+        self.detail_widget.setWindowOpacity(0.0)
+        # 计算详情窗口的位置（相对于主窗口）
+        pos = self.mapToGlobal(self.rect().topRight())
+        # 向右偏移一点距离
+        pos.setX(pos.x() + 5)
+        self.detail_widget.move(pos)
+        self.detail_widget.show()
+
+        # 创建透明度动画
+        self.animation = QPropertyAnimation(self.detail_widget, b"windowOpacity")
+        self.animation.setDuration(300)  # 动画持续时间300ms
+        self.animation.setStartValue(0.0)  # 开始值：完全透明
+        self.animation.setEndValue(1.0)    # 结束值：完全不透明
+        self.animation.setEasingCurve(QEasingCurve.InOutQuad)  # 使用平滑的缓动曲线
+
+        # 动画开始前的设置
+        self.animation.finished.connect(self.on_show_animation_finished)
+        self.animation.start()
+
+        # 更新播放/暂停按钮状态
+        if self.is_playing:
+            self.detail_widget.play_pause_button.setText("⏸️")
+        else:
+            self.detail_widget.play_pause_button.setText("▶️")
+
+    def start_hide_animation(self):
+        """开始隐藏动画"""
+        # 创建透明度动画
+        self.animation = QPropertyAnimation(self.detail_widget, b"windowOpacity")
+        self.animation.setDuration(300)  # 动画持续时间300ms
+        self.animation.setStartValue(1.0)  # 开始值：完全不透明
+        self.animation.setEndValue(0.0)    # 结束值：完全透明
+        self.animation.setEasingCurve(QEasingCurve.InOutQuad)  # 使用平滑的缓动曲线
+
+        # 动画结束后隐藏窗口
+        self.animation.finished.connect(self.on_hide_animation_finished)
+        self.animation.start()
+
+    def on_show_animation_finished(self):
+        """显示动画完成后的回调"""
+        # 确保最终透明度为1.0
+        self.detail_widget.setWindowOpacity(1.0)
+
+    def on_hide_animation_finished(self):
+        """隐藏动画完成后的回调"""
+        # 动画完成后隐藏窗口
+        self.detail_widget.hide()
+        # 重置透明度为1.0，为下次显示做准备
+        self.detail_widget.setWindowOpacity(1.0)
 
     def label_enter_event(self, event):
         """鼠标进入标签事件"""
