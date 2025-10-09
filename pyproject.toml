@@ -6,8 +6,10 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "agentscope>=1.0.4",
+    "beautifulsoup4>=4.14.2",
     "feedparser>=6.0.12",
     "pillow>=11.3.0",
+    "playwright>=1.55.0",
     "psutil>=7.1.0",
     "pydantic-ai>=1.0.13",
     "pyinstaller>=6.16.0",
