@@ -1,0 +1,123 @@
+<!-- Title: agentscope.formatter._formatter_base - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/formatter/_formatter_base.html -->
+
+          <h1>agentscope.formatter._formatter_base 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The formatter module."""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">List</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._utils._common</span><span class="w"> </span><span class="kn">import</span> <span class="n">_save_base64_data</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..message</span><span class="w"> </span><span class="kn">import</span> <span class="n">Msg</span><span class="p">,</span> <span class="n">AudioBlock</span><span class="p">,</span> <span class="n">ImageBlock</span><span class="p">,</span> <span class="n">TextBlock</span>
+
+
+<div class="viewcode-block" id="FormatterBase">
+<a class="viewcode-back" href="../../../api/agentscope.formatter.html#agentscope.formatter.FormatterBase">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">FormatterBase</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""The base class for formatters."""</span>
+
+<div class="viewcode-block" id="FormatterBase.format">
+<a class="viewcode-back" href="../../../api/agentscope.formatter.html#agentscope.formatter.FormatterBase.format">[文档]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">format</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">"""Format the Msg objects to a list of dictionaries that satisfy the</span>
+<span class="sd">        API requirements."""</span></div>
+
+
+<div class="viewcode-block" id="FormatterBase.assert_list_of_msgs">
+<a class="viewcode-back" href="../../../api/agentscope.formatter.html#agentscope.formatter.FormatterBase.assert_list_of_msgs">[文档]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assert_list_of_msgs</span><span class="p">(</span><span class="n">msgs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Msg</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Assert that the input is a list of Msg objects.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            msgs (`list[Msg]`):</span>
+<span class="sd">                A list of Msg objects to be validated.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">msgs</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">"Input must be a list of Msg objects."</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">msgs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">Msg</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"Expected Msg object, got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span><span class="si">}</span><span class="s2"> instead."</span><span class="p">,</span>
+                <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="FormatterBase.convert_tool_result_to_string">
+<a class="viewcode-back" href="../../../api/agentscope.formatter.html#agentscope.formatter.FormatterBase.convert_tool_result_to_string">[文档]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">convert_tool_result_to_string</span><span class="p">(</span>
+        <span class="n">output</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">List</span><span class="p">[</span><span class="n">TextBlock</span> <span class="o">|</span> <span class="n">ImageBlock</span> <span class="o">|</span> <span class="n">AudioBlock</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Turn the tool result list into a textual output to be compatible</span>
+<span class="sd">        with the LLM API that doesn't support multimodal data.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            output (`str | List[TextBlock | ImageBlock | AudioBlock]`):</span>
+<span class="sd">                The output of the tool response, including text and multimodal</span>
+<span class="sd">                data like images and audio.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `str`:</span>
+<span class="sd">                A string representation of the tool result, with text blocks</span>
+<span class="sd">                concatenated and multimodal data represented by file paths</span>
+<span class="sd">                or URLs.</span>
+<span class="sd">        """</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">output</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">output</span>
+
+        <span class="n">textual_output</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="n">output</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="s2">"type"</span> <span class="ow">in</span> <span class="n">block</span><span class="p">,</span> <span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Invalid block: </span><span class="si">{</span><span class="n">block</span><span class="si">}</span><span class="s2">, a TextBlock, ImageBlock, or "</span>
+                <span class="sa">f</span><span class="s2">"AudioBlock is expected."</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">block</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"text"</span><span class="p">:</span>
+                <span class="n">textual_output</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">block</span><span class="p">[</span><span class="s2">"text"</span><span class="p">])</span>
+
+            <span class="k">elif</span> <span class="n">block</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"image"</span><span class="p">,</span> <span class="s2">"audio"</span><span class="p">,</span> <span class="s2">"video"</span><span class="p">]:</span>
+                <span class="k">assert</span> <span class="s2">"source"</span> <span class="ow">in</span> <span class="n">block</span><span class="p">,</span> <span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"Invalid </span><span class="si">{</span><span class="n">block</span><span class="p">[</span><span class="s1">'type'</span><span class="p">]</span><span class="si">}</span><span class="s2"> block: </span><span class="si">{</span><span class="n">block</span><span class="si">}</span><span class="s2">, 'source' key "</span>
+                    <span class="s2">"is required."</span>
+                <span class="p">)</span>
+                <span class="n">source</span> <span class="o">=</span> <span class="n">block</span><span class="p">[</span><span class="s2">"source"</span><span class="p">]</span>
+                <span class="c1"># Save the image locally and return the file path</span>
+                <span class="k">if</span> <span class="n">source</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"url"</span><span class="p">:</span>
+                    <span class="n">textual_output</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">"The returned </span><span class="si">{</span><span class="n">block</span><span class="p">[</span><span class="s1">'type'</span><span class="p">]</span><span class="si">}</span><span class="s2"> can be found "</span>
+                        <span class="sa">f</span><span class="s2">"at: </span><span class="si">{</span><span class="n">source</span><span class="p">[</span><span class="s1">'url'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                    <span class="p">)</span>
+
+                <span class="k">elif</span> <span class="n">source</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"base64"</span><span class="p">:</span>
+                    <span class="n">path_temp_file</span> <span class="o">=</span> <span class="n">_save_base64_data</span><span class="p">(</span>
+                        <span class="n">source</span><span class="p">[</span><span class="s2">"media_type"</span><span class="p">],</span>
+                        <span class="n">source</span><span class="p">[</span><span class="s2">"data"</span><span class="p">],</span>
+                    <span class="p">)</span>
+                    <span class="n">textual_output</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">"The returned </span><span class="si">{</span><span class="n">block</span><span class="p">[</span><span class="s1">'type'</span><span class="p">]</span><span class="si">}</span><span class="s2"> can be found "</span>
+                        <span class="sa">f</span><span class="s2">"at: </span><span class="si">{</span><span class="n">path_temp_file</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                    <span class="p">)</span>
+
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">"Invalid image source: </span><span class="si">{</span><span class="n">block</span><span class="p">[</span><span class="s1">'source'</span><span class="p">]</span><span class="si">}</span><span class="s2">, "</span>
+                        <span class="s2">"expected 'url' or 'base64'."</span><span class="p">,</span>
+                    <span class="p">)</span>
+
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"Unsupported block type: </span><span class="si">{</span><span class="n">block</span><span class="p">[</span><span class="s1">'type'</span><span class="p">]</span><span class="si">}</span><span class="s2">, "</span>
+                    <span class="s2">"expected 'text', 'image', 'audio', or 'video'."</span><span class="p">,</span>
+                <span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">textual_output</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">textual_output</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">"- "</span> <span class="o">+</span> <span class="n">_</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">textual_output</span><span class="p">)</span></div>
+</div>
+
+</pre></div>
+        

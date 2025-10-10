@@ -1,0 +1,695 @@
+<!-- Title: agentscope.tool._multi_modality._openai_tools - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/tool/_multi_modality/_openai_tools.html -->
+
+          <h1>agentscope.tool._multi_modality._openai_tools 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""</span>
+<span class="sd">Wrap OpenAI API calls as tools. Refer the official</span>
+<span class="sd">`OpenAI API documentation &lt;https://platform.openai.com/docs/overview&gt;`_ for</span>
+<span class="sd">more details.</span>
+<span class="sd">"""</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">base64</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">io</span><span class="w"> </span><span class="kn">import</span> <span class="n">BytesIO</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">IO</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">requests</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">..</span><span class="w"> </span><span class="kn">import</span> <span class="n">ToolResponse</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">...formatter._openai_formatter</span><span class="w"> </span><span class="kn">import</span> <span class="n">_to_openai_image_url</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">...message</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ImageBlock</span><span class="p">,</span>
+    <span class="n">TextBlock</span><span class="p">,</span>
+    <span class="n">Base64Source</span><span class="p">,</span>
+    <span class="n">URLSource</span><span class="p">,</span>
+    <span class="n">AudioBlock</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_parse_url</span><span class="p">(</span><span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BytesIO</span> <span class="o">|</span> <span class="n">IO</span><span class="p">[</span><span class="nb">bytes</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    If url is a local file path, return a BytesIO of the file content.</span>
+<span class="sd">    If url is a web URL, fetch the content and return as BytesIO.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">url</span><span class="o">.</span><span class="n">startswith</span><span class="p">((</span><span class="s2">"http://"</span><span class="p">,</span> <span class="s2">"https://"</span><span class="p">)):</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+        <span class="n">response</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>  <span class="c1"># Raise an exception for HTTP errors</span>
+        <span class="k">return</span> <span class="n">BytesIO</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">url</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"File not found: </span><span class="si">{</span><span class="n">url</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">url</span><span class="p">),</span> <span class="s2">"rb"</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="openai_text_to_image">
+<a class="viewcode-back" href="../../../../api/agentscope.tool.html#agentscope.tool.openai_text_to_image">[文档]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">openai_text_to_image</span><span class="p">(</span>
+    <span class="n">prompt</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">api_key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="n">model</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"dall-e-2"</span><span class="p">,</span> <span class="s2">"dall-e-3"</span><span class="p">,</span> <span class="s2">"gpt-image-1"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"dall-e-2"</span><span class="p">,</span>
+    <span class="n">size</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span>
+        <span class="s2">"256x256"</span><span class="p">,</span>
+        <span class="s2">"512x512"</span><span class="p">,</span>
+        <span class="s2">"1024x1024"</span><span class="p">,</span>
+        <span class="s2">"1792x1024"</span><span class="p">,</span>
+        <span class="s2">"1024x1792"</span><span class="p">,</span>
+    <span class="p">]</span> <span class="o">=</span> <span class="s2">"256x256"</span><span class="p">,</span>
+    <span class="n">quality</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span>
+        <span class="s2">"auto"</span><span class="p">,</span>
+        <span class="s2">"standard"</span><span class="p">,</span>
+        <span class="s2">"hd"</span><span class="p">,</span>
+        <span class="s2">"high"</span><span class="p">,</span>
+        <span class="s2">"medium"</span><span class="p">,</span>
+        <span class="s2">"low"</span><span class="p">,</span>
+    <span class="p">]</span> <span class="o">=</span> <span class="s2">"auto"</span><span class="p">,</span>
+    <span class="n">style</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"vivid"</span><span class="p">,</span> <span class="s2">"natural"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"vivid"</span><span class="p">,</span>
+    <span class="n">response_format</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"url"</span><span class="p">,</span> <span class="s2">"b64_json"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"url"</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ToolResponse</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Generate image(s) based on the given prompt, and return image URL(s) or</span>
+<span class="sd">    base64 data.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        prompt (`str`):</span>
+<span class="sd">            The text prompt to generate images.</span>
+<span class="sd">        api_key (`str`):</span>
+<span class="sd">            The API key for the OpenAI API.</span>
+<span class="sd">        n (`int`, defaults to `1`):</span>
+<span class="sd">            The number of images to generate.</span>
+<span class="sd">        model (`Literal["dall-e-2", "dall-e-3"]`, defaults to `"dall-e-2"`):</span>
+<span class="sd">            The model to use for image generation.</span>
+<span class="sd">        size (`Literal["256x256", "512x512", "1024x1024", "1792x1024", \</span>
+<span class="sd">        "1024x1792"]`, defaults to `"256x256"`):</span>
+<span class="sd">            The size of the generated images.</span>
+<span class="sd">            Must be one of 1024x1024, 1536x1024 (landscape), 1024x1536 (</span>
+<span class="sd">            portrait), or auto (default value) for gpt-image-1,</span>
+<span class="sd">            one of 256x256, 512x512, or 1024x1024 for dall-e-2,</span>
+<span class="sd">            and one of 1024x1024, 1792x1024, or 1024x1792 for dall-e-3.</span>
+<span class="sd">        quality (`Literal["auto", "standard", "hd", "high", "medium", \</span>
+<span class="sd">        "low"]`,  defaults to `"auto"`):</span>
+<span class="sd">            The quality of the image that will be generated.</span>
+
+<span class="sd">            - `auto` (default value) will automatically select the best</span>
+<span class="sd">              quality for the given model.</span>
+<span class="sd">            - `high`, `medium` and `low` are supported for gpt-image-1.</span>
+<span class="sd">            - `hd` and `standard` are supported for dall-e-3.</span>
+<span class="sd">            - `standard` is the only option for dall-e-2.</span>
+<span class="sd">        style (`Literal["vivid", "natural"]`, defaults to `"vivid"`):</span>
+<span class="sd">            The style of the generated images.</span>
+<span class="sd">            This parameter is only supported for dall-e-3.</span>
+<span class="sd">            Must be one of `vivid` or `natural`.</span>
+
+<span class="sd">            - `Vivid` causes the model to lean towards generating hyper-real</span>
+<span class="sd">              and dramatic images.</span>
+<span class="sd">            - `Natural` causes the model to produce more natural,</span>
+<span class="sd">              less hyper-real looking images.</span>
+<span class="sd">        response_format (`Literal["url", "b64_json"]`, defaults to `"url"`):</span>
+<span class="sd">            The format in which generated images with dall-e-2 and dall-e-3</span>
+<span class="sd">            are returned.</span>
+
+<span class="sd">            - Must be one of "url" or "b64_json".</span>
+<span class="sd">            - URLs are only valid for 60 minutes after the image has been</span>
+<span class="sd">              generated.</span>
+<span class="sd">            - This parameter isn't supported for gpt-image-1 which will always</span>
+<span class="sd">              return base64-encoded images.</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        `ToolResponse`:</span>
+<span class="sd">            A ToolResponse containing the generated content</span>
+<span class="sd">            (ImageBlock/TextBlock/AudioBlock) or error information if the</span>
+<span class="sd">            operation failed.</span>
+<span class="sd">    """</span>
+
+    <span class="n">kwargs</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">"model"</span><span class="p">:</span> <span class="n">model</span><span class="p">,</span>
+        <span class="s2">"prompt"</span><span class="p">:</span> <span class="n">prompt</span><span class="p">,</span>
+        <span class="s2">"n"</span><span class="p">:</span> <span class="n">n</span><span class="p">,</span>
+        <span class="s2">"size"</span><span class="p">:</span> <span class="n">size</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="n">model</span> <span class="o">==</span> <span class="s2">"dall-e-3"</span><span class="p">:</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="s2">"style"</span><span class="p">]</span> <span class="o">=</span> <span class="n">style</span>
+    <span class="k">if</span> <span class="n">model</span> <span class="o">!=</span> <span class="s2">"dall-e-2"</span><span class="p">:</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="s2">"quality"</span><span class="p">]</span> <span class="o">=</span> <span class="n">quality</span>
+    <span class="k">if</span> <span class="n">model</span> <span class="o">!=</span> <span class="s2">"gpt-image-1"</span><span class="p">:</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="s2">"response_format"</span><span class="p">]</span> <span class="o">=</span> <span class="n">response_format</span>
+    <span class="k">if</span> <span class="n">model</span> <span class="o">==</span> <span class="s2">"gpt-image-1"</span><span class="p">:</span>
+        <span class="n">response_format</span> <span class="o">=</span> <span class="s2">"b64_json"</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">openai</span>
+
+        <span class="n">client</span> <span class="o">=</span> <span class="n">openai</span><span class="o">.</span><span class="n">OpenAI</span><span class="p">(</span>
+            <span class="n">api_key</span><span class="o">=</span><span class="n">api_key</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">images</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">image_blocks</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="n">response_format</span> <span class="o">==</span> <span class="s2">"url"</span><span class="p">:</span>
+            <span class="n">image_urls</span> <span class="o">=</span> <span class="p">[</span><span class="n">_</span><span class="o">.</span><span class="n">url</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">response</span><span class="o">.</span><span class="n">data</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">image_url</span> <span class="ow">in</span> <span class="n">image_urls</span><span class="p">:</span>
+                <span class="n">image_blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">ImageBlock</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"image"</span><span class="p">,</span>
+                        <span class="n">source</span><span class="o">=</span><span class="n">URLSource</span><span class="p">(</span>
+                            <span class="nb">type</span><span class="o">=</span><span class="s2">"url"</span><span class="p">,</span>
+                            <span class="n">url</span><span class="o">=</span><span class="n">image_url</span><span class="p">,</span>
+                        <span class="p">),</span>
+                    <span class="p">),</span>
+                <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">image_datas</span> <span class="o">=</span> <span class="p">[</span><span class="n">_</span><span class="o">.</span><span class="n">b64_json</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">response</span><span class="o">.</span><span class="n">data</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">image_data</span> <span class="ow">in</span> <span class="n">image_datas</span><span class="p">:</span>
+                <span class="n">image_blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">ImageBlock</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"image"</span><span class="p">,</span>
+                        <span class="n">source</span><span class="o">=</span><span class="n">Base64Source</span><span class="p">(</span>
+                            <span class="nb">type</span><span class="o">=</span><span class="s2">"base64"</span><span class="p">,</span>
+                            <span class="n">media_type</span><span class="o">=</span><span class="s2">"image/png"</span><span class="p">,</span>
+                            <span class="n">data</span><span class="o">=</span><span class="n">image_data</span><span class="p">,</span>
+                        <span class="p">),</span>
+                    <span class="p">),</span>
+                <span class="p">)</span>
+        <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+            <span class="n">content</span><span class="o">=</span><span class="n">image_blocks</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="n">TextBlock</span><span class="p">(</span>
+                    <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                    <span class="n">text</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Failed to generate image: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="p">),</span>
+            <span class="p">],</span>
+        <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="openai_edit_image">
+<a class="viewcode-back" href="../../../../api/agentscope.tool.html#agentscope.tool.openai_edit_image">[文档]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">openai_edit_image</span><span class="p">(</span>
+    <span class="n">image_url</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">prompt</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">api_key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">model</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"dall-e-2"</span><span class="p">,</span> <span class="s2">"gpt-image-1"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"dall-e-2"</span><span class="p">,</span>
+    <span class="n">mask_url</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="n">size</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span>
+        <span class="s2">"256x256"</span><span class="p">,</span>
+        <span class="s2">"512x512"</span><span class="p">,</span>
+        <span class="s2">"1024x1024"</span><span class="p">,</span>
+    <span class="p">]</span> <span class="o">=</span> <span class="s2">"256x256"</span><span class="p">,</span>
+    <span class="n">response_format</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"url"</span><span class="p">,</span> <span class="s2">"b64_json"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"url"</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ToolResponse</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Edit an image based on the provided mask and prompt, and return the edited</span>
+<span class="sd">    image URL(s) or base64 data.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        image_url (`str`):</span>
+<span class="sd">            The file path or URL to the image that needs editing.</span>
+<span class="sd">        prompt (`str`):</span>
+<span class="sd">            The text prompt describing the edits to be made to the image.</span>
+<span class="sd">        api_key (`str`):</span>
+<span class="sd">            The API key for the OpenAI API.</span>
+<span class="sd">        model (`Literal["dall-e-2", "gpt-image-1"]`, defaults to `"dall-e-2"`):</span>
+<span class="sd">            The model to use for image generation.</span>
+<span class="sd">        mask_url (`str | None`, defaults to `None`):</span>
+<span class="sd">            The file path or URL to the mask image that specifies the regions</span>
+<span class="sd">            to be edited.</span>
+<span class="sd">        n (`int`, defaults to `1`):</span>
+<span class="sd">            The number of edited images to generate.</span>
+<span class="sd">        size (`Literal["256x256", "512x512", "1024x1024"]`, defaults to \</span>
+<span class="sd">        `"256x256"`):</span>
+<span class="sd">            The size of the edited images.</span>
+<span class="sd">        response_format (`Literal["url", "b64_json"]`, defaults to `"url"`):</span>
+<span class="sd">            The format in which generated images are returned.</span>
+
+<span class="sd">            - Must be one of "url" or "b64_json".</span>
+<span class="sd">            - URLs are only valid for 60 minutes after generation.</span>
+<span class="sd">            - This parameter isn't supported for gpt-image-1 which will</span>
+<span class="sd">              always return base64-encoded images.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        `ToolResponse`:</span>
+<span class="sd">            A ToolResponse containing the generated content</span>
+<span class="sd">            (ImageBlock/TextBlock/AudioBlock) or error information if the</span>
+<span class="sd">            operation failed.</span>
+
+<span class="sd">    """</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">openai</span>
+
+        <span class="n">client</span> <span class="o">=</span> <span class="n">openai</span><span class="o">.</span><span class="n">OpenAI</span><span class="p">(</span>
+            <span class="n">api_key</span><span class="o">=</span><span class="n">api_key</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">prepare_image</span><span class="p">(</span><span class="n">url_or_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BytesIO</span><span class="p">:</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">PIL</span><span class="w"> </span><span class="kn">import</span> <span class="n">Image</span>
+
+            <span class="k">if</span> <span class="n">url_or_path</span><span class="o">.</span><span class="n">startswith</span><span class="p">((</span><span class="s2">"http://"</span><span class="p">,</span> <span class="s2">"https://"</span><span class="p">)):</span>
+                <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url_or_path</span><span class="p">)</span>
+                <span class="n">response</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
+                <span class="n">img</span> <span class="o">=</span> <span class="n">Image</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">BytesIO</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">img</span> <span class="o">=</span> <span class="n">Image</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">url_or_path</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">img</span><span class="o">.</span><span class="n">mode</span> <span class="o">!=</span> <span class="s2">"RGBA"</span><span class="p">:</span>
+                <span class="n">img</span> <span class="o">=</span> <span class="n">img</span><span class="o">.</span><span class="n">convert</span><span class="p">(</span><span class="s2">"RGBA"</span><span class="p">)</span>
+            <span class="n">img_buffer</span> <span class="o">=</span> <span class="n">BytesIO</span><span class="p">()</span>
+            <span class="n">img</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">img_buffer</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">"PNG"</span><span class="p">)</span>
+            <span class="n">img_buffer</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">img_buffer</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">"image.png"</span>
+            <span class="k">return</span> <span class="n">img_buffer</span>
+
+        <span class="n">image_file</span> <span class="o">=</span> <span class="n">prepare_image</span><span class="p">(</span><span class="n">image_url</span><span class="p">)</span>
+
+        <span class="n">kwargs</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"model"</span><span class="p">:</span> <span class="n">model</span><span class="p">,</span>
+            <span class="s2">"image"</span><span class="p">:</span> <span class="n">image_file</span><span class="p">,</span>
+            <span class="s2">"prompt"</span><span class="p">:</span> <span class="n">prompt</span><span class="p">,</span>
+            <span class="s2">"n"</span><span class="p">:</span> <span class="n">n</span><span class="p">,</span>
+            <span class="s2">"size"</span><span class="p">:</span> <span class="n">size</span><span class="p">,</span>
+        <span class="p">}</span>
+
+        <span class="k">if</span> <span class="n">mask_url</span><span class="p">:</span>
+            <span class="n">kwargs</span><span class="p">[</span><span class="s2">"mask"</span><span class="p">]</span> <span class="o">=</span> <span class="n">prepare_image</span><span class="p">(</span><span class="n">mask_url</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">model</span> <span class="o">==</span> <span class="s2">"dall-e-2"</span><span class="p">:</span>
+            <span class="n">kwargs</span><span class="p">[</span><span class="s2">"response_format"</span><span class="p">]</span> <span class="o">=</span> <span class="n">response_format</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">response_format</span> <span class="o">=</span> <span class="s2">"b64_json"</span>
+
+        <span class="n">response</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">images</span><span class="o">.</span><span class="n">edit</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">response_format</span> <span class="o">==</span> <span class="s2">"url"</span><span class="p">:</span>
+            <span class="n">urls</span> <span class="o">=</span> <span class="p">[</span><span class="n">_</span><span class="o">.</span><span class="n">url</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">response</span><span class="o">.</span><span class="n">data</span><span class="p">]</span>
+            <span class="n">image_blocks</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">url</span> <span class="ow">in</span> <span class="n">urls</span><span class="p">:</span>
+                <span class="n">image_blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">ImageBlock</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"image"</span><span class="p">,</span>
+                        <span class="n">source</span><span class="o">=</span><span class="n">URLSource</span><span class="p">(</span>
+                            <span class="nb">type</span><span class="o">=</span><span class="s2">"url"</span><span class="p">,</span>
+                            <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span>
+                        <span class="p">),</span>
+                    <span class="p">),</span>
+                <span class="p">)</span>
+            <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+                <span class="n">content</span><span class="o">=</span><span class="n">image_blocks</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="n">response_format</span> <span class="o">==</span> <span class="s2">"b64_json"</span><span class="p">:</span>
+            <span class="n">image_datas</span> <span class="o">=</span> <span class="p">[</span><span class="n">_</span><span class="o">.</span><span class="n">b64_json</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">response</span><span class="o">.</span><span class="n">data</span><span class="p">]</span>
+            <span class="n">image_blocks</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">image_data</span> <span class="ow">in</span> <span class="n">image_datas</span><span class="p">:</span>
+                <span class="n">image_blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">ImageBlock</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"image"</span><span class="p">,</span>
+                        <span class="n">source</span><span class="o">=</span><span class="n">Base64Source</span><span class="p">(</span>
+                            <span class="nb">type</span><span class="o">=</span><span class="s2">"base64"</span><span class="p">,</span>
+                            <span class="n">media_type</span><span class="o">=</span><span class="s2">"image/png"</span><span class="p">,</span>
+                            <span class="n">data</span><span class="o">=</span><span class="n">image_data</span><span class="p">,</span>
+                        <span class="p">),</span>
+                    <span class="p">),</span>
+                <span class="p">)</span>
+            <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+                <span class="n">content</span><span class="o">=</span><span class="n">image_blocks</span><span class="p">,</span>
+            <span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="n">TextBlock</span><span class="p">(</span>
+                    <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                    <span class="n">text</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Failed to generate image: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="p">),</span>
+            <span class="p">],</span>
+        <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="openai_create_image_variation">
+<a class="viewcode-back" href="../../../../api/agentscope.tool.html#agentscope.tool.openai_create_image_variation">[文档]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">openai_create_image_variation</span><span class="p">(</span>
+    <span class="n">image_url</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">api_key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="n">model</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"dall-e-2"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"dall-e-2"</span><span class="p">,</span>
+    <span class="n">size</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span>
+        <span class="s2">"256x256"</span><span class="p">,</span>
+        <span class="s2">"512x512"</span><span class="p">,</span>
+        <span class="s2">"1024x1024"</span><span class="p">,</span>
+    <span class="p">]</span> <span class="o">=</span> <span class="s2">"256x256"</span><span class="p">,</span>
+    <span class="n">response_format</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"url"</span><span class="p">,</span> <span class="s2">"b64_json"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"url"</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ToolResponse</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Create variations of an image and return the image URL(s) or base64 data.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        image_url (`str`):</span>
+<span class="sd">            The file path or URL to the image from which variations will be</span>
+<span class="sd">            generated.</span>
+<span class="sd">        api_key (`str`):</span>
+<span class="sd">            The API key for the OpenAI API.</span>
+<span class="sd">        n (`int`, defaults to `1`):</span>
+<span class="sd">            The number of image variations to generate.</span>
+<span class="sd">        model (` Literal["dall-e-2"]`, default to `dall-e-2`):</span>
+<span class="sd">            The model to use for image variation.</span>
+<span class="sd">        size (`Literal["256x256", "512x512", "1024x1024"]`, defaults to \</span>
+<span class="sd">        `"256x256"`):</span>
+<span class="sd">            The size of the generated image variations.</span>
+<span class="sd">        response_format (`Literal["url", "b64_json"]`, defaults to `"url"`):</span>
+<span class="sd">            The format in which generated images are returned.</span>
+
+<span class="sd">            - Must be one of url or b64_json.</span>
+<span class="sd">            - URLs are only valid for 60 minutes after the image has been</span>
+<span class="sd">              generated.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        `ToolResponse`:</span>
+<span class="sd">            A ToolResponse containing the generated content</span>
+<span class="sd">            (ImageBlock/TextBlock/AudioBlock) or error information if the</span>
+<span class="sd">            operation failed.</span>
+<span class="sd">    """</span>
+
+    <span class="c1"># _parse_url handles both local and web URLs and returns BytesIO</span>
+    <span class="n">image</span> <span class="o">=</span> <span class="n">_parse_url</span><span class="p">(</span><span class="n">image_url</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">openai</span>
+
+        <span class="n">client</span> <span class="o">=</span> <span class="n">openai</span><span class="o">.</span><span class="n">OpenAI</span><span class="p">(</span>
+            <span class="n">api_key</span><span class="o">=</span><span class="n">api_key</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">images</span><span class="o">.</span><span class="n">create_variation</span><span class="p">(</span>
+            <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+            <span class="n">image</span><span class="o">=</span><span class="n">image</span><span class="p">,</span>
+            <span class="n">n</span><span class="o">=</span><span class="n">n</span><span class="p">,</span>
+            <span class="n">size</span><span class="o">=</span><span class="n">size</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">image_blocks</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="n">response_format</span> <span class="o">==</span> <span class="s2">"url"</span><span class="p">:</span>
+            <span class="n">urls</span> <span class="o">=</span> <span class="p">[</span><span class="n">_</span><span class="o">.</span><span class="n">url</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">response</span><span class="o">.</span><span class="n">data</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">url</span> <span class="ow">in</span> <span class="n">urls</span><span class="p">:</span>
+                <span class="n">image_blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">ImageBlock</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"image"</span><span class="p">,</span>
+                        <span class="n">source</span><span class="o">=</span><span class="n">URLSource</span><span class="p">(</span>
+                            <span class="nb">type</span><span class="o">=</span><span class="s2">"url"</span><span class="p">,</span>
+                            <span class="n">url</span><span class="o">=</span><span class="n">url</span><span class="p">,</span>
+                        <span class="p">),</span>
+                    <span class="p">),</span>
+                <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">image_datas</span> <span class="o">=</span> <span class="p">[</span><span class="n">_</span><span class="o">.</span><span class="n">b64_json</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">response</span><span class="o">.</span><span class="n">data</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">image_data</span> <span class="ow">in</span> <span class="n">image_datas</span><span class="p">:</span>
+                <span class="n">image_blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">ImageBlock</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"image"</span><span class="p">,</span>
+                        <span class="n">source</span><span class="o">=</span><span class="n">Base64Source</span><span class="p">(</span>
+                            <span class="nb">type</span><span class="o">=</span><span class="s2">"base64"</span><span class="p">,</span>
+                            <span class="n">media_type</span><span class="o">=</span><span class="s2">"image/png"</span><span class="p">,</span>
+                            <span class="n">data</span><span class="o">=</span><span class="n">image_data</span><span class="p">,</span>
+                        <span class="p">),</span>
+                    <span class="p">),</span>
+                <span class="p">)</span>
+        <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+            <span class="n">content</span><span class="o">=</span><span class="n">image_blocks</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="n">TextBlock</span><span class="p">(</span>
+                    <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                    <span class="n">text</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Failed to generate image: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="p">),</span>
+            <span class="p">],</span>
+        <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="openai_image_to_text">
+<a class="viewcode-back" href="../../../../api/agentscope.tool.html#agentscope.tool.openai_image_to_text">[文档]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">openai_image_to_text</span><span class="p">(</span>
+    <span class="n">image_urls</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">api_key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">prompt</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"Describe the image"</span><span class="p">,</span>
+    <span class="n">model</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"gpt-4o"</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ToolResponse</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Generate descriptive text for given image(s) using a specified model, and</span>
+<span class="sd">    return the generated text.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        image_urls (`str | list[str]`):</span>
+<span class="sd">            The URL or list of URLs pointing to the images that need to be</span>
+<span class="sd">            described.</span>
+<span class="sd">        api_key (`str`):</span>
+<span class="sd">            The API key for the OpenAI API.</span>
+<span class="sd">        prompt (`str`, defaults to `"Describe the image"`):</span>
+<span class="sd">            The prompt that instructs the model on how to describe</span>
+<span class="sd">            the image(s).</span>
+<span class="sd">        model (`str`, defaults to `"gpt-4o"`):</span>
+<span class="sd">            The model to use for generating the text descriptions.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        `ToolResponse`:</span>
+<span class="sd">            A ToolResponse containing the generated content</span>
+<span class="sd">            (ImageBlock/TextBlock/AudioBlock) or error information if the</span>
+<span class="sd">            operation failed.</span>
+
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">image_urls</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">image_urls</span> <span class="o">=</span> <span class="p">[</span><span class="n">image_urls</span><span class="p">]</span>
+
+    <span class="n">content</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">url</span> <span class="ow">in</span> <span class="n">image_urls</span><span class="p">:</span>
+        <span class="n">content</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"image_url"</span><span class="p">,</span>
+                <span class="s2">"image_url"</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">"url"</span><span class="p">:</span> <span class="n">_to_openai_image_url</span><span class="p">(</span><span class="n">url</span><span class="p">),</span>
+                <span class="p">},</span>
+            <span class="p">},</span>
+        <span class="p">)</span>
+    <span class="n">content</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+        <span class="p">{</span>
+            <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"text"</span><span class="p">,</span>
+            <span class="s2">"text"</span><span class="p">:</span> <span class="n">prompt</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">)</span>
+    <span class="n">messages</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">{</span>
+            <span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span>
+            <span class="s2">"content"</span><span class="p">:</span> <span class="n">content</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">]</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">openai</span>
+
+        <span class="n">client</span> <span class="o">=</span> <span class="n">openai</span><span class="o">.</span><span class="n">OpenAI</span><span class="p">(</span>
+            <span class="n">api_key</span><span class="o">=</span><span class="n">api_key</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="o">.</span><span class="n">completions</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+            <span class="n">messages</span><span class="o">=</span><span class="n">messages</span><span class="p">,</span>
+            <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="n">TextBlock</span><span class="p">(</span>
+                    <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                    <span class="n">text</span><span class="o">=</span><span class="n">response</span><span class="o">.</span><span class="n">choices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">content</span><span class="p">,</span>
+                <span class="p">),</span>
+            <span class="p">],</span>
+        <span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="n">TextBlock</span><span class="p">(</span>
+                    <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                    <span class="n">text</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Failed to generate text: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="p">),</span>
+            <span class="p">],</span>
+        <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="openai_text_to_audio">
+<a class="viewcode-back" href="../../../../api/agentscope.tool.html#agentscope.tool.openai_text_to_audio">[文档]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">openai_text_to_audio</span><span class="p">(</span>
+    <span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">api_key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">model</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"tts-1"</span><span class="p">,</span> <span class="s2">"tts-1-hd"</span><span class="p">,</span> <span class="s2">"gpt-4o-mini-tts"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"tts-1"</span><span class="p">,</span>
+    <span class="n">voice</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span>
+        <span class="s2">"alloy"</span><span class="p">,</span>
+        <span class="s2">"ash"</span><span class="p">,</span>
+        <span class="s2">"ballad"</span><span class="p">,</span>
+        <span class="s2">"coral"</span><span class="p">,</span>
+        <span class="s2">"echo"</span><span class="p">,</span>
+        <span class="s2">"fable"</span><span class="p">,</span>
+        <span class="s2">"nova"</span><span class="p">,</span>
+        <span class="s2">"onyx"</span><span class="p">,</span>
+        <span class="s2">"sage"</span><span class="p">,</span>
+        <span class="s2">"shimmer"</span><span class="p">,</span>
+    <span class="p">]</span> <span class="o">=</span> <span class="s2">"alloy"</span><span class="p">,</span>
+    <span class="n">speed</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+    <span class="n">res_format</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span>
+        <span class="s2">"mp3"</span><span class="p">,</span>
+        <span class="s2">"opus"</span><span class="p">,</span>
+        <span class="s2">"aac"</span><span class="p">,</span>
+        <span class="s2">"flac"</span><span class="p">,</span>
+        <span class="s2">"wav"</span><span class="p">,</span>
+        <span class="s2">"pcm"</span><span class="p">,</span>
+    <span class="p">]</span> <span class="o">=</span> <span class="s2">"mp3"</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ToolResponse</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Convert text to an audio file using a specified model and voice.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        text (`str`):</span>
+<span class="sd">            The text to convert to audio.</span>
+<span class="sd">        api_key (`str`):</span>
+<span class="sd">            The API key for the OpenAI API.</span>
+<span class="sd">        model (`Literal["tts-1", "tts-1-hd"]`, defaults to `"tts-1"`):</span>
+<span class="sd">            The model to use for text-to-speech conversion.</span>
+<span class="sd">        voice (`Literal["alloy", "echo", "fable", "onyx", "nova", \</span>
+<span class="sd">        "shimmer"]`, defaults to `"alloy"`):</span>
+<span class="sd">            The voice to use for the audio output.</span>
+<span class="sd">        speed (`float`, defaults to `1.0`):</span>
+<span class="sd">            The speed of the audio playback. A value of 1.0 is normal speed.</span>
+<span class="sd">        res_format (`Literal["mp3", "wav", "opus", "aac", "flac", \</span>
+<span class="sd">        "wav", "pcm"]`, defaults to `"mp3"`):</span>
+<span class="sd">            The format of the audio file.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        `ToolResponse`:</span>
+<span class="sd">            A ToolResponse containing the generated content</span>
+<span class="sd">            (ImageBlock/TextBlock/AudioBlock) or error information if the</span>
+<span class="sd">            operation failed.</span>
+<span class="sd">    """</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">openai</span>
+
+        <span class="n">client</span> <span class="o">=</span> <span class="n">openai</span><span class="o">.</span><span class="n">OpenAI</span><span class="p">(</span>
+            <span class="n">api_key</span><span class="o">=</span><span class="n">api_key</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">audio</span><span class="o">.</span><span class="n">speech</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+            <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+            <span class="n">voice</span><span class="o">=</span><span class="n">voice</span><span class="p">,</span>
+            <span class="n">speed</span><span class="o">=</span><span class="n">speed</span><span class="p">,</span>
+            <span class="nb">input</span><span class="o">=</span><span class="n">text</span><span class="p">,</span>
+            <span class="n">response_format</span><span class="o">=</span><span class="n">res_format</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">audio_bytes</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">content</span>
+        <span class="n">audio_base64</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">b64encode</span><span class="p">(</span><span class="n">audio_bytes</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">"utf-8"</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="n">AudioBlock</span><span class="p">(</span>
+                    <span class="nb">type</span><span class="o">=</span><span class="s2">"audio"</span><span class="p">,</span>
+                    <span class="n">source</span><span class="o">=</span><span class="n">Base64Source</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"base64"</span><span class="p">,</span>
+                        <span class="n">media_type</span><span class="o">=</span><span class="sa">f</span><span class="s2">"audio/</span><span class="si">{</span><span class="n">res_format</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                        <span class="n">data</span><span class="o">=</span><span class="n">audio_base64</span><span class="p">,</span>
+                    <span class="p">),</span>
+                <span class="p">),</span>
+            <span class="p">],</span>
+        <span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="n">TextBlock</span><span class="p">(</span>
+                    <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                    <span class="n">text</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Error: Failed to generate audio. </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="p">),</span>
+            <span class="p">],</span>
+        <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="openai_audio_to_text">
+<a class="viewcode-back" href="../../../../api/agentscope.tool.html#agentscope.tool.openai_audio_to_text">[文档]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">openai_audio_to_text</span><span class="p">(</span>
+    <span class="n">audio_file_url</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">api_key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">language</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"en"</span><span class="p">,</span>
+    <span class="n">temperature</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.2</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ToolResponse</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Convert an audio file to text using OpenAI's transcription service.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        audio_file_url (`str`):</span>
+<span class="sd">            The file path or URL to the audio file that needs to be</span>
+<span class="sd">            transcribed.</span>
+<span class="sd">        api_key (`str`):</span>
+<span class="sd">            The API key for the OpenAI API.</span>
+<span class="sd">        language (`str`, defaults to `"en"`):</span>
+<span class="sd">            The language of the input audio in</span>
+<span class="sd">            `ISO-639-1 format \</span>
+<span class="sd">            &lt;https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes&gt;`_</span>
+<span class="sd">            (e.g., "en", "zh", "fr"). Improves accuracy and latency.</span>
+<span class="sd">        temperature (`float`, defaults to `0.2`):</span>
+<span class="sd">            The temperature for the transcription, which affects the</span>
+<span class="sd">            randomness of the output.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        `ToolResponse`:</span>
+<span class="sd">            A ToolResponse containing the generated content</span>
+<span class="sd">            (ImageBlock/TextBlock/AudioBlock) or error information if the</span>
+<span class="sd">            operation failed.</span>
+<span class="sd">    """</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">openai</span>
+
+        <span class="n">client</span> <span class="o">=</span> <span class="n">openai</span><span class="o">.</span><span class="n">OpenAI</span><span class="p">(</span>
+            <span class="n">api_key</span><span class="o">=</span><span class="n">api_key</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">audio_file_url</span><span class="o">.</span><span class="n">startswith</span><span class="p">((</span><span class="s2">"http://"</span><span class="p">,</span> <span class="s2">"https://"</span><span class="p">)):</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">audio_file_url</span><span class="p">)</span>
+            <span class="n">response</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
+            <span class="n">audio_buffer</span> <span class="o">=</span> <span class="n">BytesIO</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">urllib.parse</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+            <span class="n">parsed_url</span> <span class="o">=</span> <span class="n">urllib</span><span class="o">.</span><span class="n">parse</span><span class="o">.</span><span class="n">urlparse</span><span class="p">(</span><span class="n">audio_file_url</span><span class="p">)</span>
+            <span class="n">filename</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">parsed_url</span><span class="o">.</span><span class="n">path</span><span class="p">)</span><span class="o">.</span><span class="n">name</span> <span class="ow">or</span> <span class="s2">"audio.mp3"</span>
+            <span class="n">audio_buffer</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">filename</span>
+            <span class="n">audio_file</span> <span class="o">=</span> <span class="n">audio_buffer</span>
+            <span class="n">transcription</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">audio</span><span class="o">.</span><span class="n">transcriptions</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+                <span class="n">model</span><span class="o">=</span><span class="s2">"whisper-1"</span><span class="p">,</span>
+                <span class="n">file</span><span class="o">=</span><span class="n">audio_file</span><span class="p">,</span>
+                <span class="n">language</span><span class="o">=</span><span class="n">language</span><span class="p">,</span>
+                <span class="n">temperature</span><span class="o">=</span><span class="n">temperature</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">audio_file_url</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"File not found: </span><span class="si">{</span><span class="n">audio_file_url</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">audio_file_url</span><span class="p">,</span> <span class="s2">"rb"</span><span class="p">)</span> <span class="k">as</span> <span class="n">audio_file</span><span class="p">:</span>
+                <span class="n">transcription</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">audio</span><span class="o">.</span><span class="n">transcriptions</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+                    <span class="n">model</span><span class="o">=</span><span class="s2">"whisper-1"</span><span class="p">,</span>
+                    <span class="n">file</span><span class="o">=</span><span class="n">audio_file</span><span class="p">,</span>
+                    <span class="n">language</span><span class="o">=</span><span class="n">language</span><span class="p">,</span>
+                    <span class="n">temperature</span><span class="o">=</span><span class="n">temperature</span><span class="p">,</span>
+                <span class="p">)</span>
+        <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="n">TextBlock</span><span class="p">(</span>
+                    <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                    <span class="n">text</span><span class="o">=</span><span class="n">transcription</span><span class="o">.</span><span class="n">text</span><span class="p">,</span>
+                <span class="p">),</span>
+            <span class="p">],</span>
+        <span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="n">TextBlock</span><span class="p">(</span>
+                    <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                    <span class="n">text</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Error: Failed to transcribe audio: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="p">),</span>
+            <span class="p">],</span>
+        <span class="p">)</span></div>
+
+</pre></div>
+        

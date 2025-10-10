@@ -1,0 +1,50 @@
+<!-- Title: agentscope.model._model_response - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/model/_model_response.html -->
+
+          <h1>agentscope.model._model_response 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The model response module."""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">Sequence</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">._model_usage</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChatUsage</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._utils._common</span><span class="w"> </span><span class="kn">import</span> <span class="n">_get_timestamp</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._utils._mixin</span><span class="w"> </span><span class="kn">import</span> <span class="n">DictMixin</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..message</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">TextBlock</span><span class="p">,</span>
+    <span class="n">ToolUseBlock</span><span class="p">,</span>
+    <span class="n">ThinkingBlock</span><span class="p">,</span>
+    <span class="n">AudioBlock</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..types</span><span class="w"> </span><span class="kn">import</span> <span class="n">JSONSerializableObject</span>
+
+
+<div class="viewcode-block" id="ChatResponse">
+<a class="viewcode-back" href="../../../api/agentscope.model.html#agentscope.model.ChatResponse">[文档]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ChatResponse</span><span class="p">(</span><span class="n">DictMixin</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The response of chat models."""</span>
+
+    <span class="n">content</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">TextBlock</span> <span class="o">|</span> <span class="n">ToolUseBlock</span> <span class="o">|</span> <span class="n">ThinkingBlock</span> <span class="o">|</span> <span class="n">AudioBlock</span><span class="p">]</span>
+<span class="w">    </span><span class="sd">"""The content of the chat response, which can include text blocks,</span>
+<span class="sd">    tool use blocks, or thinking blocks."""</span>
+
+    <span class="nb">id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="n">_get_timestamp</span><span class="p">(</span><span class="kc">True</span><span class="p">))</span>
+<span class="w">    </span><span class="sd">"""The unique identifier formatter """</span>
+
+    <span class="n">created_at</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">_get_timestamp</span><span class="p">)</span>
+<span class="w">    </span><span class="sd">"""When the response was created"""</span>
+
+    <span class="nb">type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"chat"</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="s2">"chat"</span><span class="p">)</span>
+<span class="w">    </span><span class="sd">"""The type of the response, which is always 'chat'."""</span>
+
+    <span class="n">usage</span><span class="p">:</span> <span class="n">ChatUsage</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="kc">None</span><span class="p">)</span>
+<span class="w">    </span><span class="sd">"""The usage information of the chat response, if available."""</span>
+
+    <span class="n">metadata</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">JSONSerializableObject</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span>
+        <span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span>
+<span class="w">    </span><span class="sd">"""The metadata of the chat response"""</span></div>
+
+</pre></div>
+        

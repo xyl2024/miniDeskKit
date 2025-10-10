@@ -1,0 +1,44 @@
+<!-- Title: agentscope.evaluate._solution - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/evaluate/_solution.html -->
+
+          <h1>agentscope.evaluate._solution 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""Solution class for evaluation tasks."""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">..message</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ToolResultBlock</span><span class="p">,</span>
+    <span class="n">ToolUseBlock</span><span class="p">,</span>
+    <span class="n">TextBlock</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..types._json</span><span class="w"> </span><span class="kn">import</span> <span class="n">JSONSerializableObject</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._utils._mixin</span><span class="w"> </span><span class="kn">import</span> <span class="n">DictMixin</span>
+
+
+<div class="viewcode-block" id="SolutionOutput">
+<a class="viewcode-back" href="../../../api/agentscope.evaluate.html#agentscope.evaluate.SolutionOutput">[文档]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">SolutionOutput</span><span class="p">(</span><span class="n">DictMixin</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The output of a solution in evaluation task"""</span>
+
+    <span class="n">success</span><span class="p">:</span> <span class="nb">bool</span>
+<span class="w">    </span><span class="sd">"""Indicates whether the solution is executed successfully. When the</span>
+<span class="sd">    solution raise exception, this should be set to False."""</span>
+    <span class="n">output</span><span class="p">:</span> <span class="n">JSONSerializableObject</span>
+<span class="w">    </span><span class="sd">"""The final output of the solution."""</span>
+    <span class="n">trajectory</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ToolUseBlock</span> <span class="o">|</span> <span class="n">ToolResultBlock</span> <span class="o">|</span> <span class="n">TextBlock</span><span class="p">]</span>
+<span class="w">    </span><span class="sd">"""The tool calls and results trajectory"""</span>
+    <span class="n">meta</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="kc">None</span><span class="p">)</span>
+<span class="w">    </span><span class="sd">"""Additional metadata for the solution"""</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__getstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Custom pickling to handle dataclass + DictMixin inheritance."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__setstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Custom unpickling to handle dataclass + DictMixin inheritance."""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">state</span><span class="p">)</span></div>
+
+</pre></div>
+        

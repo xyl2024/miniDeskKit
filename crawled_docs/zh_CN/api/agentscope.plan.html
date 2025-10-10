@@ -1,0 +1,664 @@
+<!-- Title: agentscope.plan - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/api/agentscope.plan.html -->
+
+          <section id="module-agentscope.plan">
+<span id="agentscope-plan"></span><h1>agentscope.plan<a class="headerlink" href="#module-agentscope.plan" title="Link to this heading">¶</a></h1>
+<p>The plan module in AgentScope.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.plan.SubTask">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">SubTask</span></span><a class="reference internal" href="../_modules/agentscope/plan/_plan_model.html#SubTask"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.plan.SubTask" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<code class="xref py py-class docutils literal notranslate"><span class="pre">BaseModel</span></code></p>
+<p>The subtask model used in the plan module.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.plan.SubTask.name">
+<span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#agentscope.plan.SubTask.name" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.plan.SubTask.description">
+<span class="sig-name descname"><span class="pre">description</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#agentscope.plan.SubTask.description" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.plan.SubTask.expected_outcome">
+<span class="sig-name descname"><span class="pre">expected_outcome</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#agentscope.plan.SubTask.expected_outcome" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.plan.SubTask.outcome">
+<span class="sig-name descname"><span class="pre">outcome</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#agentscope.plan.SubTask.outcome" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.plan.SubTask.state">
+<span class="sig-name descname"><span class="pre">state</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'todo'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'in_progress'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'done'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'abandoned'</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#agentscope.plan.SubTask.state" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.plan.SubTask.created_at">
+<span class="sig-name descname"><span class="pre">created_at</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#agentscope.plan.SubTask.created_at" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.plan.SubTask.finished_at">
+<span class="sig-name descname"><span class="pre">finished_at</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#agentscope.plan.SubTask.finished_at" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.plan.SubTask.finish">
+<span class="sig-name descname"><span class="pre">finish</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">outcome</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/plan/_plan_model.html#SubTask.finish"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.plan.SubTask.finish" title="Link to this definition">¶</a></dt>
+<dd><p>Finish the subtask with the actual outcome.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>outcome</strong> (<em>str</em>)</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.plan.SubTask.to_oneline_markdown">
+<span class="sig-name descname"><span class="pre">to_oneline_markdown</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/plan/_plan_model.html#SubTask.to_oneline_markdown"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.plan.SubTask.to_oneline_markdown" title="Link to this definition">¶</a></dt>
+<dd><p>Convert the subtask to MarkDown format.</p>
+<dl class="field-list simple">
+<dt class="field-odd">返回类型<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.plan.SubTask.to_markdown">
+<span class="sig-name descname"><span class="pre">to_markdown</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">detailed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/plan/_plan_model.html#SubTask.to_markdown"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.plan.SubTask.to_markdown" title="Link to this definition">¶</a></dt>
+<dd><p>Convert the subtask to MarkDown format.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>detailed</strong> (<cite>bool</cite>, defaults to <cite>False</cite>) -- Whether to include detailed information about the subtask.</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.plan.SubTask.model_config">
+<span class="sig-name descname"><span class="pre">model_config</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ClassVar</span><span class="p"><span class="pre">[</span></span><span class="pre">ConfigDict</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{}</span></em><a class="headerlink" href="#agentscope.plan.SubTask.model_config" title="Link to this definition">¶</a></dt>
+<dd><p>Configuration for the model, should be a dictionary conforming to [<cite>ConfigDict</cite>][pydantic.config.ConfigDict].</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.plan.Plan">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Plan</span></span><a class="reference internal" href="../_modules/agentscope/plan/_plan_model.html#Plan"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.plan.Plan" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<code class="xref py py-class docutils literal notranslate"><span class="pre">BaseModel</span></code></p>
+<p>The plan model used in the plan module, contains a list of subtasks.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.plan.Plan.id">
+<span class="sig-name descname"><span class="pre">id</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#agentscope.plan.Plan.id" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.plan.Plan.name">
+<span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#agentscope.plan.Plan.name" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.plan.Plan.description">
+<span class="sig-name descname"><span class="pre">description</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#agentscope.plan.Plan.description" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.plan.Plan.expected_outcome">
+<span class="sig-name descname"><span class="pre">expected_outcome</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#agentscope.plan.Plan.expected_outcome" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.plan.Plan.subtasks">
+<span class="sig-name descname"><span class="pre">subtasks</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#agentscope.plan.SubTask" title="agentscope.plan._plan_model.SubTask"><span class="pre">SubTask</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#agentscope.plan.Plan.subtasks" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.plan.Plan.created_at">
+<span class="sig-name descname"><span class="pre">created_at</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#agentscope.plan.Plan.created_at" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.plan.Plan.state">
+<span class="sig-name descname"><span class="pre">state</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'todo'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'in_progress'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'done'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'abandoned'</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#agentscope.plan.Plan.state" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.plan.Plan.finished_at">
+<span class="sig-name descname"><span class="pre">finished_at</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#agentscope.plan.Plan.finished_at" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.plan.Plan.outcome">
+<span class="sig-name descname"><span class="pre">outcome</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#agentscope.plan.Plan.outcome" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.plan.Plan.finish">
+<span class="sig-name descname"><span class="pre">finish</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outcome</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/plan/_plan_model.html#Plan.finish"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.plan.Plan.finish" title="Link to this definition">¶</a></dt>
+<dd><p>Finish the plan.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>state</strong> (<em>Literal</em><em>[</em><em>'done'</em><em>, </em><em>'abandoned'</em><em>]</em>)</p></li>
+<li><p><strong>outcome</strong> (<em>str</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.plan.Plan.to_markdown">
+<span class="sig-name descname"><span class="pre">to_markdown</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">detailed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/plan/_plan_model.html#Plan.to_markdown"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.plan.Plan.to_markdown" title="Link to this definition">¶</a></dt>
+<dd><p>Convert the plan to MarkDown format.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>detailed</strong> (<em>bool</em>)</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.plan.Plan.model_config">
+<span class="sig-name descname"><span class="pre">model_config</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">ClassVar</span><span class="p"><span class="pre">[</span></span><span class="pre">ConfigDict</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">{}</span></em><a class="headerlink" href="#agentscope.plan.Plan.model_config" title="Link to this definition">¶</a></dt>
+<dd><p>Configuration for the model, should be a dictionary conforming to [<cite>ConfigDict</cite>][pydantic.config.ConfigDict].</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.plan.DefaultPlanToHint">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">DefaultPlanToHint</span></span><a class="reference internal" href="../_modules/agentscope/plan/_plan_notebook.html#DefaultPlanToHint"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.plan.DefaultPlanToHint" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>The default function to generate the hint message based on the current
+plan to guide the agent on next steps.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.plan.DefaultPlanToHint.hint_prefix">
+<span class="sig-name descname"><span class="pre">hint_prefix</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'&lt;system-hint&gt;'</span></em><a class="headerlink" href="#agentscope.plan.DefaultPlanToHint.hint_prefix" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.plan.DefaultPlanToHint.hint_suffix">
+<span class="sig-name descname"><span class="pre">hint_suffix</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'&lt;/system-hint&gt;'</span></em><a class="headerlink" href="#agentscope.plan.DefaultPlanToHint.hint_suffix" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.plan.DefaultPlanToHint.no_plan">
+<span class="sig-name descname"><span class="pre">no_plan</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">"If</span> <span class="pre">the</span> <span class="pre">user's</span> <span class="pre">query</span> <span class="pre">is</span> <span class="pre">complex</span> <span class="pre">(e.g.</span> <span class="pre">programming</span> <span class="pre">a</span> <span class="pre">website,</span> <span class="pre">game</span> <span class="pre">or</span> <span class="pre">app),</span> <span class="pre">or</span> <span class="pre">requires</span> <span class="pre">a</span> <span class="pre">long</span> <span class="pre">chain</span> <span class="pre">of</span> <span class="pre">steps</span> <span class="pre">to</span> <span class="pre">complete</span> <span class="pre">(e.g.</span> <span class="pre">conduct</span> <span class="pre">research</span> <span class="pre">on</span> <span class="pre">a</span> <span class="pre">certain</span> <span class="pre">topic</span> <span class="pre">from</span> <span class="pre">different</span> <span class="pre">sources),</span> <span class="pre">you</span> <span class="pre">NEED</span> <span class="pre">to</span> <span class="pre">create</span> <span class="pre">a</span> <span class="pre">plan</span> <span class="pre">first</span> <span class="pre">by</span> <span class="pre">calling</span> <span class="pre">'create_plan'.</span> <span class="pre">Otherwise,</span> <span class="pre">you</span> <span class="pre">can</span> <span class="pre">directly</span> <span class="pre">execute</span> <span class="pre">the</span> <span class="pre">user's</span> <span class="pre">query</span> <span class="pre">without</span> <span class="pre">planning."</span></em><a class="headerlink" href="#agentscope.plan.DefaultPlanToHint.no_plan" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.plan.DefaultPlanToHint.at_the_beginning">
+<span class="sig-name descname"><span class="pre">at_the_beginning</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">"The</span> <span class="pre">current</span> <span class="pre">plan:\n```\n{plan}\n```\nYour</span> <span class="pre">options</span> <span class="pre">include:\n-</span> <span class="pre">Mark</span> <span class="pre">the</span> <span class="pre">first</span> <span class="pre">subtask</span> <span class="pre">as</span> <span class="pre">'in_progress'</span> <span class="pre">by</span> <span class="pre">calling</span> <span class="pre">'update_subtask_state'</span> <span class="pre">with</span> <span class="pre">subtask_idx=0</span> <span class="pre">and</span> <span class="pre">state='in_progress',</span> <span class="pre">and</span> <span class="pre">start</span> <span class="pre">executing</span> <span class="pre">it.\n-</span> <span class="pre">If</span> <span class="pre">the</span> <span class="pre">first</span> <span class="pre">subtask</span> <span class="pre">is</span> <span class="pre">not</span> <span class="pre">executable,</span> <span class="pre">analyze</span> <span class="pre">why</span> <span class="pre">and</span> <span class="pre">what</span> <span class="pre">you</span> <span class="pre">can</span> <span class="pre">do</span> <span class="pre">to</span> <span class="pre">advance</span> <span class="pre">the</span> <span class="pre">plan,</span> <span class="pre">e.g.</span> <span class="pre">ask</span> <span class="pre">user</span> <span class="pre">for</span> <span class="pre">more</span> <span class="pre">information,</span> <span class="pre">revise</span> <span class="pre">the</span> <span class="pre">plan</span> <span class="pre">by</span> <span class="pre">calling</span> <span class="pre">'revise_current_plan'.\n-</span> <span class="pre">If</span> <span class="pre">the</span> <span class="pre">user</span> <span class="pre">asks</span> <span class="pre">you</span> <span class="pre">to</span> <span class="pre">do</span> <span class="pre">something</span> <span class="pre">unrelated</span> <span class="pre">to</span> <span class="pre">the</span> <span class="pre">plan,</span> <span class="pre">prioritize</span> <span class="pre">the</span> <span class="pre">completion</span> <span class="pre">of</span> <span class="pre">user's</span> <span class="pre">query</span> <span class="pre">first,</span> <span class="pre">and</span> <span class="pre">then</span> <span class="pre">return</span> <span class="pre">to</span> <span class="pre">the</span> <span class="pre">plan</span> <span class="pre">afterward.\n-</span> <span class="pre">If</span> <span class="pre">the</span> <span class="pre">user</span> <span class="pre">no</span> <span class="pre">longer</span> <span class="pre">wants</span> <span class="pre">to</span> <span class="pre">perform</span> <span class="pre">the</span> <span class="pre">current</span> <span class="pre">plan,</span> <span class="pre">confirm</span> <span class="pre">with</span> <span class="pre">the</span> <span class="pre">user</span> <span class="pre">and</span> <span class="pre">call</span> <span class="pre">the</span> <span class="pre">'finish_plan'</span> <span class="pre">function.\n"</span></em><a class="headerlink" href="#agentscope.plan.DefaultPlanToHint.at_the_beginning" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.plan.DefaultPlanToHint.when_a_subtask_in_progress">
+<span class="sig-name descname"><span class="pre">when_a_subtask_in_progress</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">"The</span> <span class="pre">current</span> <span class="pre">plan:\n```\n{plan}\n```\nNow</span> <span class="pre">the</span> <span class="pre">subtask</span> <span class="pre">at</span> <span class="pre">index</span> <span class="pre">{subtask_idx},</span> <span class="pre">named</span> <span class="pre">'{subtask_name}',</span> <span class="pre">is</span> <span class="pre">'in_progress'.</span> <span class="pre">Its</span> <span class="pre">details</span> <span class="pre">are</span> <span class="pre">as</span> <span class="pre">follows:\n```\n{subtask}\n```\nYour</span> <span class="pre">options</span> <span class="pre">include:\n-</span> <span class="pre">Go</span> <span class="pre">on</span> <span class="pre">execute</span> <span class="pre">the</span> <span class="pre">subtask</span> <span class="pre">and</span> <span class="pre">get</span> <span class="pre">the</span> <span class="pre">outcome.\n-</span> <span class="pre">Call</span> <span class="pre">'finish_subtask'</span> <span class="pre">with</span> <span class="pre">the</span> <span class="pre">specific</span> <span class="pre">outcome</span> <span class="pre">if</span> <span class="pre">the</span> <span class="pre">subtask</span> <span class="pre">is</span> <span class="pre">finished.\n-</span> <span class="pre">Ask</span> <span class="pre">the</span> <span class="pre">user</span> <span class="pre">for</span> <span class="pre">more</span> <span class="pre">information</span> <span class="pre">if</span> <span class="pre">you</span> <span class="pre">need.\n-</span> <span class="pre">Revise</span> <span class="pre">the</span> <span class="pre">plan</span> <span class="pre">by</span> <span class="pre">calling</span> <span class="pre">'revise_current_plan'</span> <span class="pre">if</span> <span class="pre">necessary.\n-</span> <span class="pre">If</span> <span class="pre">the</span> <span class="pre">user</span> <span class="pre">asks</span> <span class="pre">you</span> <span class="pre">to</span> <span class="pre">do</span> <span class="pre">something</span> <span class="pre">unrelated</span> <span class="pre">to</span> <span class="pre">the</span> <span class="pre">plan,</span> <span class="pre">prioritize</span> <span class="pre">the</span> <span class="pre">completion</span> <span class="pre">of</span> <span class="pre">user's</span> <span class="pre">query</span> <span class="pre">first,</span> <span class="pre">and</span> <span class="pre">then</span> <span class="pre">return</span> <span class="pre">to</span> <span class="pre">the</span> <span class="pre">plan</span> <span class="pre">afterward."</span></em><a class="headerlink" href="#agentscope.plan.DefaultPlanToHint.when_a_subtask_in_progress" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.plan.DefaultPlanToHint.when_no_subtask_in_progress">
+<span class="sig-name descname"><span class="pre">when_no_subtask_in_progress</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">"The</span> <span class="pre">current</span> <span class="pre">plan:\n```\n{plan}\n```\nThe</span> <span class="pre">first</span> <span class="pre">{index}</span> <span class="pre">subtasks</span> <span class="pre">are</span> <span class="pre">done,</span> <span class="pre">and</span> <span class="pre">there</span> <span class="pre">is</span> <span class="pre">no</span> <span class="pre">subtask</span> <span class="pre">'in_progress'.</span> <span class="pre">Now</span> <span class="pre">Your</span> <span class="pre">options</span> <span class="pre">include:\n-</span> <span class="pre">Mark</span> <span class="pre">the</span> <span class="pre">next</span> <span class="pre">subtask</span> <span class="pre">as</span> <span class="pre">'in_progress'</span> <span class="pre">by</span> <span class="pre">calling</span> <span class="pre">'update_subtask_state',</span> <span class="pre">and</span> <span class="pre">start</span> <span class="pre">executing</span> <span class="pre">it.\n-</span> <span class="pre">Ask</span> <span class="pre">the</span> <span class="pre">user</span> <span class="pre">for</span> <span class="pre">more</span> <span class="pre">information</span> <span class="pre">if</span> <span class="pre">you</span> <span class="pre">need.\n-</span> <span class="pre">Revise</span> <span class="pre">the</span> <span class="pre">plan</span> <span class="pre">by</span> <span class="pre">calling</span> <span class="pre">'revise_current_plan'</span> <span class="pre">if</span> <span class="pre">necessary.\n-</span> <span class="pre">If</span> <span class="pre">the</span> <span class="pre">user</span> <span class="pre">asks</span> <span class="pre">you</span> <span class="pre">to</span> <span class="pre">do</span> <span class="pre">something</span> <span class="pre">unrelated</span> <span class="pre">to</span> <span class="pre">the</span> <span class="pre">plan,</span> <span class="pre">prioritize</span> <span class="pre">the</span> <span class="pre">completion</span> <span class="pre">of</span> <span class="pre">user's</span> <span class="pre">query</span> <span class="pre">first,</span> <span class="pre">and</span> <span class="pre">then</span> <span class="pre">return</span> <span class="pre">to</span> <span class="pre">the</span> <span class="pre">plan</span> <span class="pre">afterward."</span></em><a class="headerlink" href="#agentscope.plan.DefaultPlanToHint.when_no_subtask_in_progress" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.plan.DefaultPlanToHint.at_the_end">
+<span class="sig-name descname"><span class="pre">at_the_end</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">"The</span> <span class="pre">current</span> <span class="pre">plan:\n```\n{plan}\n```\nAll</span> <span class="pre">the</span> <span class="pre">subtasks</span> <span class="pre">are</span> <span class="pre">done.</span> <span class="pre">Now</span> <span class="pre">your</span> <span class="pre">options</span> <span class="pre">are:\n-</span> <span class="pre">Finish</span> <span class="pre">the</span> <span class="pre">plan</span> <span class="pre">by</span> <span class="pre">calling</span> <span class="pre">'finish_plan'</span> <span class="pre">with</span> <span class="pre">the</span> <span class="pre">specific</span> <span class="pre">outcome,</span> <span class="pre">and</span> <span class="pre">summarize</span> <span class="pre">the</span> <span class="pre">whole</span> <span class="pre">process</span> <span class="pre">and</span> <span class="pre">outcome</span> <span class="pre">to</span> <span class="pre">the</span> <span class="pre">user.\n-</span> <span class="pre">Revise</span> <span class="pre">the</span> <span class="pre">plan</span> <span class="pre">by</span> <span class="pre">calling</span> <span class="pre">'revise_current_plan'</span> <span class="pre">if</span> <span class="pre">necessary.\n-</span> <span class="pre">If</span> <span class="pre">the</span> <span class="pre">user</span> <span class="pre">asks</span> <span class="pre">you</span> <span class="pre">to</span> <span class="pre">do</span> <span class="pre">something</span> <span class="pre">unrelated</span> <span class="pre">to</span> <span class="pre">the</span> <span class="pre">plan,</span> <span class="pre">prioritize</span> <span class="pre">the</span> <span class="pre">completion</span> <span class="pre">of</span> <span class="pre">user's</span> <span class="pre">query</span> <span class="pre">first,</span> <span class="pre">and</span> <span class="pre">then</span> <span class="pre">return</span> <span class="pre">to</span> <span class="pre">the</span> <span class="pre">plan</span> <span class="pre">afterward."</span></em><a class="headerlink" href="#agentscope.plan.DefaultPlanToHint.at_the_end" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.plan.DefaultPlanToHint.__call__">
+<span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">plan</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/plan/_plan_notebook.html#DefaultPlanToHint.__call__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.plan.DefaultPlanToHint.__call__" title="Link to this definition">¶</a></dt>
+<dd><p>Generate the hint message based on the input plan to guide the
+agent on next steps.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>plan</strong> (<cite>Plan | None</cite>) -- The current plan, used to generate the hint message.</p>
+</dd>
+<dt class="field-even">返回<span class="colon">:</span></dt>
+<dd class="field-even"><p>The generated hint message, or None if the plan is None or
+there is no relevant hint.</p>
+</dd>
+<dt class="field-odd">返回类型<span class="colon">:</span></dt>
+<dd class="field-odd"><p><cite>str | None</cite></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.plan.PlanNotebook">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">PlanNotebook</span></span><a class="reference internal" href="../_modules/agentscope/plan/_plan_notebook.html#PlanNotebook"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.plan.PlanNotebook" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<a class="reference internal" href="agentscope.module.html#agentscope.module.StateModule" title="agentscope.module._state_module.StateModule"><code class="xref py py-class docutils literal notranslate"><span class="pre">StateModule</span></code></a></p>
+<p>The plan notebook to manage the plan, providing hints and plan related
+tool functions to the agent.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.plan.PlanNotebook.description">
+<span class="sig-name descname"><span class="pre">description</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">"The</span> <span class="pre">plan-related</span> <span class="pre">tools.</span> <span class="pre">Activate</span> <span class="pre">this</span> <span class="pre">tool</span> <span class="pre">when</span> <span class="pre">you</span> <span class="pre">need</span> <span class="pre">to</span> <span class="pre">execute</span> <span class="pre">complex</span> <span class="pre">task,</span> <span class="pre">e.g.</span> <span class="pre">building</span> <span class="pre">a</span> <span class="pre">website</span> <span class="pre">or</span> <span class="pre">a</span> <span class="pre">game.</span> <span class="pre">Once</span> <span class="pre">activated,</span> <span class="pre">you'll</span> <span class="pre">enter</span> <span class="pre">the</span> <span class="pre">plan</span> <span class="pre">mode,</span> <span class="pre">where</span> <span class="pre">you</span> <span class="pre">will</span> <span class="pre">be</span> <span class="pre">guided</span> <span class="pre">to</span> <span class="pre">complete</span> <span class="pre">the</span> <span class="pre">given</span> <span class="pre">query</span> <span class="pre">by</span> <span class="pre">creating</span> <span class="pre">and</span> <span class="pre">following</span> <span class="pre">a</span> <span class="pre">plan,</span> <span class="pre">and</span> <span class="pre">hint</span> <span class="pre">message</span> <span class="pre">wrapped</span> <span class="pre">by</span> <span class="pre">&lt;system-hint&gt;&lt;/system-hint&gt;</span> <span class="pre">will</span> <span class="pre">guide</span> <span class="pre">you</span> <span class="pre">to</span> <span class="pre">complete</span> <span class="pre">the</span> <span class="pre">task.</span> <span class="pre">If</span> <span class="pre">you</span> <span class="pre">think</span> <span class="pre">the</span> <span class="pre">user</span> <span class="pre">no</span> <span class="pre">longer</span> <span class="pre">wants</span> <span class="pre">to</span> <span class="pre">perform</span> <span class="pre">the</span> <span class="pre">current</span> <span class="pre">task,</span> <span class="pre">you</span> <span class="pre">need</span> <span class="pre">to</span> <span class="pre">confirm</span> <span class="pre">with</span> <span class="pre">the</span> <span class="pre">user</span> <span class="pre">and</span> <span class="pre">call</span> <span class="pre">the</span> <span class="pre">'finish_plan'</span> <span class="pre">function."</span></em><a class="headerlink" href="#agentscope.plan.PlanNotebook.description" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.plan.PlanNotebook.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">max_subtasks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plan_to_hint</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">storage</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/plan/_plan_notebook.html#PlanNotebook.__init__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.plan.PlanNotebook.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize the plan notebook.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>max_subtasks</strong> (<cite>int | None</cite>, optional) -- The maximum number of subtasks in a plan.</p></li>
+<li><p><strong>plan_to_hint</strong> (<cite>Callable[[Plan | None], str | None] | None</cite>,              optional) -- The function to generate the hint message based on the
+current plan. If not provided, a default <cite>DefaultPlanToHint</cite>
+object will be used.</p></li>
+<li><p><strong>storage</strong> (<cite>PlanStorageBase | None</cite>, optional) -- The plan storage. If not provided, an in-memory storage will
+be used.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.plan.PlanNotebook.create_plan">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">create_plan</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">description</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">expected_outcome</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subtasks</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/plan/_plan_notebook.html#PlanNotebook.create_plan"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.plan.PlanNotebook.create_plan" title="Link to this definition">¶</a></dt>
+<dd><p>Create a plan by given name and sub-tasks.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>name</strong> (<cite>str</cite>) -- The plan name, should be concise, descriptive and not exceed
+10 words.</p></li>
+<li><p><strong>description</strong> (<cite>str</cite>) -- The plan description, including the constraints, target and
+outcome to be achieved. The description should be clear,
+specific and concise, and all the constraints, target and
+outcome should be specific and measurable.</p></li>
+<li><p><strong>expected_outcome</strong> (<cite>str</cite>) -- The expected outcome of the plan, which should be specific,
+concrete and measurable.</p></li>
+<li><p><strong>subtasks</strong> (<cite>list[SubTask]</cite>) -- A list of sequential sub-tasks that make up the plan.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回<span class="colon">:</span></dt>
+<dd class="field-even"><p>The response of the tool call.</p>
+</dd>
+<dt class="field-odd">返回类型<span class="colon">:</span></dt>
+<dd class="field-odd"><p><cite>ToolResponse</cite></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.plan.PlanNotebook.revise_current_plan">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">revise_current_plan</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subtask_idx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">action</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subtask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/plan/_plan_notebook.html#PlanNotebook.revise_current_plan"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.plan.PlanNotebook.revise_current_plan" title="Link to this definition">¶</a></dt>
+<dd><p>Revise the current plan by adding, revising or deleting a sub-task.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>subtask_idx</strong> (<cite>int</cite>) -- The index of the sub-task to be revised, starting from 0.</p></li>
+<li><p><strong>action</strong> (<cite>Literal["add", "revise", "delete"]</cite>) -- The action to be performed on the sub-task. If "add", the
+sub-task will be inserted before the given index. If "revise",
+the sub-task at the given index will be revised. If "delete",
+the sub-task at the given index will be deleted.</p></li>
+<li><p><strong>subtask</strong> (<cite>SubTask | None</cite>, optional) -- The sub-task to be added or revised. Required if action is
+"add" or "revise".</p></li>
+</ul>
+</dd>
+<dt class="field-even">抛出<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>ValueError</strong> -- If the current plan is <cite>None</cite>, <cite>ValueError</cite> will be raised.</p>
+</dd>
+<dt class="field-odd">返回<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The response of the tool call.</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p><cite>ToolResponse</cite></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.plan.PlanNotebook.update_subtask_state">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">update_subtask_state</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subtask_idx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">state</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/plan/_plan_notebook.html#PlanNotebook.update_subtask_state"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.plan.PlanNotebook.update_subtask_state" title="Link to this definition">¶</a></dt>
+<dd><p>Update the state of a subtask by given index and state. Note if you
+want to mark a subtask as done, you SHOULD call <cite>finish_subtask</cite>
+instead with the specific outcome.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>subtask_idx</strong> (<cite>int</cite>) -- The index of the subtask to be updated, starting from 0.</p></li>
+<li><p><strong>state</strong> (<cite>Literal["todo", "in_progress", "abandoned"]</cite>) -- The new state of the subtask. If you want to mark a subtask
+as done, you SHOULD call <cite>finish_subtask</cite> instead with the
+specific outcome.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="agentscope.tool.html#agentscope.tool.ToolResponse" title="agentscope.tool._response.ToolResponse"><em>ToolResponse</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.plan.PlanNotebook.finish_subtask">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">finish_subtask</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subtask_idx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subtask_outcome</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/plan/_plan_notebook.html#PlanNotebook.finish_subtask"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.plan.PlanNotebook.finish_subtask" title="Link to this definition">¶</a></dt>
+<dd><p>Label the subtask as done by given index and outcome.</p>
+<blockquote>
+<div><dl class="simple">
+<dt>Args:</dt><dd><dl class="simple">
+<dt>subtask_idx (<cite>int</cite>):</dt><dd><p>The index of the sub-task to be marked as done, starting
+from 0.</p>
+</dd>
+<dt>subtask_outcome (<cite>str</cite>):</dt><dd><p>The specific outcome of the sub-task, should exactly match the
+expected outcome in the sub-task description. SHOULDN't be
+what you did or general description, e.g. "I have searched
+xxx", "I have written the code for xxx", etc. It SHOULD be
+the specific data, information, or path to the file, e.g.
+"There are 5 articles about xxx, they are</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</div></blockquote>
+<ul class="simple">
+<li><p>xxx</p></li>
+<li><p>xxx</p></li>
+</ul>
+<p>..."</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>subtask_idx</strong> (<em>int</em>)</p></li>
+<li><p><strong>subtask_outcome</strong> (<em>str</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="agentscope.tool.html#agentscope.tool.ToolResponse" title="agentscope.tool._response.ToolResponse"><em>ToolResponse</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.plan.PlanNotebook.view_subtasks">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">view_subtasks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subtask_idx</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/plan/_plan_notebook.html#PlanNotebook.view_subtasks"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.plan.PlanNotebook.view_subtasks" title="Link to this definition">¶</a></dt>
+<dd><p>View the details of the sub-tasks by given indexes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>subtask_idx</strong> (<cite>list[int]</cite>) -- The indexes of the sub-tasks to be viewed, starting from 0.</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="agentscope.tool.html#agentscope.tool.ToolResponse" title="agentscope.tool._response.ToolResponse"><em>ToolResponse</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.plan.PlanNotebook.finish_plan">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">finish_plan</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">state</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outcome</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/plan/_plan_notebook.html#PlanNotebook.finish_plan"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.plan.PlanNotebook.finish_plan" title="Link to this definition">¶</a></dt>
+<dd><p>Finish the current plan by given outcome, or abandon it with the
+given reason if the user no longer wants to perform it. Note that you
+SHOULD confirm with the user before abandoning the plan.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>state</strong> (<cite>Literal["done", "abandoned"]</cite>) -- The state to finish the plan. If "done", the plan will be
+marked as done with the given outcome. If "abandoned", the
+plan will be abandoned with the given reason.</p></li>
+<li><p><strong>outcome</strong> (<cite>str</cite>) -- The specific outcome of the plan if state is "done", or the
+reason for abandoning the plan if state is "abandoned".</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="agentscope.tool.html#agentscope.tool.ToolResponse" title="agentscope.tool._response.ToolResponse"><em>ToolResponse</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.plan.PlanNotebook.view_historical_plans">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">view_historical_plans</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/plan/_plan_notebook.html#PlanNotebook.view_historical_plans"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.plan.PlanNotebook.view_historical_plans" title="Link to this definition">¶</a></dt>
+<dd><p>View the historical plans.</p>
+<dl class="field-list simple">
+<dt class="field-odd">返回类型<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="agentscope.tool.html#agentscope.tool.ToolResponse" title="agentscope.tool._response.ToolResponse"><em>ToolResponse</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.plan.PlanNotebook.recover_historical_plan">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">recover_historical_plan</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">plan_id</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/plan/_plan_notebook.html#PlanNotebook.recover_historical_plan"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.plan.PlanNotebook.recover_historical_plan" title="Link to this definition">¶</a></dt>
+<dd><p>Recover a historical plan by given plan ID, the plan ID can be
+obtained by calling <cite>view_historical_plans</cite>. Note the recover
+operation will override the current plan if exists.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>plan_id</strong> (<cite>str</cite>) -- The ID of the historical plan to be recovered.</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="agentscope.tool.html#agentscope.tool.ToolResponse" title="agentscope.tool._response.ToolResponse"><em>ToolResponse</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.plan.PlanNotebook.list_tools">
+<span class="sig-name descname"><span class="pre">list_tools</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/plan/_plan_notebook.html#PlanNotebook.list_tools"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.plan.PlanNotebook.list_tools" title="Link to this definition">¶</a></dt>
+<dd><p>List all tool functions provided to agent</p>
+<dl class="field-list simple">
+<dt class="field-odd">返回<span class="colon">:</span></dt>
+<dd class="field-odd"><p>A list of all tool functions provided by the plan notebook to
+the agent.</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p><cite>list[Callable[..., ToolResponse]]</cite></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.plan.PlanNotebook.get_current_hint">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_current_hint</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/plan/_plan_notebook.html#PlanNotebook.get_current_hint"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.plan.PlanNotebook.get_current_hint" title="Link to this definition">¶</a></dt>
+<dd><p>Get the hint message based on the current plan and subtasks states.
+This function will call the <cite>plan_to_hint</cite> function to generate the
+hint message.</p>
+<dl class="field-list simple">
+<dt class="field-odd">返回<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The hint message wrapped by &lt;system-hint&gt;&lt;/system-hint&gt;, or
+None if there is no relevant hint.</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p><cite>Msg | None</cite></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.plan.PlanNotebook.register_plan_change_hook">
+<span class="sig-name descname"><span class="pre">register_plan_change_hook</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hook_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hook</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/plan/_plan_notebook.html#PlanNotebook.register_plan_change_hook"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.plan.PlanNotebook.register_plan_change_hook" title="Link to this definition">¶</a></dt>
+<dd><p>Register a plan hook that will be triggered when the plan is
+changed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>hook_name</strong> (<cite>str</cite>) -- The name of the hook, should be unique.</p></li>
+<li><p><strong>hook</strong> (<cite>Callable[[Plan], None]</cite>) -- The hook function, which takes the current plan as input and
+returns nothing.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.plan.PlanNotebook.remove_plan_change_hook">
+<span class="sig-name descname"><span class="pre">remove_plan_change_hook</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hook_name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/plan/_plan_notebook.html#PlanNotebook.remove_plan_change_hook"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.plan.PlanNotebook.remove_plan_change_hook" title="Link to this definition">¶</a></dt>
+<dd><p>Remove a plan change hook by given name.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>hook_name</strong> (<cite>str</cite>) -- The name of the hook to be removed.</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.plan.PlanStorageBase">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">PlanStorageBase</span></span><a class="reference internal" href="../_modules/agentscope/plan/_storage_base.html#PlanStorageBase"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.plan.PlanStorageBase" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<a class="reference internal" href="agentscope.module.html#agentscope.module.StateModule" title="agentscope.module._state_module.StateModule"><code class="xref py py-class docutils literal notranslate"><span class="pre">StateModule</span></code></a></p>
+<p>The base class for plan storage.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.plan.PlanStorageBase.add_plan">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">add_plan</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">plan</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/plan/_storage_base.html#PlanStorageBase.add_plan"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.plan.PlanStorageBase.add_plan" title="Link to this definition">¶</a></dt>
+<dd><p>Add a plan to the storage.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>plan</strong> (<a class="reference internal" href="#agentscope.plan.Plan" title="agentscope.plan._plan_model.Plan"><em>Plan</em></a>)</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.plan.PlanStorageBase.delete_plan">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">delete_plan</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">plan_id</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/plan/_storage_base.html#PlanStorageBase.delete_plan"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.plan.PlanStorageBase.delete_plan" title="Link to this definition">¶</a></dt>
+<dd><p>Delete a plan from the storage.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>plan_id</strong> (<em>str</em>)</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.plan.PlanStorageBase.get_plans">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_plans</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/plan/_storage_base.html#PlanStorageBase.get_plans"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.plan.PlanStorageBase.get_plans" title="Link to this definition">¶</a></dt>
+<dd><p>Get all plans from the storage.</p>
+<dl class="field-list simple">
+<dt class="field-odd">返回类型<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list[<a class="reference internal" href="#agentscope.plan.Plan" title="agentscope.plan._plan_model.Plan"><em>Plan</em></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.plan.PlanStorageBase.get_plan">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_plan</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">plan_id</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/plan/_storage_base.html#PlanStorageBase.get_plan"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.plan.PlanStorageBase.get_plan" title="Link to this definition">¶</a></dt>
+<dd><p>Get a plan by its ID.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>plan_id</strong> (<em>str</em>)</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#agentscope.plan.Plan" title="agentscope.plan._plan_model.Plan"><em>Plan</em></a> | None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.plan.InMemoryPlanStorage">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">InMemoryPlanStorage</span></span><a class="reference internal" href="../_modules/agentscope/plan/_in_memory_storage.html#InMemoryPlanStorage"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.plan.InMemoryPlanStorage" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<a class="reference internal" href="#agentscope.plan.PlanStorageBase" title="agentscope.plan._storage_base.PlanStorageBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">PlanStorageBase</span></code></a></p>
+<p>In-memory plan storage.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.plan.InMemoryPlanStorage.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/plan/_in_memory_storage.html#InMemoryPlanStorage.__init__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.plan.InMemoryPlanStorage.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize the in-memory plan storage.</p>
+<dl class="field-list simple">
+<dt class="field-odd">返回类型<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.plan.InMemoryPlanStorage.add_plan">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">add_plan</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">plan</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">override</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/plan/_in_memory_storage.html#InMemoryPlanStorage.add_plan"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.plan.InMemoryPlanStorage.add_plan" title="Link to this definition">¶</a></dt>
+<dd><p>Add a plan to the storage.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>plan</strong> (<cite>Plan</cite>) -- The plan to be added.</p></li>
+<li><p><strong>override</strong> (<cite>bool</cite>, defaults to <cite>True</cite>) -- Whether to override the existing plan with the same ID.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.plan.InMemoryPlanStorage.delete_plan">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">delete_plan</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">plan_id</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/plan/_in_memory_storage.html#InMemoryPlanStorage.delete_plan"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.plan.InMemoryPlanStorage.delete_plan" title="Link to this definition">¶</a></dt>
+<dd><p>Delete a plan from the storage.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>plan_id</strong> (<cite>str</cite>) -- The ID of the plan to be deleted.</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.plan.InMemoryPlanStorage.get_plans">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_plans</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/plan/_in_memory_storage.html#InMemoryPlanStorage.get_plans"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.plan.InMemoryPlanStorage.get_plans" title="Link to this definition">¶</a></dt>
+<dd><p>Get all plans from the storage.</p>
+<dl class="field-list simple">
+<dt class="field-odd">返回<span class="colon">:</span></dt>
+<dd class="field-odd"><p>A list of all plans in the storage.</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p><cite>list[Plan]</cite></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.plan.InMemoryPlanStorage.get_plan">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_plan</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">plan_id</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/plan/_in_memory_storage.html#InMemoryPlanStorage.get_plan"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.plan.InMemoryPlanStorage.get_plan" title="Link to this definition">¶</a></dt>
+<dd><p>Get a plan by its ID.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>plan_id</strong> (<cite>str</cite>) -- The ID of the plan to be retrieved.</p>
+</dd>
+<dt class="field-even">返回<span class="colon">:</span></dt>
+<dd class="field-even"><p>The plan with the specified ID, or None if not found.</p>
+</dd>
+<dt class="field-odd">返回类型<span class="colon">:</span></dt>
+<dd class="field-odd"><p><cite>Plan | None</cite></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+        

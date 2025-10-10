@@ -1,0 +1,83 @@
+<!-- Title: agentscope.embedding._cache_base - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/embedding/_cache_base.html -->
+
+          <h1>agentscope.embedding._cache_base 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The embedding cache base class."""</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Any</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">..types</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">JSONSerializableObject</span><span class="p">,</span>
+    <span class="n">Embedding</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="EmbeddingCacheBase">
+<a class="viewcode-back" href="../../../api/agentscope.embedding.html#agentscope.embedding.EmbeddingCacheBase">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">EmbeddingCacheBase</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Base class for embedding caches, which is responsible for storing and</span>
+<span class="sd">    retrieving embeddings."""</span>
+
+<div class="viewcode-block" id="EmbeddingCacheBase.store">
+<a class="viewcode-back" href="../../../api/agentscope.embedding.html#agentscope.embedding.EmbeddingCacheBase.store">[文档]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">store</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">embeddings</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Embedding</span><span class="p">],</span>
+        <span class="n">identifier</span><span class="p">:</span> <span class="n">JSONSerializableObject</span><span class="p">,</span>
+        <span class="n">overwrite</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Store the embeddings with the given identifier.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            embeddings (`List[Embedding]`):</span>
+<span class="sd">                The embeddings to store.</span>
+<span class="sd">            identifier (`JSONSerializableObject`):</span>
+<span class="sd">                The identifier to distinguish the embeddings.</span>
+<span class="sd">            overwrite (`bool`, defaults to `False`):</span>
+<span class="sd">                Whether to overwrite existing embeddings with the same</span>
+<span class="sd">                identifier. If `True`, existing embeddings will be replaced.</span>
+<span class="sd">        """</span></div>
+
+
+<div class="viewcode-block" id="EmbeddingCacheBase.retrieve">
+<a class="viewcode-back" href="../../../api/agentscope.embedding.html#agentscope.embedding.EmbeddingCacheBase.retrieve">[文档]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">retrieve</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">identifier</span><span class="p">:</span> <span class="n">JSONSerializableObject</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Embedding</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Retrieve the embeddings with the given identifier. If not</span>
+<span class="sd">        found, return `None`.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            identifier (`JSONSerializableObject`):</span>
+<span class="sd">                The identifier to retrieve the embeddings.</span>
+<span class="sd">        """</span></div>
+
+
+<div class="viewcode-block" id="EmbeddingCacheBase.remove">
+<a class="viewcode-back" href="../../../api/agentscope.embedding.html#agentscope.embedding.EmbeddingCacheBase.remove">[文档]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">remove</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">identifier</span><span class="p">:</span> <span class="n">JSONSerializableObject</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Remove the embeddings with the given identifier.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            identifier (`JSONSerializableObject`):</span>
+<span class="sd">                The identifier to remove the embeddings.</span>
+<span class="sd">        """</span></div>
+
+
+<div class="viewcode-block" id="EmbeddingCacheBase.clear">
+<a class="viewcode-back" href="../../../api/agentscope.embedding.html#agentscope.embedding.EmbeddingCacheBase.clear">[文档]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">clear</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Clear all cached embeddings."""</span></div>
+</div>
+
+</pre></div>
+        

@@ -1,0 +1,166 @@
+<!-- Title: agentscope.rag._reader._text_reader - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/rag/_reader/_text_reader.html -->
+
+          <h1>agentscope.rag._reader._text_reader 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The text reader that reads text into vector records."""</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">hashlib</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Literal</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">._reader_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">ReaderBase</span><span class="p">,</span> <span class="n">Document</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._document</span><span class="w"> </span><span class="kn">import</span> <span class="n">DocMetadata</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..._logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">...message</span><span class="w"> </span><span class="kn">import</span> <span class="n">TextBlock</span>
+
+
+<div class="viewcode-block" id="TextReader">
+<a class="viewcode-back" href="../../../../api/agentscope.rag.html#agentscope.rag.TextReader">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">TextReader</span><span class="p">(</span><span class="n">ReaderBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The text reader that splits text into chunks by a fixed chunk size</span>
+<span class="sd">    and chunk overlap."""</span>
+
+<div class="viewcode-block" id="TextReader.__init__">
+<a class="viewcode-back" href="../../../../api/agentscope.rag.html#agentscope.rag.TextReader.__init__">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">chunk_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">512</span><span class="p">,</span>
+        <span class="n">split_by</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"char"</span><span class="p">,</span> <span class="s2">"sentence"</span><span class="p">,</span> <span class="s2">"paragraph"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"sentence"</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize the text reader.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            chunk_size (`int`, default to 512):</span>
+<span class="sd">                The size of each chunk, in number of characters.</span>
+<span class="sd">            split_by (`Literal["char", "paragraph"]`, default to \</span>
+<span class="sd">            "sentence"):</span>
+<span class="sd">                The unit to split the text, can be "char", "sentence", or</span>
+<span class="sd">                "paragraph". Note that "sentence" is implemented by "nltk"</span>
+<span class="sd">                library, which only supports English text.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">chunk_size</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"The chunk_size must be positive, got </span><span class="si">{</span><span class="n">chunk_size</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">split_by</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"char"</span><span class="p">,</span> <span class="s2">"sentence"</span><span class="p">,</span> <span class="s2">"paragraph"</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"The split_by must be one of 'char', 'sentence' or "</span>
+                <span class="sa">f</span><span class="s2">"'paragraph', got </span><span class="si">{</span><span class="n">split_by</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">chunk_size</span> <span class="o">=</span> <span class="n">chunk_size</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">split_by</span> <span class="o">=</span> <span class="n">split_by</span></div>
+
+
+<div class="viewcode-block" id="TextReader.__call__">
+<a class="viewcode-back" href="../../../../api/agentscope.rag.html#agentscope.rag.TextReader.__call__">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Document</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Read a text string, split it into chunks, and return a list of</span>
+<span class="sd">        Document objects.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            text (`str`):</span>
+<span class="sd">                The input text string, or a path to the local text file.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `list[Document]`:</span>
+<span class="sd">                A list of Document objects, where the metadata contains the</span>
+<span class="sd">                chunked text, doc id and chunk id.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">text</span><span class="p">)</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">text</span><span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Reading text from local file: </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">text</span><span class="p">)</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="s2">"r"</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+                <span class="n">text</span> <span class="o">=</span> <span class="n">file</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">"Reading text with chunk_size=</span><span class="si">%d</span><span class="s2">, split_by=</span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">chunk_size</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">split_by</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">splits</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">split_by</span> <span class="o">==</span> <span class="s2">"char"</span><span class="p">:</span>
+            <span class="c1"># Split by character</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">text</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">chunk_size</span><span class="p">):</span>
+                <span class="n">start</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span>
+                <span class="n">end</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">chunk_size</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">text</span><span class="p">))</span>
+                <span class="n">splits</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">text</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">])</span>
+
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">split_by</span> <span class="o">==</span> <span class="s2">"sentence"</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="kn">import</span><span class="w"> </span><span class="nn">nltk</span>
+
+                <span class="n">nltk</span><span class="o">.</span><span class="n">download</span><span class="p">(</span><span class="s2">"punkt"</span><span class="p">)</span>
+                <span class="n">nltk</span><span class="o">.</span><span class="n">download</span><span class="p">(</span><span class="s2">"punkt_tab"</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+                    <span class="s2">"nltk is not installed. Please install it with "</span>
+                    <span class="s2">"`pip install nltk`."</span><span class="p">,</span>
+                <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+
+            <span class="n">sentences</span> <span class="o">=</span> <span class="n">nltk</span><span class="o">.</span><span class="n">sent_tokenize</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+
+            <span class="c1"># Handle the chunk_size for sentences</span>
+            <span class="n">processed_sentences</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">sentences</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">_</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">chunk_size</span><span class="p">:</span>
+                    <span class="n">processed_sentences</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># If the sentence itself exceeds chunk size, we need to</span>
+                    <span class="c1"># truncate it</span>
+                    <span class="n">chunks</span> <span class="o">=</span> <span class="p">[</span>
+                        <span class="n">_</span><span class="p">[</span><span class="n">j</span> <span class="p">:</span> <span class="n">j</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">chunk_size</span><span class="p">]</span>
+                        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">_</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">chunk_size</span><span class="p">)</span>
+                    <span class="p">]</span>
+                    <span class="n">processed_sentences</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">chunks</span><span class="p">)</span>
+
+            <span class="n">splits</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">processed_sentences</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">split_by</span> <span class="o">==</span> <span class="s2">"paragraph"</span><span class="p">:</span>
+            <span class="n">paragraphs</span> <span class="o">=</span> <span class="p">[</span><span class="n">_</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">text</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">_</span><span class="p">)]</span>
+            <span class="k">for</span> <span class="n">para</span> <span class="ow">in</span> <span class="n">paragraphs</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">para</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">chunk_size</span><span class="p">:</span>
+                    <span class="n">splits</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">para</span><span class="p">)</span>
+
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># If the paragraph itself exceeds chunk size, we need to</span>
+                    <span class="c1"># truncate it</span>
+                    <span class="n">chunks</span> <span class="o">=</span> <span class="p">[</span>
+                        <span class="n">para</span><span class="p">[</span><span class="n">k</span> <span class="p">:</span> <span class="n">k</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">chunk_size</span><span class="p">]</span>
+                        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">para</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">chunk_size</span><span class="p">)</span>
+                    <span class="p">]</span>
+                    <span class="n">splits</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">chunks</span><span class="p">)</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">"Finished splitting the text into </span><span class="si">%d</span><span class="s2"> chunks."</span><span class="p">,</span>
+            <span class="nb">len</span><span class="p">(</span><span class="n">splits</span><span class="p">),</span>
+        <span class="p">)</span>
+
+        <span class="n">doc_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_doc_id</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">[</span>
+            <span class="n">Document</span><span class="p">(</span>
+                <span class="nb">id</span><span class="o">=</span><span class="n">doc_id</span><span class="p">,</span>
+                <span class="n">metadata</span><span class="o">=</span><span class="n">DocMetadata</span><span class="p">(</span>
+                    <span class="n">content</span><span class="o">=</span><span class="n">TextBlock</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="n">_</span><span class="p">),</span>
+                    <span class="n">doc_id</span><span class="o">=</span><span class="n">doc_id</span><span class="p">,</span>
+                    <span class="n">chunk_id</span><span class="o">=</span><span class="n">idx</span><span class="p">,</span>
+                    <span class="n">total_chunks</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">splits</span><span class="p">),</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">splits</span><span class="p">)</span>
+        <span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="TextReader.get_doc_id">
+<a class="viewcode-back" href="../../../../api/agentscope.rag.html#agentscope.rag.TextReader.get_doc_id">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_doc_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Get the document ID. This function can be used to check if the</span>
+<span class="sd">        doc_id already exists in the knowledge base."""</span>
+        <span class="k">return</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">(</span><span class="n">text</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">"utf-8"</span><span class="p">))</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span></div>
+</div>
+
+</pre></div>
+        

@@ -1,0 +1,1009 @@
+<!-- Title: agentscope.tool._toolkit - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/tool/_toolkit.html -->
+
+          <h1>agentscope.tool._toolkit 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The toolkit class for tool calls in agentscope."""</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">inspect</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">copy</span><span class="w"> </span><span class="kn">import</span> <span class="n">deepcopy</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">partial</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">AsyncGenerator</span><span class="p">,</span>
+    <span class="n">Literal</span><span class="p">,</span>
+    <span class="n">Dict</span><span class="p">,</span>
+    <span class="n">Any</span><span class="p">,</span>
+    <span class="n">Type</span><span class="p">,</span>
+    <span class="n">Generator</span><span class="p">,</span>
+    <span class="n">Callable</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">BaseModel</span><span class="p">,</span>
+    <span class="n">Field</span><span class="p">,</span>
+    <span class="n">create_model</span><span class="p">,</span>
+    <span class="n">ConfigDict</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">docstring_parser</span><span class="w"> </span><span class="kn">import</span> <span class="n">parse</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">._async_wrapper</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_async_generator_wrapper</span><span class="p">,</span>
+    <span class="n">_object_wrapper</span><span class="p">,</span>
+    <span class="n">_sync_generator_wrapper</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">._registered_tool_function</span><span class="w"> </span><span class="kn">import</span> <span class="n">RegisteredToolFunction</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">._response</span><span class="w"> </span><span class="kn">import</span> <span class="n">ToolResponse</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._utils._common</span><span class="w"> </span><span class="kn">import</span> <span class="n">_remove_title_field</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..mcp</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">MCPToolFunction</span><span class="p">,</span>
+    <span class="n">MCPClientBase</span><span class="p">,</span>
+    <span class="n">StatefulClientBase</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..message</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ToolUseBlock</span><span class="p">,</span>
+    <span class="n">TextBlock</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..module</span><span class="w"> </span><span class="kn">import</span> <span class="n">StateModule</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..types</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">JSONSerializableObject</span><span class="p">,</span>
+    <span class="n">ToolFunction</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..tracing._trace</span><span class="w"> </span><span class="kn">import</span> <span class="n">trace_toolkit</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
+
+
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ToolGroup</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""The tool group class"""</span>
+
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+<span class="w">    </span><span class="sd">"""The group name, which will be used in the reset function as the group</span>
+<span class="sd">    identifier."""</span>
+    <span class="n">active</span><span class="p">:</span> <span class="nb">bool</span>
+<span class="w">    </span><span class="sd">"""If the tool group is active, meaning the tool functions in this group</span>
+<span class="sd">    is included in the JSON schema"""</span>
+    <span class="n">description</span><span class="p">:</span> <span class="nb">str</span>
+<span class="w">    </span><span class="sd">"""The description of the tool group to tell the agent what the tool</span>
+<span class="sd">    group is about."""</span>
+    <span class="n">notes</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="w">    </span><span class="sd">"""The using notes of the tool group, to remind the agent how to use"""</span>
+
+
+<div class="viewcode-block" id="Toolkit">
+<a class="viewcode-back" href="../../../api/agentscope.tool.html#agentscope.tool.Toolkit">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Toolkit</span><span class="p">(</span><span class="n">StateModule</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The class that supports both function- and group-level tool management.</span>
+
+<span class="sd">    Use the following methods to manage the tool functions:</span>
+
+<span class="sd">    - `register_tool_function`</span>
+<span class="sd">    - `remove_tool_function`</span>
+
+<span class="sd">    For group-level management:</span>
+
+<span class="sd">    - `create_tool_group`</span>
+<span class="sd">    - `update_tool_groups`</span>
+<span class="sd">    - `remove_tool_groups`</span>
+
+<span class="sd">    MCP related methods:</span>
+
+<span class="sd">    - `register_mcp_server`</span>
+<span class="sd">    - `remove_mcp_servers`</span>
+
+<span class="sd">    To run the tool functions or get the data from the activated tools:</span>
+
+<span class="sd">    - `call_tool_function`</span>
+<span class="sd">    - `get_json_schemas`</span>
+<span class="sd">    - `get_tool_group_notes`</span>
+<span class="sd">    """</span>
+
+<div class="viewcode-block" id="Toolkit.__init__">
+<a class="viewcode-back" href="../../../api/agentscope.tool.html#agentscope.tool.Toolkit.__init__">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize the toolkit."""</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">tools</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">RegisteredToolFunction</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">groups</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ToolGroup</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span></div>
+
+
+<div class="viewcode-block" id="Toolkit.create_tool_group">
+<a class="viewcode-back" href="../../../api/agentscope.tool.html#agentscope.tool.Toolkit.create_tool_group">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_tool_group</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">group_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">description</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">active</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">notes</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Create a tool group to organize tool functions</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            group_name (`str`):</span>
+<span class="sd">                The name of the tool group.</span>
+<span class="sd">            description (`str`):</span>
+<span class="sd">                The description of the tool group.</span>
+<span class="sd">            active (`bool`, defaults to `False`):</span>
+<span class="sd">                If the group is active, meaning the tool functions in this</span>
+<span class="sd">                group are included in the JSON schema.</span>
+<span class="sd">            notes (`str | None`, optional):</span>
+<span class="sd">                The notes used to remind the agent how to use the tool</span>
+<span class="sd">                functions properly, which can be combined into the system</span>
+<span class="sd">                prompt.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">group_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">groups</span> <span class="ow">or</span> <span class="n">group_name</span> <span class="o">==</span> <span class="s2">"basic"</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Tool group '</span><span class="si">{</span><span class="n">group_name</span><span class="si">}</span><span class="s2">' is already registered in the "</span>
+                <span class="s2">"toolkit."</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">groups</span><span class="p">[</span><span class="n">group_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">ToolGroup</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">group_name</span><span class="p">,</span>
+            <span class="n">description</span><span class="o">=</span><span class="n">description</span><span class="p">,</span>
+            <span class="n">notes</span><span class="o">=</span><span class="n">notes</span><span class="p">,</span>
+            <span class="n">active</span><span class="o">=</span><span class="n">active</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Toolkit.update_tool_groups">
+<a class="viewcode-back" href="../../../api/agentscope.tool.html#agentscope.tool.Toolkit.update_tool_groups">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update_tool_groups</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">group_names</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">active</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Update the activation status of the given tool groups.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            group_names (`list[str]`):</span>
+<span class="sd">                The list of tool group names to be updated.</span>
+<span class="sd">            active (`bool`):</span>
+<span class="sd">                If the tool groups should be activated or deactivated.</span>
+<span class="sd">        """</span>
+
+        <span class="k">for</span> <span class="n">group_name</span> <span class="ow">in</span> <span class="n">group_names</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">group_name</span> <span class="o">==</span> <span class="s2">"basic"</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="s2">"The 'basic' tool group is always active, skipping it."</span><span class="p">,</span>
+                <span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">group_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">groups</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">groups</span><span class="p">[</span><span class="n">group_name</span><span class="p">]</span><span class="o">.</span><span class="n">active</span> <span class="o">=</span> <span class="n">active</span></div>
+
+
+<div class="viewcode-block" id="Toolkit.remove_tool_groups">
+<a class="viewcode-back" href="../../../api/agentscope.tool.html#agentscope.tool.Toolkit.remove_tool_groups">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">remove_tool_groups</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">group_names</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Remove tool functions from the toolkit by their group names.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            group_names (`str | list[str]`):</span>
+<span class="sd">                The group names to be removed from the toolkit.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">group_names</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">group_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">group_names</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">group_names</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span>
+            <span class="nb">isinstance</span><span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">group_names</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"The group_names must be a list of strings, "</span>
+                <span class="sa">f</span><span class="s2">"but got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">group_names</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="s2">"basic"</span> <span class="ow">in</span> <span class="n">group_names</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"Cannot remove the default 'basic' tool group."</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">group_name</span> <span class="ow">in</span> <span class="n">group_names</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">groups</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">group_name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+        <span class="c1"># Remove the tool functions in the given groups</span>
+        <span class="n">tool_names</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tools</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+        <span class="k">for</span> <span class="n">tool_name</span> <span class="ow">in</span> <span class="n">tool_names</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">tools</span><span class="p">[</span><span class="n">tool_name</span><span class="p">]</span><span class="o">.</span><span class="n">group</span> <span class="ow">in</span> <span class="n">group_names</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">tools</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">tool_name</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Toolkit.register_tool_function">
+<a class="viewcode-back" href="../../../api/agentscope.tool.html#agentscope.tool.Toolkit.register_tool_function">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">register_tool_function</span><span class="p">(</span>  <span class="c1"># pylint: disable=too-many-branches</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">tool_func</span><span class="p">:</span> <span class="n">ToolFunction</span><span class="p">,</span>
+        <span class="n">group_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"basic"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"basic"</span><span class="p">,</span>
+        <span class="n">preset_kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">JSONSerializableObject</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">func_description</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">json_schema</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">include_long_description</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">include_var_positional</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">include_var_keyword</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">postprocess_func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[</span>
+            <span class="p">[</span>
+                <span class="n">ToolUseBlock</span><span class="p">,</span>
+                <span class="n">ToolResponse</span><span class="p">,</span>
+            <span class="p">],</span>
+            <span class="n">ToolResponse</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="p">]</span>
+        <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Register a tool function to the toolkit.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            tool_func (`ToolFunction`):</span>
+<span class="sd">                The tool function, which can be async or sync, streaming or</span>
+<span class="sd">                not-streaming, but the response must be a `ToolResponse`</span>
+<span class="sd">                object.</span>
+<span class="sd">            group_name (`str | Literal["basic"]`, defaults to `"basic"`):</span>
+<span class="sd">                The belonging group of the tool function. Tools in "basic"</span>
+<span class="sd">                group is always included in the JSON schema, while the others</span>
+<span class="sd">                are only included when their group is active.</span>
+<span class="sd">            preset_kwargs (`dict[str, JSONSerializableObject] | None`, \</span>
+<span class="sd">            optional):</span>
+<span class="sd">                Preset arguments by the user, which will not be included in</span>
+<span class="sd">                the JSON schema, nor exposed to the agent.</span>
+<span class="sd">            func_description (`str | None`, optional):</span>
+<span class="sd">                The function description. If not provided, the description</span>
+<span class="sd">                will be extracted from the docstring automatically.</span>
+<span class="sd">            json_schema (`dict | None`, optional):</span>
+<span class="sd">                Manually provided JSON schema for the tool function, which</span>
+<span class="sd">                should be `{"type": "function", "function": {"name":</span>
+<span class="sd">                "function_name": "xx", "description": "xx",</span>
+<span class="sd">                "parameters": {...}}}`</span>
+<span class="sd">            include_long_description (`bool`, defaults to `True`):</span>
+<span class="sd">                When extracting function description from the docstring, if</span>
+<span class="sd">                the long description will be included.</span>
+<span class="sd">            include_var_positional (`bool`, defaults to `False`):</span>
+<span class="sd">                Whether to include the variable positional arguments (`*args`)</span>
+<span class="sd">                in the function schema.</span>
+<span class="sd">            include_var_keyword (`bool`, defaults to `False`):</span>
+<span class="sd">                Whether to include the variable keyword arguments (`**kwargs`)</span>
+<span class="sd">                in the function schema.</span>
+<span class="sd">            postprocess_func (`Callable[[ToolUseBlock, ToolResponse], \</span>
+<span class="sd">            ToolResponse | None] | None`, optional):</span>
+<span class="sd">                A post-processing function that will be called after the tool</span>
+<span class="sd">                function is executed, taking the tool call block and tool</span>
+<span class="sd">                response as arguments. If it returns `None`, the tool</span>
+<span class="sd">                result will be returned as is. If it returns a</span>
+<span class="sd">                `ToolResponse`, the returned block will be used as the</span>
+<span class="sd">                final tool result.</span>
+<span class="sd">        """</span>
+        <span class="c1"># Arguments checking</span>
+        <span class="k">if</span> <span class="n">group_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">groups</span> <span class="ow">and</span> <span class="n">group_name</span> <span class="o">!=</span> <span class="s2">"basic"</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Tool group '</span><span class="si">{</span><span class="n">group_name</span><span class="si">}</span><span class="s2">' not found."</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Check the manually provided JSON schema if provided</span>
+        <span class="k">if</span> <span class="n">json_schema</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="p">(</span>
+                <span class="nb">isinstance</span><span class="p">(</span><span class="n">json_schema</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span>
+                <span class="ow">and</span> <span class="s2">"type"</span> <span class="ow">in</span> <span class="n">json_schema</span>
+                <span class="ow">and</span> <span class="n">json_schema</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"function"</span>
+                <span class="ow">and</span> <span class="s2">"function"</span> <span class="ow">in</span> <span class="n">json_schema</span>
+                <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">json_schema</span><span class="p">[</span><span class="s2">"function"</span><span class="p">],</span> <span class="nb">dict</span><span class="p">)</span>
+            <span class="p">),</span> <span class="s2">"Invalid JSON schema for the tool function."</span>
+
+        <span class="c1"># Handle MCP tool function and regular function respectively</span>
+        <span class="n">mcp_name</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tool_func</span><span class="p">,</span> <span class="n">MCPToolFunction</span><span class="p">):</span>
+            <span class="n">func_name</span> <span class="o">=</span> <span class="n">tool_func</span><span class="o">.</span><span class="n">name</span>
+            <span class="n">original_func</span> <span class="o">=</span> <span class="n">tool_func</span><span class="o">.</span><span class="fm">__call__</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_validate_tool_function</span><span class="p">(</span><span class="n">func_name</span><span class="p">)</span>
+            <span class="n">json_schema</span> <span class="o">=</span> <span class="n">json_schema</span> <span class="ow">or</span> <span class="n">tool_func</span><span class="o">.</span><span class="n">json_schema</span>
+            <span class="n">mcp_name</span> <span class="o">=</span> <span class="n">tool_func</span><span class="o">.</span><span class="n">mcp_name</span>
+
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tool_func</span><span class="p">,</span> <span class="n">partial</span><span class="p">):</span>
+            <span class="c1"># partial function</span>
+            <span class="n">kwargs</span> <span class="o">=</span> <span class="n">tool_func</span><span class="o">.</span><span class="n">keywords</span>
+            <span class="c1"># Turn args into keyword arguments</span>
+            <span class="k">if</span> <span class="n">tool_func</span><span class="o">.</span><span class="n">args</span><span class="p">:</span>
+                <span class="n">param_names</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span>
+                    <span class="n">inspect</span><span class="o">.</span><span class="n">signature</span><span class="p">(</span><span class="n">tool_func</span><span class="o">.</span><span class="n">func</span><span class="p">)</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">keys</span><span class="p">(),</span>
+                <span class="p">)</span>
+                <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">arg</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">tool_func</span><span class="o">.</span><span class="n">args</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">param_names</span><span class="p">):</span>
+                        <span class="n">kwargs</span><span class="p">[</span><span class="n">param_names</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span> <span class="o">=</span> <span class="n">arg</span>
+
+            <span class="n">preset_kwargs</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+                <span class="o">**</span><span class="p">(</span><span class="n">preset_kwargs</span> <span class="ow">or</span> <span class="p">{}),</span>
+            <span class="p">}</span>
+
+            <span class="n">func_name</span> <span class="o">=</span> <span class="n">tool_func</span><span class="o">.</span><span class="n">func</span><span class="o">.</span><span class="vm">__name__</span>
+            <span class="n">original_func</span> <span class="o">=</span> <span class="n">tool_func</span><span class="o">.</span><span class="n">func</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_validate_tool_function</span><span class="p">(</span><span class="n">func_name</span><span class="p">)</span>
+            <span class="n">json_schema</span> <span class="o">=</span> <span class="n">json_schema</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_tool_function</span><span class="p">(</span>
+                <span class="n">tool_func</span><span class="o">.</span><span class="n">func</span><span class="p">,</span>
+                <span class="n">include_long_description</span><span class="o">=</span><span class="n">include_long_description</span><span class="p">,</span>
+                <span class="n">include_var_positional</span><span class="o">=</span><span class="n">include_var_positional</span><span class="p">,</span>
+                <span class="n">include_var_keyword</span><span class="o">=</span><span class="n">include_var_keyword</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># normal function</span>
+            <span class="n">func_name</span> <span class="o">=</span> <span class="n">tool_func</span><span class="o">.</span><span class="vm">__name__</span>
+            <span class="n">original_func</span> <span class="o">=</span> <span class="n">tool_func</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_validate_tool_function</span><span class="p">(</span><span class="n">func_name</span><span class="p">)</span>
+            <span class="n">json_schema</span> <span class="o">=</span> <span class="n">json_schema</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_tool_function</span><span class="p">(</span>
+                <span class="n">tool_func</span><span class="p">,</span>
+                <span class="n">include_long_description</span><span class="o">=</span><span class="n">include_long_description</span><span class="p">,</span>
+                <span class="n">include_var_positional</span><span class="o">=</span><span class="n">include_var_positional</span><span class="p">,</span>
+                <span class="n">include_var_keyword</span><span class="o">=</span><span class="n">include_var_keyword</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Override the description if provided</span>
+        <span class="k">if</span> <span class="n">func_description</span><span class="p">:</span>
+            <span class="n">json_schema</span><span class="p">[</span><span class="s2">"function"</span><span class="p">][</span><span class="s2">"description"</span><span class="p">]</span> <span class="o">=</span> <span class="n">func_description</span>
+
+        <span class="c1"># Remove the preset kwargs from the JSON schema</span>
+        <span class="k">for</span> <span class="n">arg_name</span> <span class="ow">in</span> <span class="n">preset_kwargs</span> <span class="ow">or</span> <span class="p">{}:</span>
+            <span class="k">if</span> <span class="n">arg_name</span> <span class="ow">in</span> <span class="n">json_schema</span><span class="p">[</span><span class="s2">"function"</span><span class="p">][</span><span class="s2">"parameters"</span><span class="p">][</span><span class="s2">"properties"</span><span class="p">]:</span>
+                <span class="n">json_schema</span><span class="p">[</span><span class="s2">"function"</span><span class="p">][</span><span class="s2">"parameters"</span><span class="p">][</span><span class="s2">"properties"</span><span class="p">]</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span>
+                    <span class="n">arg_name</span><span class="p">,</span>
+                <span class="p">)</span>
+
+        <span class="k">if</span> <span class="s2">"required"</span> <span class="ow">in</span> <span class="n">json_schema</span><span class="p">[</span><span class="s2">"function"</span><span class="p">][</span><span class="s2">"parameters"</span><span class="p">]:</span>
+            <span class="k">for</span> <span class="n">arg_name</span> <span class="ow">in</span> <span class="n">preset_kwargs</span> <span class="ow">or</span> <span class="p">{}:</span>
+                <span class="k">if</span> <span class="p">(</span>
+                    <span class="n">arg_name</span>
+                    <span class="ow">in</span> <span class="n">json_schema</span><span class="p">[</span><span class="s2">"function"</span><span class="p">][</span><span class="s2">"parameters"</span><span class="p">][</span><span class="s2">"required"</span><span class="p">]</span>
+                <span class="p">):</span>
+                    <span class="n">json_schema</span><span class="p">[</span><span class="s2">"function"</span><span class="p">][</span><span class="s2">"parameters"</span><span class="p">][</span><span class="s2">"required"</span><span class="p">]</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span>
+                        <span class="n">arg_name</span><span class="p">,</span>
+                    <span class="p">)</span>
+
+            <span class="c1"># Remove the required field if it is empty</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">json_schema</span><span class="p">[</span><span class="s2">"function"</span><span class="p">][</span><span class="s2">"parameters"</span><span class="p">][</span><span class="s2">"required"</span><span class="p">])</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">json_schema</span><span class="p">[</span><span class="s2">"function"</span><span class="p">][</span><span class="s2">"parameters"</span><span class="p">]</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">"required"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+        <span class="n">func_obj</span> <span class="o">=</span> <span class="n">RegisteredToolFunction</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">func_name</span><span class="p">,</span>
+            <span class="n">group</span><span class="o">=</span><span class="n">group_name</span><span class="p">,</span>
+            <span class="n">source</span><span class="o">=</span><span class="s2">"function"</span><span class="p">,</span>
+            <span class="n">original_func</span><span class="o">=</span><span class="n">original_func</span><span class="p">,</span>
+            <span class="n">json_schema</span><span class="o">=</span><span class="n">json_schema</span><span class="p">,</span>
+            <span class="n">preset_kwargs</span><span class="o">=</span><span class="n">preset_kwargs</span> <span class="ow">or</span> <span class="p">{},</span>
+            <span class="n">extended_model</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">mcp_name</span><span class="o">=</span><span class="n">mcp_name</span><span class="p">,</span>
+            <span class="n">postprocess_func</span><span class="o">=</span><span class="n">postprocess_func</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">tools</span><span class="p">[</span><span class="n">func_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">func_obj</span></div>
+
+
+<div class="viewcode-block" id="Toolkit.remove_tool_function">
+<a class="viewcode-back" href="../../../api/agentscope.tool.html#agentscope.tool.Toolkit.remove_tool_function">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">remove_tool_function</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tool_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Remove tool function from the toolkit by its name.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            tool_name (`str`):</span>
+<span class="sd">                The name of the tool function to be removed.</span>
+<span class="sd">        """</span>
+
+        <span class="k">if</span> <span class="n">tool_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">tools</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">"Skipping removing tool function '</span><span class="si">%s</span><span class="s2">' as it does not exist."</span><span class="p">,</span>
+                <span class="n">tool_name</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">tools</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">tool_name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Toolkit.get_json_schemas">
+<a class="viewcode-back" href="../../../api/agentscope.tool.html#agentscope.tool.Toolkit.get_json_schemas">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_json_schemas</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Get the JSON schemas from the tool functions that belong to the</span>
+<span class="sd">        active groups.</span>
+
+<span class="sd">        .. note:: The preset keyword arguments is removed from the JSON</span>
+<span class="sd">         schema, and the extended model is applied if it is set.</span>
+
+<span class="sd">        Example:</span>
+<span class="sd">            .. code-block:: JSON</span>
+<span class="sd">                :caption: Example of tool function JSON schemas</span>
+
+<span class="sd">                [</span>
+<span class="sd">                    {</span>
+<span class="sd">                        "type": "function",</span>
+<span class="sd">                        "function": {</span>
+<span class="sd">                            "name": "google_search",</span>
+<span class="sd">                            "description": "Search on Google.",</span>
+<span class="sd">                            "parameters": {</span>
+<span class="sd">                                "type": "object",</span>
+<span class="sd">                                "properties": {</span>
+<span class="sd">                                    "query": {</span>
+<span class="sd">                                        "type": "string",</span>
+<span class="sd">                                        "description": "The search query."</span>
+<span class="sd">                                    }</span>
+<span class="sd">                                },</span>
+<span class="sd">                                "required": ["query"]</span>
+<span class="sd">                            }</span>
+<span class="sd">                        }</span>
+<span class="sd">                    },</span>
+<span class="sd">                    ...</span>
+<span class="sd">                ]</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `list[dict]`:</span>
+<span class="sd">                A list of function JSON schemas.</span>
+<span class="sd">        """</span>
+        <span class="c1"># If meta tool is set here, update its extended model here</span>
+        <span class="k">if</span> <span class="s2">"reset_equipped_tools"</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">tools</span><span class="p">:</span>
+            <span class="n">fields</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">group_name</span><span class="p">,</span> <span class="n">group</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">groups</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">group_name</span> <span class="o">==</span> <span class="s2">"basic"</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="n">fields</span><span class="p">[</span><span class="n">group_name</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="nb">bool</span><span class="p">,</span>
+                    <span class="n">Field</span><span class="p">(</span>
+                        <span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                        <span class="n">description</span><span class="o">=</span><span class="n">group</span><span class="o">.</span><span class="n">description</span><span class="p">,</span>
+                    <span class="p">),</span>
+                <span class="p">)</span>
+            <span class="n">extended_model</span> <span class="o">=</span> <span class="n">create_model</span><span class="p">(</span><span class="s2">"_DynamicModel"</span><span class="p">,</span> <span class="o">**</span><span class="n">fields</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">set_extended_model</span><span class="p">(</span>
+                <span class="s2">"reset_equipped_tools"</span><span class="p">,</span>
+                <span class="n">extended_model</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">[</span>
+            <span class="n">tool</span><span class="o">.</span><span class="n">extended_json_schema</span>
+            <span class="k">for</span> <span class="n">tool</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">tools</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">tool</span><span class="o">.</span><span class="n">group</span> <span class="o">==</span> <span class="s2">"basic"</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">groups</span><span class="p">[</span><span class="n">tool</span><span class="o">.</span><span class="n">group</span><span class="p">]</span><span class="o">.</span><span class="n">active</span>
+        <span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="Toolkit.set_extended_model">
+<a class="viewcode-back" href="../../../api/agentscope.tool.html#agentscope.tool.Toolkit.set_extended_model">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_extended_model</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">func_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">BaseModel</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Set the extended model for a tool function, so that the original</span>
+<span class="sd">        JSON schema will be extended.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            func_name (`str`):</span>
+<span class="sd">                The name of the tool function.</span>
+<span class="sd">            model (`Union[Type[BaseModel], None]`):</span>
+<span class="sd">                The extended model to be set.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">model</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">BaseModel</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="s2">"The extended model must be a child class of pydantic "</span>
+                <span class="sa">f</span><span class="s2">"BaseModel, but got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">model</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">func_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">tools</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">tools</span><span class="p">[</span><span class="n">func_name</span><span class="p">]</span><span class="o">.</span><span class="n">extended_model</span> <span class="o">=</span> <span class="n">model</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Tool function '</span><span class="si">{</span><span class="n">func_name</span><span class="si">}</span><span class="s2">' not found in the toolkit."</span><span class="p">,</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Toolkit.remove_mcp_clients">
+<a class="viewcode-back" href="../../../api/agentscope.tool.html#agentscope.tool.Toolkit.remove_mcp_clients">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">remove_mcp_clients</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">client_names</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Remove tool functions from the MCP clients by their names.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            client_names (`list[str]`):</span>
+<span class="sd">                The names of the MCP client, which used to initialize the</span>
+<span class="sd">                client instance.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">client_names</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">client_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">client_names</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">client_names</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span>
+            <span class="nb">isinstance</span><span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">client_names</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"The client_names must be a list of strings, "</span>
+                <span class="sa">f</span><span class="s2">"but got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">client_names</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="n">to_removed</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">func_names</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tools</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+        <span class="k">for</span> <span class="n">func_name</span> <span class="ow">in</span> <span class="n">func_names</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">tools</span><span class="p">[</span><span class="n">func_name</span><span class="p">]</span><span class="o">.</span><span class="n">mcp_name</span> <span class="ow">in</span> <span class="n">client_names</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">tools</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">func_name</span><span class="p">)</span>
+                <span class="n">to_removed</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">func_name</span><span class="p">)</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">"Removed </span><span class="si">%d</span><span class="s2"> tool functions from </span><span class="si">%d</span><span class="s2"> MCP: </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span>
+            <span class="nb">len</span><span class="p">(</span><span class="n">to_removed</span><span class="p">),</span>
+            <span class="nb">len</span><span class="p">(</span><span class="n">client_names</span><span class="p">),</span>
+            <span class="s2">", "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">to_removed</span><span class="p">),</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Toolkit.call_tool_function">
+<a class="viewcode-back" href="../../../api/agentscope.tool.html#agentscope.tool.Toolkit.call_tool_function">[文档]</a>
+    <span class="nd">@trace_toolkit</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">call_tool_function</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">tool_call</span><span class="p">:</span> <span class="n">ToolUseBlock</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AsyncGenerator</span><span class="p">[</span><span class="n">ToolResponse</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Execute the tool function by the `ToolUseBlock` and return the</span>
+<span class="sd">        tool response chunk in unified streaming mode, i.e. an async</span>
+<span class="sd">        generator of `ToolResponse` objects.</span>
+
+<span class="sd">        .. note:: The tool response chunk is **accumulated**.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            tool_call (`ToolUseBlock`):</span>
+<span class="sd">                A tool call block.</span>
+
+<span class="sd">        Yields:</span>
+<span class="sd">            `ToolResponse`:</span>
+<span class="sd">                The tool response chunk, in accumulative manner.</span>
+<span class="sd">        """</span>
+
+        <span class="c1"># Check</span>
+        <span class="k">if</span> <span class="n">tool_call</span><span class="p">[</span><span class="s2">"name"</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">tools</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">_object_wrapper</span><span class="p">(</span>
+                <span class="n">ToolResponse</span><span class="p">(</span>
+                    <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+                        <span class="n">TextBlock</span><span class="p">(</span>
+                            <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                            <span class="n">text</span><span class="o">=</span><span class="s2">"FunctionNotFoundError: Cannot find the "</span>
+                            <span class="sa">f</span><span class="s2">"function named </span><span class="si">{</span><span class="n">tool_call</span><span class="p">[</span><span class="s1">'name'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                        <span class="p">),</span>
+                    <span class="p">],</span>
+                <span class="p">),</span>
+                <span class="kc">None</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Prepare function and keyword arguments</span>
+        <span class="n">tool_func</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tools</span><span class="p">[</span><span class="n">tool_call</span><span class="p">[</span><span class="s2">"name"</span><span class="p">]]</span>
+        <span class="n">kwargs</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="o">**</span><span class="n">tool_func</span><span class="o">.</span><span class="n">preset_kwargs</span><span class="p">,</span>
+            <span class="o">**</span><span class="p">(</span><span class="n">tool_call</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"input"</span><span class="p">,</span> <span class="p">{})</span> <span class="ow">or</span> <span class="p">{}),</span>
+        <span class="p">}</span>
+
+        <span class="c1"># Prepare postprocess function</span>
+        <span class="k">if</span> <span class="n">tool_func</span><span class="o">.</span><span class="n">postprocess_func</span><span class="p">:</span>
+            <span class="n">partial_postprocess_func</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span>
+                <span class="n">tool_func</span><span class="o">.</span><span class="n">postprocess_func</span><span class="p">,</span>
+                <span class="n">tool_call</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">partial_postprocess_func</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># Async function</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">inspect</span><span class="o">.</span><span class="n">iscoroutinefunction</span><span class="p">(</span><span class="n">tool_func</span><span class="o">.</span><span class="n">original_func</span><span class="p">):</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">res</span> <span class="o">=</span> <span class="k">await</span> <span class="n">tool_func</span><span class="o">.</span><span class="n">original_func</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+                <span class="k">except</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">CancelledError</span><span class="p">:</span>
+                    <span class="n">res</span> <span class="o">=</span> <span class="n">ToolResponse</span><span class="p">(</span>
+                        <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+                            <span class="n">TextBlock</span><span class="p">(</span>
+                                <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                                <span class="n">text</span><span class="o">=</span><span class="s2">"&lt;system-info&gt;"</span>
+                                <span class="s2">"The tool call has been interrupted "</span>
+                                <span class="s2">"by the user."</span>
+                                <span class="s2">"&lt;/system-info&gt;"</span><span class="p">,</span>
+                            <span class="p">),</span>
+                        <span class="p">],</span>
+                        <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                        <span class="n">is_last</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                        <span class="n">is_interrupted</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                    <span class="p">)</span>
+
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># When `tool_func.original_func` is Async generator function or</span>
+                <span class="c1"># Sync function</span>
+                <span class="n">res</span> <span class="o">=</span> <span class="n">tool_func</span><span class="o">.</span><span class="n">original_func</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="n">ToolResponse</span><span class="p">(</span>
+                <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+                    <span class="n">TextBlock</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                        <span class="n">text</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                    <span class="p">),</span>
+                <span class="p">],</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Handle different return type</span>
+
+        <span class="c1"># If return an async generator</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">AsyncGenerator</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">_async_generator_wrapper</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">partial_postprocess_func</span><span class="p">)</span>
+
+        <span class="c1"># If return a sync generator</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">Generator</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">_sync_generator_wrapper</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">partial_postprocess_func</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">ToolResponse</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">_object_wrapper</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">partial_postprocess_func</span><span class="p">)</span>
+
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+            <span class="s2">"The tool function must return a ToolResponse object, or an "</span>
+            <span class="s2">"AsyncGenerator/Generator of ToolResponse objects, "</span>
+            <span class="sa">f</span><span class="s2">"but got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">res</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Toolkit.register_mcp_client">
+<a class="viewcode-back" href="../../../api/agentscope.tool.html#agentscope.tool.Toolkit.register_mcp_client">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">register_mcp_client</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">mcp_client</span><span class="p">:</span> <span class="n">MCPClientBase</span><span class="p">,</span>
+        <span class="n">group_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"basic"</span><span class="p">,</span>
+        <span class="n">enable_funcs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">disable_funcs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">preset_kwargs_mapping</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">postprocess_func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[</span>
+            <span class="p">[</span>
+                <span class="n">ToolUseBlock</span><span class="p">,</span>
+                <span class="n">ToolResponse</span><span class="p">,</span>
+            <span class="p">],</span>
+            <span class="n">ToolResponse</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="p">]</span>
+        <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Register tool functions from an MCP client.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            mcp_client (`MCPClientBase`):</span>
+<span class="sd">                The MCP client instance to connect to the MCP server.</span>
+<span class="sd">            group_name (`str`, defaults to `"basic"`):</span>
+<span class="sd">                The group name that the tool functions will be added to.</span>
+<span class="sd">            enable_funcs (`list[str] | None`, optional):</span>
+<span class="sd">                The functions to be added into the toolkit. If `None`, all</span>
+<span class="sd">                tool functions within the MCP servers will be added.</span>
+<span class="sd">            disable_funcs (`list[str] | None`, optional):</span>
+<span class="sd">                The functions that will be filtered out. If `None`, no</span>
+<span class="sd">                tool functions will be filtered out.</span>
+<span class="sd">            preset_kwargs_mapping: (`Optional[dict[str, dict[str, Any]]]`, \</span>
+<span class="sd">            defaults to `None`):</span>
+<span class="sd">                The preset keyword arguments mapping, whose keys are the tool</span>
+<span class="sd">                function names and values are the preset keyword arguments.</span>
+<span class="sd">            postprocess_func (`Callable[[ToolUseBlock, ToolResponse], \</span>
+<span class="sd">            ToolResponse | None] | None`, optional):</span>
+<span class="sd">                A post-processing function that will be called after the tool</span>
+<span class="sd">                function is executed, taking the tool call block and tool</span>
+<span class="sd">                response as arguments. If it returns `None`, the tool</span>
+<span class="sd">                result will be returned as is. If it returns a</span>
+<span class="sd">                `ToolResponse`, the returned block will be used as the</span>
+<span class="sd">                final tool result.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="nb">isinstance</span><span class="p">(</span><span class="n">mcp_client</span><span class="p">,</span> <span class="n">StatefulClientBase</span><span class="p">)</span>
+            <span class="ow">and</span> <span class="ow">not</span> <span class="n">mcp_client</span><span class="o">.</span><span class="n">is_connected</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="s2">"The MCP client is not connected to the server. Use the "</span>
+                <span class="s2">"`connect()` method first."</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Check arguments for enable_funcs and disabled_funcs</span>
+        <span class="k">if</span> <span class="n">enable_funcs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">disable_funcs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">enable_funcs</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">all</span><span class="p">(</span>
+                <span class="nb">isinstance</span><span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">enable_funcs</span>
+            <span class="p">),</span> <span class="p">(</span>
+                <span class="s2">"Enable functions should be a list of strings, but got "</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">enable_funcs</span><span class="si">}</span><span class="s2">."</span>
+            <span class="p">)</span>
+
+            <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">disable_funcs</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">all</span><span class="p">(</span>
+                <span class="nb">isinstance</span><span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">disable_funcs</span>
+            <span class="p">),</span> <span class="p">(</span>
+                <span class="s2">"Disable functions should be a list of strings, but got "</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">disable_funcs</span><span class="si">}</span><span class="s2">."</span>
+            <span class="p">)</span>
+            <span class="n">intersection</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">enable_funcs</span><span class="p">)</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span>
+                <span class="nb">set</span><span class="p">(</span><span class="n">disable_funcs</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">intersection</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"The functions in enable_funcs and disable_funcs "</span>
+                <span class="sa">f</span><span class="s2">"should not overlap, but got </span><span class="si">{</span><span class="n">intersection</span><span class="si">}</span><span class="s2">."</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span>
+            <span class="n">preset_kwargs_mapping</span> <span class="ow">is</span> <span class="kc">None</span>
+            <span class="ow">or</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">preset_kwargs_mapping</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"The preset_kwargs_mapping must be a dictionary or None, "</span>
+                <span class="sa">f</span><span class="s2">"but got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">preset_kwargs_mapping</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="n">tool_names</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">mcp_tool</span> <span class="ow">in</span> <span class="k">await</span> <span class="n">mcp_client</span><span class="o">.</span><span class="n">list_tools</span><span class="p">():</span>
+            <span class="c1"># Skip the functions that are not in the enable_funcs if</span>
+            <span class="c1"># enable_funcs is not None</span>
+            <span class="k">if</span> <span class="n">enable_funcs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">mcp_tool</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">enable_funcs</span><span class="p">:</span>
+                <span class="k">continue</span>
+
+            <span class="c1"># Skip the disabled functions</span>
+            <span class="k">if</span> <span class="n">disable_funcs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">mcp_tool</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">disable_funcs</span><span class="p">:</span>
+                <span class="k">continue</span>
+
+            <span class="n">tool_names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">mcp_tool</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+            <span class="c1"># Obtain callable function object</span>
+            <span class="n">func_obj</span> <span class="o">=</span> <span class="k">await</span> <span class="n">mcp_client</span><span class="o">.</span><span class="n">get_callable_function</span><span class="p">(</span>
+                <span class="n">func_name</span><span class="o">=</span><span class="n">mcp_tool</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                <span class="n">wrap_tool_result</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="p">)</span>
+
+            <span class="c1"># Prepare preset kwargs</span>
+            <span class="n">preset_kwargs</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="n">preset_kwargs_mapping</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">preset_kwargs</span> <span class="o">=</span> <span class="n">preset_kwargs_mapping</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">mcp_tool</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="p">{})</span>
+
+            <span class="c1"># TODO: handle mcp_server_name</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">register_tool_function</span><span class="p">(</span>
+                <span class="n">tool_func</span><span class="o">=</span><span class="n">func_obj</span><span class="p">,</span>
+                <span class="n">group_name</span><span class="o">=</span><span class="n">group_name</span><span class="p">,</span>
+                <span class="n">preset_kwargs</span><span class="o">=</span><span class="n">preset_kwargs</span><span class="p">,</span>
+                <span class="n">postprocess_func</span><span class="o">=</span><span class="n">postprocess_func</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">"Registered </span><span class="si">%d</span><span class="s2"> tool functions from MCP: </span><span class="si">%s</span><span class="s2">."</span><span class="p">,</span>
+            <span class="nb">len</span><span class="p">(</span><span class="n">tool_names</span><span class="p">),</span>
+            <span class="s2">", "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">tool_names</span><span class="p">),</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Toolkit.state_dict">
+<a class="viewcode-back" href="../../../api/agentscope.tool.html#agentscope.tool.Toolkit.state_dict">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">state_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Get the state dictionary of the toolkit.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `dict[str, Any]`:</span>
+<span class="sd">                A dictionary containing the active tool group names.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">"active_groups"</span><span class="p">:</span> <span class="p">[</span>
+                <span class="n">name</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">group</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">groups</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">group</span><span class="o">.</span><span class="n">active</span>
+            <span class="p">],</span>
+        <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="Toolkit.load_state_dict">
+<a class="viewcode-back" href="../../../api/agentscope.tool.html#agentscope.tool.Toolkit.load_state_dict">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load_state_dict</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">state_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+        <span class="n">strict</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Load the state dictionary into the toolkit.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            state_dict (`dict`):</span>
+<span class="sd">                The state dictionary to load, which should have "active_groups"</span>
+<span class="sd">                key and its value must be a list of group names.</span>
+<span class="sd">            strict (`bool`, defaults to `True`):</span>
+<span class="sd">                If `True`, raises an error if any key in the module is not</span>
+<span class="sd">                found in the state_dict. If `False`, skips missing keys.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">state_dict</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span>
+            <span class="ow">or</span> <span class="s2">"active_groups"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">state_dict</span>
+            <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">state_dict</span><span class="p">[</span><span class="s2">"active_groups"</span><span class="p">],</span> <span class="nb">list</span><span class="p">)</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"The state_dict for toolkit must be a dictionary with "</span>
+                <span class="s2">"active_groups key and its value must be a list, "</span>
+                <span class="sa">f</span><span class="s2">"but got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">state_dict</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">strict</span> <span class="ow">and</span> <span class="nb">list</span><span class="p">(</span><span class="n">state_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">!=</span> <span class="p">[</span><span class="s2">"active_groups"</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"Get additional keys in the state_dict: "</span>
+                <span class="sa">f</span><span class="s1">'</span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">state_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="si">}</span><span class="s1">, but only "active_groups" '</span>
+                <span class="s2">"is expected."</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">group_name</span><span class="p">,</span> <span class="n">group</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">groups</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">group_name</span> <span class="ow">in</span> <span class="n">state_dict</span><span class="p">[</span><span class="s2">"active_groups"</span><span class="p">]:</span>
+                <span class="n">group</span><span class="o">.</span><span class="n">active</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">group</span><span class="o">.</span><span class="n">active</span> <span class="o">=</span> <span class="kc">False</span></div>
+
+
+<div class="viewcode-block" id="Toolkit.get_activated_notes">
+<a class="viewcode-back" href="../../../api/agentscope.tool.html#agentscope.tool.Toolkit.get_activated_notes">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_activated_notes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Get the notes from the active tool groups, which can be used to</span>
+<span class="sd">        construct the system prompt for the agent.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `str`:</span>
+<span class="sd">                The combined notes from the active tool groups.</span>
+<span class="sd">        """</span>
+        <span class="n">collected_notes</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">group_name</span><span class="p">,</span> <span class="n">group</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">groups</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">group</span><span class="o">.</span><span class="n">active</span> <span class="ow">and</span> <span class="n">group</span><span class="o">.</span><span class="n">notes</span><span class="p">:</span>
+                <span class="n">collected_notes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                        <span class="p">[</span><span class="sa">f</span><span class="s2">"## About </span><span class="si">{</span><span class="n">group_name</span><span class="si">}</span><span class="s2"> Tools"</span><span class="p">,</span> <span class="n">group</span><span class="o">.</span><span class="n">notes</span><span class="p">],</span>
+                    <span class="p">),</span>
+                <span class="p">)</span>
+        <span class="k">return</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">collected_notes</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Toolkit.reset_equipped_tools">
+<a class="viewcode-back" href="../../../api/agentscope.tool.html#agentscope.tool.Toolkit.reset_equipped_tools">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">reset_equipped_tools</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ToolResponse</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Choose appropriate tools to equip yourself with, so that you can</span>
+<span class="sd">        finish your task. Each argument in this function represents a group</span>
+<span class="sd">        of related tools, and the value indicates whether to activate the</span>
+<span class="sd">        group or not. Besides, the tool response of this function will</span>
+<span class="sd">        contain the precaution notes for using them, which you</span>
+<span class="sd">        **MUST pay attention to and follow**. You can also reuse this function</span>
+<span class="sd">        to check the notes of the tool groups.</span>
+
+<span class="sd">        Note this function will `reset` the tools, so that the original tools</span>
+<span class="sd">        will be removed first.</span>
+<span class="sd">        """</span>
+
+        <span class="n">to_activate</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+                    <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+                        <span class="n">TextBlock</span><span class="p">(</span>
+                            <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                            <span class="n">text</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Invalid arguments: the argument </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> "</span>
+                            <span class="sa">f</span><span class="s2">"should be a bool value, but got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span><span class="p">,</span>
+                        <span class="p">),</span>
+                    <span class="p">],</span>
+                <span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">value</span><span class="p">:</span>
+                <span class="n">to_activate</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">update_tool_groups</span><span class="p">(</span><span class="n">to_activate</span><span class="p">,</span> <span class="n">active</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="n">notes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_activated_notes</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+            <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+                <span class="n">TextBlock</span><span class="p">(</span>
+                    <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                    <span class="n">text</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Active tool groups successfully: </span><span class="si">{</span><span class="n">to_activate</span><span class="si">}</span><span class="s2">. "</span>
+                    <span class="s2">"You MUST follow these notes to use the tools:</span><span class="se">\n</span><span class="s2">"</span>
+                    <span class="sa">f</span><span class="s2">"&lt;notes&gt;</span><span class="si">{</span><span class="n">notes</span><span class="si">}</span><span class="s2">&lt;/notes&gt;"</span><span class="p">,</span>
+                <span class="p">),</span>
+            <span class="p">],</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Toolkit.clear">
+<a class="viewcode-back" href="../../../api/agentscope.tool.html#agentscope.tool.Toolkit.clear">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">clear</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Clear the toolkit, removing all tool functions and groups."""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tools</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">groups</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_tool_function</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">func_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Check if the tool function already registered in the toolkit. If</span>
+<span class="sd">        so, raise a ValueError."""</span>
+        <span class="k">if</span> <span class="n">func_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">tools</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"A function with name '</span><span class="si">{</span><span class="n">func_name</span><span class="si">}</span><span class="s2"> is already registered "</span>
+                <span class="s2">"in the toolkit."</span><span class="p">,</span>
+            <span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_parse_tool_function</span><span class="p">(</span>
+        <span class="n">tool_func</span><span class="p">:</span> <span class="n">ToolFunction</span><span class="p">,</span>
+        <span class="n">include_long_description</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+        <span class="n">include_var_positional</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+        <span class="n">include_var_keyword</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Extract JSON schema from the tool function's docstring"""</span>
+        <span class="n">docstring</span> <span class="o">=</span> <span class="n">parse</span><span class="p">(</span><span class="n">tool_func</span><span class="o">.</span><span class="vm">__doc__</span><span class="p">)</span>
+        <span class="n">params_docstring</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">_</span><span class="o">.</span><span class="n">arg_name</span><span class="p">:</span> <span class="n">_</span><span class="o">.</span><span class="n">description</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">docstring</span><span class="o">.</span><span class="n">params</span>
+        <span class="p">}</span>
+
+        <span class="c1"># Function description</span>
+        <span class="n">descriptions</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="n">docstring</span><span class="o">.</span><span class="n">short_description</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">descriptions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">docstring</span><span class="o">.</span><span class="n">short_description</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">include_long_description</span> <span class="ow">and</span> <span class="n">docstring</span><span class="o">.</span><span class="n">long_description</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">descriptions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">docstring</span><span class="o">.</span><span class="n">long_description</span><span class="p">)</span>
+
+        <span class="n">func_description</span> <span class="o">=</span> <span class="s2">"</span><span class="se">\n\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">descriptions</span><span class="p">)</span>
+
+        <span class="c1"># Create a dynamic model with the function signature</span>
+        <span class="n">fields</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">inspect</span><span class="o">.</span><span class="n">signature</span><span class="p">(</span><span class="n">tool_func</span><span class="p">)</span><span class="o">.</span><span class="n">parameters</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="c1"># Skip the `self` and `cls` parameters</span>
+            <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"self"</span><span class="p">,</span> <span class="s2">"cls"</span><span class="p">]:</span>
+                <span class="k">continue</span>
+
+            <span class="c1"># Handle `**kwargs`</span>
+            <span class="k">if</span> <span class="n">param</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="n">inspect</span><span class="o">.</span><span class="n">Parameter</span><span class="o">.</span><span class="n">VAR_KEYWORD</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">include_var_keyword</span><span class="p">:</span>
+                    <span class="k">continue</span>
+
+                <span class="n">fields</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="n">param</span><span class="o">.</span><span class="n">annotation</span> <span class="o">==</span> <span class="n">inspect</span><span class="o">.</span><span class="n">Parameter</span><span class="o">.</span><span class="n">empty</span>
+                    <span class="k">else</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">param</span><span class="o">.</span><span class="n">annotation</span><span class="p">],</span>  <span class="c1"># type: ignore</span>
+                    <span class="n">Field</span><span class="p">(</span>
+                        <span class="n">description</span><span class="o">=</span><span class="n">params_docstring</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">"**</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                            <span class="n">params_docstring</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+                        <span class="p">),</span>
+                        <span class="n">default</span><span class="o">=</span><span class="p">{}</span>
+                        <span class="k">if</span> <span class="n">param</span><span class="o">.</span><span class="n">default</span> <span class="ow">is</span> <span class="n">param</span><span class="o">.</span><span class="n">empty</span>
+                        <span class="k">else</span> <span class="n">param</span><span class="o">.</span><span class="n">default</span><span class="p">,</span>
+                    <span class="p">),</span>
+                <span class="p">)</span>
+
+            <span class="k">elif</span> <span class="n">param</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="n">inspect</span><span class="o">.</span><span class="n">Parameter</span><span class="o">.</span><span class="n">VAR_POSITIONAL</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">include_var_positional</span><span class="p">:</span>
+                    <span class="k">continue</span>
+
+                <span class="n">fields</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="nb">list</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="n">param</span><span class="o">.</span><span class="n">annotation</span> <span class="o">==</span> <span class="n">inspect</span><span class="o">.</span><span class="n">Parameter</span><span class="o">.</span><span class="n">empty</span>
+                    <span class="k">else</span> <span class="nb">list</span><span class="p">[</span><span class="n">param</span><span class="o">.</span><span class="n">annotation</span><span class="p">],</span>  <span class="c1"># type: ignore</span>
+                    <span class="n">Field</span><span class="p">(</span>
+                        <span class="n">description</span><span class="o">=</span><span class="n">params_docstring</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">"*</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                            <span class="n">params_docstring</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+                        <span class="p">),</span>
+                        <span class="n">default</span><span class="o">=</span><span class="p">[]</span>
+                        <span class="k">if</span> <span class="n">param</span><span class="o">.</span><span class="n">default</span> <span class="ow">is</span> <span class="n">param</span><span class="o">.</span><span class="n">empty</span>
+                        <span class="k">else</span> <span class="n">param</span><span class="o">.</span><span class="n">default</span><span class="p">,</span>
+                    <span class="p">),</span>
+                <span class="p">)</span>
+
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">fields</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">Any</span>
+                    <span class="k">if</span> <span class="n">param</span><span class="o">.</span><span class="n">annotation</span> <span class="o">==</span> <span class="n">inspect</span><span class="o">.</span><span class="n">Parameter</span><span class="o">.</span><span class="n">empty</span>
+                    <span class="k">else</span> <span class="n">param</span><span class="o">.</span><span class="n">annotation</span><span class="p">,</span>
+                    <span class="n">Field</span><span class="p">(</span>
+                        <span class="n">description</span><span class="o">=</span><span class="n">params_docstring</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+                        <span class="n">default</span><span class="o">=...</span>
+                        <span class="k">if</span> <span class="n">param</span><span class="o">.</span><span class="n">default</span> <span class="ow">is</span> <span class="n">param</span><span class="o">.</span><span class="n">empty</span>
+                        <span class="k">else</span> <span class="n">param</span><span class="o">.</span><span class="n">default</span><span class="p">,</span>
+                    <span class="p">),</span>
+                <span class="p">)</span>
+
+        <span class="n">base_model</span> <span class="o">=</span> <span class="n">create_model</span><span class="p">(</span>
+            <span class="s2">"_StructuredOutputDynamicClass"</span><span class="p">,</span>
+            <span class="n">__config__</span><span class="o">=</span><span class="n">ConfigDict</span><span class="p">(</span><span class="n">arbitrary_types_allowed</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+            <span class="o">**</span><span class="n">fields</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">params_json_schema</span> <span class="o">=</span> <span class="n">base_model</span><span class="o">.</span><span class="n">model_json_schema</span><span class="p">()</span>
+
+        <span class="c1"># Remove the title from the json schema</span>
+        <span class="n">_remove_title_field</span><span class="p">(</span><span class="n">params_json_schema</span><span class="p">)</span>
+
+        <span class="n">func_json_schema</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"function"</span><span class="p">,</span>
+            <span class="s2">"function"</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">"name"</span><span class="p">:</span> <span class="n">tool_func</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+                <span class="s2">"parameters"</span><span class="p">:</span> <span class="n">params_json_schema</span><span class="p">,</span>
+            <span class="p">},</span>
+        <span class="p">}</span>
+
+        <span class="k">if</span> <span class="n">func_description</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="s2">""</span><span class="p">]:</span>
+            <span class="n">func_json_schema</span><span class="p">[</span><span class="s2">"function"</span><span class="p">][</span><span class="s2">"description"</span><span class="p">]</span> <span class="o">=</span> <span class="n">func_description</span>
+
+        <span class="k">return</span> <span class="n">func_json_schema</span></div>
+
+</pre></div>
+        

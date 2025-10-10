@@ -1,0 +1,443 @@
+<!-- Title: agentscope.agent._user_input - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/agent/_user_input.html -->
+
+          <h1>agentscope.agent._user_input 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The user input related classes."""</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json.decoder</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">queue</span><span class="w"> </span><span class="kn">import</span> <span class="n">Queue</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">threading</span><span class="w"> </span><span class="kn">import</span> <span class="n">Event</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Type</span><span class="p">,</span> <span class="n">List</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">jsonschema</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">requests</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">shortuuid</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">socketio</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json5</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">..</span><span class="w"> </span><span class="kn">import</span> <span class="n">_config</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..message</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">TextBlock</span><span class="p">,</span>
+    <span class="n">VideoBlock</span><span class="p">,</span>
+    <span class="n">AudioBlock</span><span class="p">,</span>
+    <span class="n">ImageBlock</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="UserInputData">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.UserInputData">[文档]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">UserInputData</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""The user input data."""</span>
+
+    <span class="n">blocks_input</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">TextBlock</span> <span class="o">|</span> <span class="n">ImageBlock</span> <span class="o">|</span> <span class="n">AudioBlock</span> <span class="o">|</span> <span class="n">VideoBlock</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="w">    </span><span class="sd">"""The text input from the user"""</span>
+
+    <span class="n">structured_input</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="w">    </span><span class="sd">"""The structured input from the user"""</span></div>
+
+
+
+<div class="viewcode-block" id="UserInputBase">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.UserInputBase">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">UserInputBase</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""The base class used to handle the user input from different sources."""</span>
+
+<div class="viewcode-block" id="UserInputBase.__call__">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.UserInputBase.__call__">[文档]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">agent_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">agent_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+        <span class="n">structured_model</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">BaseModel</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">UserInputData</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""The user input method, which returns the user input and the</span>
+<span class="sd">        required structured data.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            agent_id (`str`):</span>
+<span class="sd">                The agent identifier.</span>
+<span class="sd">            agent_name (`str`):</span>
+<span class="sd">                The agent name.</span>
+<span class="sd">            structured_model (`Type[BaseModel] | None`, optional):</span>
+<span class="sd">                A base model class that defines the structured input format.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `UserInputData`:</span>
+<span class="sd">                The user input data.</span>
+<span class="sd">        """</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="TerminalUserInput">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.TerminalUserInput">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">TerminalUserInput</span><span class="p">(</span><span class="n">UserInputBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The terminal user input."""</span>
+
+<div class="viewcode-block" id="TerminalUserInput.__init__">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.TerminalUserInput.__init__">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_hint</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"User Input: "</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize the terminal user input with a hint."""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">input_hint</span> <span class="o">=</span> <span class="n">input_hint</span></div>
+
+
+<div class="viewcode-block" id="TerminalUserInput.__call__">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.TerminalUserInput.__call__">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">agent_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">agent_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+        <span class="n">structured_model</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">BaseModel</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">UserInputData</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Handle the user input from the terminal.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            agent_id (`str`):</span>
+<span class="sd">                The agent identifier.</span>
+<span class="sd">            agent_name (`str`):</span>
+<span class="sd">                The agent name.</span>
+<span class="sd">            structured_model (`Type[BaseModel] | None`, optional):</span>
+<span class="sd">                A base model class that defines the structured input format.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `UserInputData`:</span>
+<span class="sd">                The user input data.</span>
+<span class="sd">        """</span>
+
+        <span class="n">text_input</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">input_hint</span><span class="p">)</span>
+
+        <span class="n">structured_input</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">structured_model</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">structured_input</span> <span class="o">=</span> <span class="p">{}</span>
+
+            <span class="n">json_schema</span> <span class="o">=</span> <span class="n">structured_model</span><span class="o">.</span><span class="n">model_json_schema</span><span class="p">()</span>
+            <span class="n">required</span> <span class="o">=</span> <span class="n">json_schema</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"required"</span><span class="p">,</span> <span class="p">[])</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">"Structured input (press Enter to skip for optional):)"</span><span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">json_schema</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"properties"</span><span class="p">)</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">requirements</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">item</span><span class="p">}</span>
+                <span class="n">requirements</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">"title"</span><span class="p">)</span>
+
+                <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+                    <span class="n">res</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\t</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">requirements</span><span class="si">}</span><span class="s2">): "</span><span class="p">)</span>
+
+                    <span class="k">if</span> <span class="n">res</span> <span class="o">==</span> <span class="s2">""</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">required</span><span class="p">:</span>
+                            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Key </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> is required."</span><span class="p">)</span>
+                            <span class="k">continue</span>
+
+                        <span class="n">res</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"default"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+                    <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"type"</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">"integer"</span><span class="p">:</span>
+                        <span class="k">try</span><span class="p">:</span>
+                            <span class="n">res</span> <span class="o">=</span> <span class="n">json5</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
+                        <span class="k">except</span> <span class="n">json</span><span class="o">.</span><span class="n">decoder</span><span class="o">.</span><span class="n">JSONDecodeError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                            <span class="nb">print</span><span class="p">(</span>
+                                <span class="s2">"</span><span class="se">\033</span><span class="s2">[31mInvalid input with error:</span><span class="se">\n</span><span class="s2">"</span>
+                                <span class="s2">"```</span><span class="se">\n</span><span class="s2">"</span>
+                                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span>
+                                <span class="s2">"```</span><span class="se">\033</span><span class="s2">[0m"</span><span class="p">,</span>
+                            <span class="p">)</span>
+                            <span class="k">continue</span>
+
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">jsonschema</span><span class="o">.</span><span class="n">validate</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">item</span><span class="p">)</span>
+                        <span class="n">structured_input</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">res</span>
+                        <span class="k">break</span>
+                    <span class="k">except</span> <span class="n">jsonschema</span><span class="o">.</span><span class="n">ValidationError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                        <span class="nb">print</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">"</span><span class="se">\033</span><span class="s2">[31mValidation error:</span><span class="se">\n</span><span class="s2">```</span><span class="se">\n</span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="se">\n</span><span class="s2">```</span><span class="se">\033</span><span class="s2">[0m"</span><span class="p">,</span>
+                        <span class="p">)</span>
+                        <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">UserInputData</span><span class="p">(</span>
+            <span class="n">blocks_input</span><span class="o">=</span><span class="p">[</span><span class="n">TextBlock</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="n">text_input</span><span class="p">)],</span>
+            <span class="n">structured_input</span><span class="o">=</span><span class="n">structured_input</span><span class="p">,</span>
+        <span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="StudioUserInput">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.StudioUserInput">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">StudioUserInput</span><span class="p">(</span><span class="n">UserInputBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The class that host the user input on the AgentScope Studio."""</span>
+
+    <span class="n">_websocket_namespace</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"/python"</span>
+
+<div class="viewcode-block" id="StudioUserInput.__init__">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.StudioUserInput.__init__">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">studio_url</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">run_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">max_retries</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
+        <span class="n">reconnect_attempts</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span>
+        <span class="n">reconnection_delay</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">reconnection_delay_max</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize the StudioUserInput object.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            studio_url (`str`):</span>
+<span class="sd">                The URL of the AgentScope Studio.</span>
+<span class="sd">            run_id (`str`):</span>
+<span class="sd">                The current run identity.</span>
+<span class="sd">            max_retries (`int`, defaults to `3`):</span>
+<span class="sd">                The maximum number of retries to get user input.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_is_connected</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_is_reconnecting</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">studio_url</span> <span class="o">=</span> <span class="n">studio_url</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">run_id</span> <span class="o">=</span> <span class="n">run_id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_retries</span> <span class="o">=</span> <span class="n">max_retries</span>
+
+        <span class="c1"># Init Websocket</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sio</span> <span class="o">=</span> <span class="n">socketio</span><span class="o">.</span><span class="n">Client</span><span class="p">(</span>
+            <span class="n">reconnection</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">reconnection_attempts</span><span class="o">=</span><span class="n">reconnect_attempts</span><span class="p">,</span>
+            <span class="n">reconnection_delay</span><span class="o">=</span><span class="n">reconnection_delay</span><span class="p">,</span>
+            <span class="n">reconnection_delay_max</span><span class="o">=</span><span class="n">reconnection_delay_max</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">input_queues</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">input_events</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="nd">@self</span><span class="o">.</span><span class="n">sio</span><span class="o">.</span><span class="n">on</span><span class="p">(</span><span class="s2">"connect"</span><span class="p">,</span> <span class="n">namespace</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_websocket_namespace</span><span class="p">)</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">on_connect</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_is_connected</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s1">'Connected to AgentScope Studio at "</span><span class="si">%s</span><span class="s1">" with '</span>
+                <span class="s1">'run name "</span><span class="si">%s</span><span class="s1">".'</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">studio_url</span><span class="p">,</span>
+                <span class="n">run_id</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">"View the run at: </span><span class="si">%s</span><span class="s2">/dashboard/projects/</span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">studio_url</span><span class="p">,</span>
+                <span class="n">_config</span><span class="o">.</span><span class="n">project</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="nd">@self</span><span class="o">.</span><span class="n">sio</span><span class="o">.</span><span class="n">on</span><span class="p">(</span><span class="s2">"disconnect"</span><span class="p">,</span> <span class="n">namespace</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_websocket_namespace</span><span class="p">)</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">on_disconnect</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_is_connected</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">"Disconnected from AgentScope Studio at </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">studio_url</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="nd">@self</span><span class="o">.</span><span class="n">sio</span><span class="o">.</span><span class="n">on</span><span class="p">(</span><span class="s2">"reconnect"</span><span class="p">,</span> <span class="n">namespace</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_websocket_namespace</span><span class="p">)</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">on_reconnect</span><span class="p">(</span><span class="n">attempt_number</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_is_connected</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_is_reconnecting</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">"Reconnected to AgentScope Studio at </span><span class="si">%s</span><span class="s2"> with run_id </span><span class="si">%s</span><span class="s2"> after "</span>
+                <span class="s2">"</span><span class="si">%d</span><span class="s2"> attempts"</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">studio_url</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">run_id</span><span class="p">,</span>
+                <span class="n">attempt_number</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="nd">@self</span><span class="o">.</span><span class="n">sio</span><span class="o">.</span><span class="n">on</span><span class="p">(</span><span class="s2">"reconnect_attempt"</span><span class="p">,</span> <span class="n">namespace</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_websocket_namespace</span><span class="p">)</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">on_reconnect_attempt</span><span class="p">(</span><span class="n">attempt_number</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_is_reconnecting</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">"Attempting to reconnect to AgentScope Studio at </span><span class="si">%s</span><span class="s2"> "</span>
+                <span class="s2">"(attempt </span><span class="si">%d</span><span class="s2">)"</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">studio_url</span><span class="p">,</span>
+                <span class="n">attempt_number</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="nd">@self</span><span class="o">.</span><span class="n">sio</span><span class="o">.</span><span class="n">on</span><span class="p">(</span><span class="s2">"reconnect_failed"</span><span class="p">,</span> <span class="n">namespace</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_websocket_namespace</span><span class="p">)</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">on_reconnect_failed</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_is_reconnecting</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                <span class="s2">"Failed to reconnect to AgentScope Studio at </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">studio_url</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="nd">@self</span><span class="o">.</span><span class="n">sio</span><span class="o">.</span><span class="n">on</span><span class="p">(</span><span class="s2">"reconnect_error"</span><span class="p">,</span> <span class="n">namespace</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_websocket_namespace</span><span class="p">)</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">on_reconnect_error</span><span class="p">(</span><span class="n">error</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                <span class="s2">"Error while reconnecting to AgentScope Studio at </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">studio_url</span><span class="p">,</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">error</span><span class="p">),</span>
+            <span class="p">)</span>
+
+        <span class="c1"># The AgentScope Studio backend send the "sendUserInput" event to</span>
+        <span class="c1"># the current python run</span>
+        <span class="nd">@self</span><span class="o">.</span><span class="n">sio</span><span class="o">.</span><span class="n">on</span><span class="p">(</span><span class="s2">"forwardUserInput"</span><span class="p">,</span> <span class="n">namespace</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_websocket_namespace</span><span class="p">)</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">receive_user_input</span><span class="p">(</span>
+            <span class="n">request_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+            <span class="n">blocks_input</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span>
+                <span class="n">TextBlock</span> <span class="o">|</span> <span class="n">ImageBlock</span> <span class="o">|</span> <span class="n">AudioBlock</span> <span class="o">|</span> <span class="n">VideoBlock</span>
+            <span class="p">],</span>
+            <span class="n">structured_input</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">request_id</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_queues</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">input_queues</span><span class="p">[</span><span class="n">request_id</span><span class="p">]</span><span class="o">.</span><span class="n">put</span><span class="p">(</span>
+                    <span class="n">UserInputData</span><span class="p">(</span>
+                        <span class="n">blocks_input</span><span class="o">=</span><span class="n">blocks_input</span><span class="p">,</span>
+                        <span class="n">structured_input</span><span class="o">=</span><span class="n">structured_input</span><span class="p">,</span>
+                    <span class="p">),</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">input_events</span><span class="p">[</span><span class="n">request_id</span><span class="p">]</span><span class="o">.</span><span class="n">set</span><span class="p">()</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">sio</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">studio_url</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="n">namespaces</span><span class="o">=</span><span class="p">[</span><span class="s2">"/python"</span><span class="p">],</span>
+                <span class="n">auth</span><span class="o">=</span><span class="p">{</span><span class="s2">"run_id"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_id</span><span class="p">},</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Failed to connect to AgentScope Studio at </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">studio_url</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_ensure_connected</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">30.0</span><span class="p">,</span>
+        <span class="n">check_interval</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">5.0</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Ensure the connection is established or wait for reconnection.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            timeout (`float`):</span>
+<span class="sd">                Maximum time to wait for reconnection in seconds. Defaults</span>
+<span class="sd">                to 30.0.</span>
+<span class="sd">            check_interval (`float`):</span>
+<span class="sd">                Interval between connection checks in seconds. Defaults to 1.0.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            `RuntimeError`:</span>
+<span class="sd">                If connection cannot be established within timeout.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_connected</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_reconnecting</span><span class="p">:</span>
+            <span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+            <span class="k">while</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_reconnecting</span><span class="p">:</span>
+                <span class="c1"># Check timeout</span>
+                <span class="n">elapsed_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span>
+                <span class="k">if</span> <span class="n">elapsed_time</span> <span class="o">&gt;</span> <span class="n">timeout</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">"Reconnection timeout after </span><span class="si">{</span><span class="n">elapsed_time</span><span class="si">}</span><span class="s2"> seconds"</span><span class="p">,</span>
+                    <span class="p">)</span>
+
+                <span class="c1"># Log status</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                    <span class="s2">"Waiting for reconnection... (</span><span class="si">%.1f</span><span class="s2">s / </span><span class="si">%.1f</span><span class="s2">s)"</span><span class="p">,</span>
+                    <span class="n">elapsed_time</span><span class="p">,</span>
+                    <span class="n">timeout</span><span class="p">,</span>
+                <span class="p">)</span>
+
+                <span class="c1"># Wait for next check</span>
+                <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">check_interval</span><span class="p">)</span>
+
+            <span class="c1"># After reconnection attempt completed, check final status</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_is_connected</span><span class="p">:</span>
+                <span class="k">return</span>
+
+        <span class="c1"># Not connected and not reconnecting</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Not connected to AgentScope Studio at </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">studio_url</span><span class="si">}</span><span class="s2">."</span><span class="p">,</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="StudioUserInput.__call__">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.StudioUserInput.__call__">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>  <span class="c1"># type: ignore[override]</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">agent_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">agent_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+        <span class="n">structured_model</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">BaseModel</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">UserInputData</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Get the user input from AgentScope Studio.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            agent_id (`str`):</span>
+<span class="sd">                The identity of the agent.</span>
+<span class="sd">            agent_name (`str`):</span>
+<span class="sd">                The name of the agent.</span>
+<span class="sd">            structured_model (`Type[BaseModel] | None`, optional):</span>
+<span class="sd">                The base model class of the structured input.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            `RuntimeError`:</span>
+<span class="sd">                Failed to get user input from AgentScope Studio.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `UserInputData`:</span>
+<span class="sd">                The user input.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_connected</span><span class="p">()</span>
+
+        <span class="n">request_id</span> <span class="o">=</span> <span class="n">shortuuid</span><span class="o">.</span><span class="n">uuid</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">input_queues</span><span class="p">[</span><span class="n">request_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">Queue</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">input_events</span><span class="p">[</span><span class="n">request_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">Event</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">structured_model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">structured_input</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">structured_input</span> <span class="o">=</span> <span class="n">structured_model</span><span class="o">.</span><span class="n">model_json_schema</span><span class="p">()</span>
+
+        <span class="n">n_retry</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">studio_url</span><span class="si">}</span><span class="s2">/trpc/requestUserInput"</span><span class="p">,</span>
+                    <span class="n">json</span><span class="o">=</span><span class="p">{</span>
+                        <span class="s2">"requestId"</span><span class="p">:</span> <span class="n">request_id</span><span class="p">,</span>
+                        <span class="s2">"runId"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_id</span><span class="p">,</span>
+                        <span class="s2">"agentId"</span><span class="p">:</span> <span class="n">agent_id</span><span class="p">,</span>
+                        <span class="s2">"agentName"</span><span class="p">:</span> <span class="n">agent_name</span><span class="p">,</span>
+                        <span class="s2">"structuredInput"</span><span class="p">:</span> <span class="n">structured_input</span><span class="p">,</span>
+                    <span class="p">},</span>
+                <span class="p">)</span>
+                <span class="n">response</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
+                <span class="k">break</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">n_retry</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_retries</span><span class="p">:</span>
+                    <span class="n">n_retry</span> <span class="o">+=</span> <span class="mi">1</span>
+                    <span class="k">continue</span>
+
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                    <span class="s2">"Failed to get user input from AgentScope Studio"</span><span class="p">,</span>
+                <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">input_events</span><span class="p">[</span><span class="n">request_id</span><span class="p">]</span><span class="o">.</span><span class="n">wait</span><span class="p">()</span>
+            <span class="n">response_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">input_queues</span><span class="p">[</span><span class="n">request_id</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">response_data</span>
+
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">input_queues</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">request_id</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">input_events</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">request_id</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__del__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Cleanup socket connection when object it destroyed"""</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">sio</span><span class="o">.</span><span class="n">disconnect</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                <span class="s2">"Failed to disconnect from AgentScope Studio at </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">studio_url</span><span class="p">,</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">),</span>
+            <span class="p">)</span></div>
+
+</pre></div>
+        

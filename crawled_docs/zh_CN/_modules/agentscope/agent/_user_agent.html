@@ -1,0 +1,154 @@
+<!-- Title: agentscope.agent._user_agent - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/agent/_user_agent.html -->
+
+          <h1>agentscope.agent._user_agent 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The user agent class."""</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Any</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">._agent_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">AgentBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">._user_input</span><span class="w"> </span><span class="kn">import</span> <span class="n">UserInputBase</span><span class="p">,</span> <span class="n">TerminalUserInput</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..message</span><span class="w"> </span><span class="kn">import</span> <span class="n">Msg</span>
+
+
+<div class="viewcode-block" id="UserAgent">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.UserAgent">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">UserAgent</span><span class="p">(</span><span class="n">AgentBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The class for user interaction, allowing developers to handle the user</span>
+<span class="sd">    input from different sources, such as web UI, cli, and other interfaces.</span>
+<span class="sd">    """</span>
+
+    <span class="n">_input_method</span><span class="p">:</span> <span class="n">UserInputBase</span> <span class="o">=</span> <span class="n">TerminalUserInput</span><span class="p">()</span>
+<span class="w">    </span><span class="sd">"""The user input method, can be overridden by calling the</span>
+<span class="sd">    `register_instance/class_input_method` function."""</span>
+
+<div class="viewcode-block" id="UserAgent.__init__">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.UserAgent.__init__">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize the user agent with a name."""</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span></div>
+
+
+<div class="viewcode-block" id="UserAgent.reply">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.UserAgent.reply">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">reply</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">msg</span><span class="p">:</span> <span class="n">Msg</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">Msg</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">structured_model</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">BaseModel</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Msg</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Receive input message(s) and generate a reply message from the user.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            msg (`Msg | list[Msg] | None`, defaults to `None`):</span>
+<span class="sd">                The message(s) to be replied. If `None`, the agent will wait</span>
+<span class="sd">                for user input.</span>
+<span class="sd">            structured_model (`Type[BaseModel] | None`, defaults to `None`):</span>
+<span class="sd">                A child class of `pydantic.BaseModel` that defines the</span>
+<span class="sd">                structured output format. If provided, the user will be</span>
+<span class="sd">                prompted to fill in the required fields.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `Msg`:</span>
+<span class="sd">                The reply message generated by the user.</span>
+<span class="sd">        """</span>
+
+        <span class="c1"># Get the input from the specified input method.</span>
+        <span class="n">input_data</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_input_method</span><span class="p">(</span>
+            <span class="n">agent_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+            <span class="n">agent_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">structured_model</span><span class="o">=</span><span class="n">structured_model</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">blocks_input</span> <span class="o">=</span> <span class="n">input_data</span><span class="o">.</span><span class="n">blocks_input</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">blocks_input</span>
+            <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">blocks_input</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span>
+            <span class="ow">and</span> <span class="n">blocks_input</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"type"</span><span class="p">)</span> <span class="o">==</span> <span class="s2">"text"</span>
+        <span class="p">):</span>
+            <span class="c1"># Turn blocks_input into a string if only one text block exists</span>
+            <span class="n">blocks_input</span> <span class="o">=</span> <span class="n">blocks_input</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"text"</span><span class="p">)</span>
+
+        <span class="n">msg</span> <span class="o">=</span> <span class="n">Msg</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">content</span><span class="o">=</span><span class="n">blocks_input</span><span class="p">,</span>
+            <span class="n">role</span><span class="o">=</span><span class="s2">"user"</span><span class="p">,</span>
+            <span class="n">metadata</span><span class="o">=</span><span class="n">input_data</span><span class="o">.</span><span class="n">structured_input</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">msg</span></div>
+
+
+<div class="viewcode-block" id="UserAgent.override_instance_input_method">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.UserAgent.override_instance_input_method">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">override_instance_input_method</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">input_method</span><span class="p">:</span> <span class="n">UserInputBase</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Override the input method of the current UserAgent instance.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            input_method (`UserInputBase`):</span>
+<span class="sd">                The callable input method, which should be an object of a</span>
+<span class="sd">                class that inherits from `UserInputBase`.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">input_method</span><span class="p">,</span> <span class="n">UserInputBase</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"The input method should be an instance of the child class "</span>
+                <span class="sa">f</span><span class="s2">"of `UserInputBase`, but got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">input_method</span><span class="p">)</span><span class="si">}</span><span class="s2"> instead."</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_input_method</span> <span class="o">=</span> <span class="n">input_method</span></div>
+
+
+<div class="viewcode-block" id="UserAgent.override_class_input_method">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.UserAgent.override_class_input_method">[文档]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">override_class_input_method</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">input_method</span><span class="p">:</span> <span class="n">UserInputBase</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Override the input method of the current UserAgent class.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            input_method (`UserInputBase`):</span>
+<span class="sd">                The callable input method, which should be an object of a</span>
+<span class="sd">                class that inherits from `UserInputBase`.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">input_method</span><span class="p">,</span> <span class="n">UserInputBase</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"The input method should be an instance of the child class "</span>
+                <span class="sa">f</span><span class="s2">"of `UserInputBase`, but got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">input_method</span><span class="p">)</span><span class="si">}</span><span class="s2"> instead."</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">_input_method</span> <span class="o">=</span> <span class="n">input_method</span></div>
+
+
+<div class="viewcode-block" id="UserAgent.handle_interrupt">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.UserAgent.handle_interrupt">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">handle_interrupt</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Msg</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""The post-processing logic when the reply is interrupted by the</span>
+<span class="sd">        user or something else."""</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"The handle_interrupt function is not implemented in "</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="UserAgent.observe">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.UserAgent.observe">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">observe</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">:</span> <span class="n">Msg</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">Msg</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Observe the message(s) from the other agents or the environment."""</span></div>
+</div>
+
+</pre></div>
+        

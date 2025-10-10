@@ -1,0 +1,327 @@
+<!-- Title: 模型 - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/tutorial/task_model.html -->
+
+          <div class="sphx-glr-download-link-note admonition note">
+<p class="admonition-title">备注</p>
+<p><a class="reference internal" href="#sphx-glr-download-tutorial-task-model-py"><span class="std std-ref">Go to the end</span></a>
+to download the full example code.</p>
+</div>
+<section class="sphx-glr-example-title" id="model">
+<span id="sphx-glr-tutorial-task-model-py"></span><span id="id1"></span><h1>模型<a class="headerlink" href="#model" title="Link to this heading">¶</a></h1>
+<p>在本教程中，我们介绍 AgentScope 中集成的模型 API、如何使用它们，以及如何集成新的模型 API。
+AgentScope 目前支持的模型 API 和模型提供商包括：</p>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>API</p></th>
+<th class="head"><p>类</p></th>
+<th class="head"><p>兼容</p></th>
+<th class="head"><p>流式</p></th>
+<th class="head"><p>工具</p></th>
+<th class="head"><p>视觉</p></th>
+<th class="head"><p>推理</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>OpenAI</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">OpenAIChatModel</span></code></p></td>
+<td><p>vLLM, DeepSeek</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+</tr>
+<tr class="row-odd"><td><p>DashScope</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">DashScopeChatModel</span></code></p></td>
+<td></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+</tr>
+<tr class="row-even"><td><p>Anthropic</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">AnthropicChatModel</span></code></p></td>
+<td></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+</tr>
+<tr class="row-odd"><td><p>Gemini</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">GeminiChatModel</span></code></p></td>
+<td></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+</tr>
+<tr class="row-even"><td><p>Ollama</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">OllamaChatModel</span></code></p></td>
+<td></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>当使用 vLLM 时，需要在部署时为不同模型配置相应的工具调用参数，例如 <code class="docutils literal notranslate"><span class="pre">--enable-auto-tool-choice</span></code>、<code class="docutils literal notranslate"><span class="pre">--tool-call-parser</span></code> 等参数。更多详情请参考 <a class="reference external" href="https://docs.vllm.ai/en/latest/features/tool_calling.html">vLLM 官方文档</a>。</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>兼容 OpenAI API 的模型（例如 vLLM 部署的模型），推荐使用 <code class="docutils literal notranslate"><span class="pre">OpenAIChatModel</span></code>，并通过 <code class="docutils literal notranslate"><span class="pre">client_args={"base_url":</span> <span class="pre">"http://your-api-endpoint"}</span></code> 参数指定 API 端点。例如：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">OpenAIChatModel</span><span class="p">(</span><span class="n">client_args</span><span class="o">=</span><span class="p">{</span><span class="s2">"base_url"</span><span class="p">:</span> <span class="s2">"http://localhost:8000/v1"</span><span class="p">})</span>
+</pre></div>
+</div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>模型的行为参数（如温度、最大长度等）可以通过 <code class="docutils literal notranslate"><span class="pre">generate_kwargs</span></code> 参数在构造函数中提前设定。例如：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">OpenAIChatModel</span><span class="p">(</span><span class="n">generate_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">"temperature"</span><span class="p">:</span> <span class="mf">0.3</span><span class="p">,</span> <span class="s2">"max_tokens"</span><span class="p">:</span> <span class="mi">1000</span><span class="p">})</span>
+</pre></div>
+</div>
+</div>
+<p>为了提供统一的模型接口，上述所有类均被统一为：</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">__call__</span></code> 函数的前三个参数是 <code class="docutils literal notranslate"><span class="pre">messages</span></code>，<code class="docutils literal notranslate"><span class="pre">tools</span></code> 和 <code class="docutils literal notranslate"><span class="pre">tool_choice</span></code>，分别是输入消息，工具函数的 JSON schema，以及工具选择的模式。</p></li>
+<li><p>非流式返回时，返回类型是 <code class="docutils literal notranslate"><span class="pre">ChatResponse</span></code> 实例；流式返回时，返回的是 <code class="docutils literal notranslate"><span class="pre">ChatResponse</span></code> 的异步生成器。</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>不同的模型 API 在输入消息格式上有所不同，AgentScope 通过 formatter 模块处理消息的转换，请参考 <span class="xref std std-ref">format</span>。</p>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">ChatResponse</span></code> 包含大模型生成的推理/文本/工具使用内容、身份、创建时间和使用信息。</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.message</span><span class="w"> </span><span class="kn">import</span> <span class="n">TextBlock</span><span class="p">,</span> <span class="n">ToolUseBlock</span><span class="p">,</span> <span class="n">ThinkingBlock</span><span class="p">,</span> <span class="n">Msg</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.model</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChatResponse</span><span class="p">,</span> <span class="n">DashScopeChatModel</span>
+
+<span class="n">response</span> <span class="o">=</span> <span class="n">ChatResponse</span><span class="p">(</span>
+    <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+        <span class="n">ThinkingBlock</span><span class="p">(</span>
+            <span class="nb">type</span><span class="o">=</span><span class="s2">"thinking"</span><span class="p">,</span>
+            <span class="n">thinking</span><span class="o">=</span><span class="s2">"我应该在 Google 上搜索 AgentScope。"</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="n">TextBlock</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="s2">"我将在 Google 上搜索 AgentScope。"</span><span class="p">),</span>
+        <span class="n">ToolUseBlock</span><span class="p">(</span>
+            <span class="nb">type</span><span class="o">=</span><span class="s2">"tool_use"</span><span class="p">,</span>
+            <span class="nb">id</span><span class="o">=</span><span class="s2">"642n298gjna"</span><span class="p">,</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">"google_search"</span><span class="p">,</span>
+            <span class="nb">input</span><span class="o">=</span><span class="p">{</span><span class="s2">"query"</span><span class="p">:</span> <span class="s2">"AgentScope"</span><span class="p">},</span>
+        <span class="p">),</span>
+    <span class="p">],</span>
+<span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>ChatResponse(content=[{'type': 'thinking', 'thinking': '我应该在 Google 上搜索 AgentScope。'}, {'type': 'text', 'text': '我将在 Google 上搜索 AgentScope。'}, {'type': 'tool_use', 'id': '642n298gjna', 'name': 'google_search', 'input': {'query': 'AgentScope'}}], id='2025-10-03 14:52:06.220_76dff3', created_at='2025-10-03 14:52:06.220', type='chat', usage=None, metadata=None)
+</pre></div>
+</div>
+<p>以 <code class="docutils literal notranslate"><span class="pre">DashScopeChatModel</span></code> 为例，调用和返回结果如下：</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">example_model_call</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""使用 DashScopeChatModel 的示例。"""</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">DashScopeChatModel</span><span class="p">(</span>
+        <span class="n">model_name</span><span class="o">=</span><span class="s2">"qwen-max"</span><span class="p">,</span>
+        <span class="n">api_key</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"DASHSCOPE_API_KEY"</span><span class="p">],</span>
+        <span class="n">stream</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">res</span> <span class="o">=</span> <span class="k">await</span> <span class="n">model</span><span class="p">(</span>
+        <span class="n">messages</span><span class="o">=</span><span class="p">[</span>
+            <span class="p">{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"你好！"</span><span class="p">},</span>
+        <span class="p">],</span>
+    <span class="p">)</span>
+
+    <span class="c1"># 您可以直接使用响应内容创建 ``Msg`` 对象</span>
+    <span class="n">msg_res</span> <span class="o">=</span> <span class="n">Msg</span><span class="p">(</span><span class="s2">"Friday"</span><span class="p">,</span> <span class="n">res</span><span class="o">.</span><span class="n">content</span><span class="p">,</span> <span class="s2">"assistant"</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"LLM 返回结果:"</span><span class="p">,</span> <span class="n">res</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"作为 Msg 的响应:"</span><span class="p">,</span> <span class="n">msg_res</span><span class="p">)</span>
+
+
+<span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">example_model_call</span><span class="p">())</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>LLM 返回结果: ChatResponse(content=[{'type': 'text', 'text': '你好！有什么我能帮助你的吗？'}], id='2025-10-03 14:52:07.612_df747f', created_at='2025-10-03 14:52:07.612', type='chat', usage=ChatUsage(input_tokens=10, output_tokens=8, time=1.391126, type='chat'), metadata=None)
+作为 Msg 的响应: Msg(id='FTbncbcxyuKdcGpqo3uSb7', name='Friday', content=[{'type': 'text', 'text': '你好！有什么我能帮助你的吗？'}], role='assistant', metadata=None, timestamp='2025-10-03 14:52:07.612', invocation_id='None')
+</pre></div>
+</div>
+<section id="id2">
+<h2>流式返回<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h2>
+<p>要启用流式返回，请在模型的构造函数中将 <code class="docutils literal notranslate"><span class="pre">stream</span></code> 参数设置为 <code class="docutils literal notranslate"><span class="pre">True</span></code>。
+流式返回中，<code class="docutils literal notranslate"><span class="pre">__call__</span></code> 方法将返回一个 <strong>异步生成器</strong>，该生成器迭代返回 <code class="docutils literal notranslate"><span class="pre">ChatResponse</span></code> 实例。</p>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>AgentScope 中的流式返回结果为 <strong>累加式</strong>，这意味着每个 chunk 中的内容包含所有之前的内容加上新生成的内容。</p>
+</div>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">example_streaming</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""使用流式模型的示例。"""</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">DashScopeChatModel</span><span class="p">(</span>
+        <span class="n">model_name</span><span class="o">=</span><span class="s2">"qwen-max"</span><span class="p">,</span>
+        <span class="n">api_key</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"DASHSCOPE_API_KEY"</span><span class="p">],</span>
+        <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">generator</span> <span class="o">=</span> <span class="k">await</span> <span class="n">model</span><span class="p">(</span>
+        <span class="n">messages</span><span class="o">=</span><span class="p">[</span>
+            <span class="p">{</span>
+                <span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span>
+                <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"从 1 数到 20，只报告数字，不要任何其他信息。"</span><span class="p">,</span>
+            <span class="p">},</span>
+        <span class="p">],</span>
+    <span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"响应的类型:"</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">generator</span><span class="p">))</span>
+
+    <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">async</span> <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">generator</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"块 </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\t</span><span class="s2">类型: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">chunk</span><span class="o">.</span><span class="n">content</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\t</span><span class="si">{</span><span class="n">chunk</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+        <span class="n">i</span> <span class="o">+=</span> <span class="mi">1</span>
+
+
+<span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">example_streaming</span><span class="p">())</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>响应的类型: &lt;class 'async_generator'&gt;
+块 0
+        类型: &lt;class 'list'&gt;
+        ChatResponse(content=[{'type': 'text', 'text': '1'}], id='2025-10-03 14:52:08.544_1f7dfa', created_at='2025-10-03 14:52:08.544', type='chat', usage=ChatUsage(input_tokens=26, output_tokens=1, time=0.930346, type='chat'), metadata=None)
+
+块 1
+        类型: &lt;class 'list'&gt;
+        ChatResponse(content=[{'type': 'text', 'text': '1\n'}], id='2025-10-03 14:52:08.606_f8f926', created_at='2025-10-03 14:52:08.606', type='chat', usage=ChatUsage(input_tokens=26, output_tokens=2, time=0.99281, type='chat'), metadata=None)
+
+块 2
+        类型: &lt;class 'list'&gt;
+        ChatResponse(content=[{'type': 'text', 'text': '1\n2\n3'}], id='2025-10-03 14:52:08.671_f110e3', created_at='2025-10-03 14:52:08.671', type='chat', usage=ChatUsage(input_tokens=26, output_tokens=5, time=1.057749, type='chat'), metadata=None)
+
+块 3
+        类型: &lt;class 'list'&gt;
+        ChatResponse(content=[{'type': 'text', 'text': '1\n2\n3\n4\n'}], id='2025-10-03 14:52:08.745_4979e6', created_at='2025-10-03 14:52:08.745', type='chat', usage=ChatUsage(input_tokens=26, output_tokens=8, time=1.132041, type='chat'), metadata=None)
+
+块 4
+        类型: &lt;class 'list'&gt;
+        ChatResponse(content=[{'type': 'text', 'text': '1\n2\n3\n4\n5\n6\n7\n'}], id='2025-10-03 14:52:08.864_05734a', created_at='2025-10-03 14:52:08.864', type='chat', usage=ChatUsage(input_tokens=26, output_tokens=14, time=1.251179, type='chat'), metadata=None)
+
+块 5
+        类型: &lt;class 'list'&gt;
+        ChatResponse(content=[{'type': 'text', 'text': '1\n2\n3\n4\n5\n6\n7\n8\n9\n10'}], id='2025-10-03 14:52:09.160_9594f2', created_at='2025-10-03 14:52:09.160', type='chat', usage=ChatUsage(input_tokens=26, output_tokens=20, time=1.546696, type='chat'), metadata=None)
+
+块 6
+        类型: &lt;class 'list'&gt;
+        ChatResponse(content=[{'type': 'text', 'text': '1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12'}], id='2025-10-03 14:52:09.281_c47f94', created_at='2025-10-03 14:52:09.281', type='chat', usage=ChatUsage(input_tokens=26, output_tokens=26, time=1.667402, type='chat'), metadata=None)
+
+块 7
+        类型: &lt;class 'list'&gt;
+        ChatResponse(content=[{'type': 'text', 'text': '1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14'}], id='2025-10-03 14:52:09.424_02e111', created_at='2025-10-03 14:52:09.424', type='chat', usage=ChatUsage(input_tokens=26, output_tokens=32, time=1.810335, type='chat'), metadata=None)
+
+块 8
+        类型: &lt;class 'list'&gt;
+        ChatResponse(content=[{'type': 'text', 'text': '1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16'}], id='2025-10-03 14:52:09.570_46c403', created_at='2025-10-03 14:52:09.570', type='chat', usage=ChatUsage(input_tokens=26, output_tokens=38, time=1.956854, type='chat'), metadata=None)
+
+块 9
+        类型: &lt;class 'list'&gt;
+        ChatResponse(content=[{'type': 'text', 'text': '1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18'}], id='2025-10-03 14:52:09.732_597992', created_at='2025-10-03 14:52:09.732', type='chat', usage=ChatUsage(input_tokens=26, output_tokens=44, time=2.11836, type='chat'), metadata=None)
+
+块 10
+        类型: &lt;class 'list'&gt;
+        ChatResponse(content=[{'type': 'text', 'text': '1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20'}], id='2025-10-03 14:52:09.803_721d79', created_at='2025-10-03 14:52:09.803', type='chat', usage=ChatUsage(input_tokens=26, output_tokens=50, time=2.189462, type='chat'), metadata=None)
+
+块 11
+        类型: &lt;class 'list'&gt;
+        ChatResponse(content=[{'type': 'text', 'text': '1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20'}], id='2025-10-03 14:52:10.065_f63dc7', created_at='2025-10-03 14:52:10.065', type='chat', usage=ChatUsage(input_tokens=26, output_tokens=50, time=2.452107, type='chat'), metadata=None)
+</pre></div>
+</div>
+</section>
+<section id="id3">
+<h2>推理模型<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h2>
+<p>AgentScope 通过提供 <code class="docutils literal notranslate"><span class="pre">ThinkingBlock</span></code> 来支持推理模型。</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">example_reasoning</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""使用推理模型的示例。"""</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">DashScopeChatModel</span><span class="p">(</span>
+        <span class="n">model_name</span><span class="o">=</span><span class="s2">"qwen-turbo"</span><span class="p">,</span>
+        <span class="n">api_key</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"DASHSCOPE_API_KEY"</span><span class="p">],</span>
+        <span class="n">enable_thinking</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">res</span> <span class="o">=</span> <span class="k">await</span> <span class="n">model</span><span class="p">(</span>
+        <span class="n">messages</span><span class="o">=</span><span class="p">[</span>
+            <span class="p">{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"我是谁？"</span><span class="p">},</span>
+        <span class="p">],</span>
+    <span class="p">)</span>
+
+    <span class="n">last_chunk</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">async</span> <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">res</span><span class="p">:</span>
+        <span class="n">last_chunk</span> <span class="o">=</span> <span class="n">chunk</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"最终响应:"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">last_chunk</span><span class="p">)</span>
+
+
+<span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">example_reasoning</span><span class="p">())</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>最终响应:
+ChatResponse(content=[{'type': 'thinking', 'thinking': '好的，用户问“我是谁？”，这是一个哲学问题，涉及自我认知和身份认同。首先，我需要考虑用户可能的背景。他们可能是在进行自我反思，或者对存在主义问题感兴趣。也有可能他们正在经历身份危机，或者只是好奇。\n\n接下来，我应该分析这个问题的不同层面。从哲学角度看，笛卡尔的“我思故我在”是一个经典回答，强调思考作为存在的证明。但现代心理学可能更关注自我意识、社会角色和心理状态。用户可能希望得到多角度的回答，而不仅仅是哲学上的。\n\n然后，考虑用户的需求。他们可能想要一个深入的分析，或者简单的解释。如果用户没有提供更多上下文，可能需要先询问更多信息，但根据指示，我应该直接回答。因此，我需要平衡深度和广度，涵盖不同领域的观点。\n\n还要注意用户可能的隐含问题。比如，他们是否在寻找人生意义，或者对自我认同有困惑？这时候可能需要提供一些指导性的建议，比如自我反思的方法，或者推荐相关的书籍和资源。\n\n另外，避免过于学术化的回答，保持口语化和易懂。同时，确保信息准确，引用可靠的来源或理论。例如，提到存在主义、心理学理论，以及东方哲学中的观点，如佛教的“无我”。\n\n最后，总结时要强调“我是谁”是一个持续探索的过程，鼓励用户进行自我反思，并保持开放的心态。这样既回答了问题，又提供了进一步思考的方向。\n'}, {'type': 'text', 'text': '“我是谁？”是一个古老而深邃的问题，不同的人、不同的文化、不同的哲学体系可能会给出不同的答案。以下是一些可能的视角，或许能帮助你探索这个问题：\n\n---\n\n### 1. **从哲学的角度**\n   - **笛卡尔的“我思故我在”**：法国哲学家笛卡尔认为，即使怀疑一切，只要“我”在思考，就证明“我”存在。因此，“我是谁”可以简化为“我是一个思考的存在”。\n   - **存在主义**：萨特说“存在先于本质”，人类没有预设的本质，而是通过选择和行动定义自己。因此，“我是谁”取决于你如何选择生活。\n   - **东方哲学**：佛教认为“我”是虚幻的，是五蕴（色、受、想、行、识）的暂时组合，真正的“我”可能是超越个体意识的“空性”；道家则强调“无我”与自然合一。\n\n---\n\n### 2. **从心理学的角度**\n   - **自我意识**：心理学认为“我”是大脑对自身存在、思想和情感的觉察。它由记忆、经验、价值观和人际关系共同构建。\n   - **身份认同**：你可能通过职业、家庭角色、兴趣爱好、文化背景等来定义自己。但这些标签是动态的，会随着时间和经历变化。\n   - **潜意识**：弗洛伊德认为“我”由本我（本能）、自我（现实调节者）和超我（道德约束）构成，而潜意识中隐藏着未被察觉的欲望和冲突。\n\n---\n\n### 3. **从科学的角度**\n   - **生物学**：从基因到细胞，你是一个由数十万亿细胞组成的复杂系统，依赖于DNA、神经网络和生理机制。\n   - **量子物理**：一些理论认为，观察者（“我”）与被观察的现实是相互关联的，但这一观点仍存在争议。\n\n---\n\n### 4. **从日常生活的角度**\n   - **角色与关系**：你可能是某个家庭中的孩子、朋友、同事，或是社会中的一个公民。这些角色塑造了你与他人的互动方式。\n   - **行动与选择**：你的行为、决定和价值观不断塑造“你是谁”。比如，你选择帮助他人，可能说明你是一个有同理心的人。\n\n---\n\n### 5. **从灵性的角度**\n   - **灵魂与超越**：一些灵性传统认为，“我”是永恒的灵魂或意识，身体只是暂时的容器。例如，印度教中的“阿特曼”（Atman）与“梵”（Brahman）合一。\n   - **内在的觉知**：禅宗强调“明心见性”，认为“我”是超越语言和概念的觉知本身。\n\n---\n\n### 6. **可能的答案**\n   - **“我是谁？”** 可能没有终极答案，但可以尝试回答：\n     - **我是我的思想、情感和经历的集合**。\n     - **我是不断变化的，没有固定的身份**。\n     - **我是与他人和世界互动的主体**。\n     - **我是探索这个问题的“我”**。\n\n---\n\n### 7. **如何进一步探索？**\n   - **自我反思**：写下你最珍视的价值观、恐惧、梦想，以及你希望成为什么样的人。\n   - **提问**：问自己“如果我不再是现在的身份，我会是谁？”“什么让我感到真实？”\n   - **阅读与实践**：哲学、心理学、宗教或艺术作品可能提供新的视角。\n   - **与他人对话**：通过交流了解他人眼中的“你”，或许能发现新的自我认知。\n\n---\n\n最终，“我是谁”可能是一个没有终点的旅程，而非一个需要抵达的终点。你愿意和我一起探索这个问题吗？ 😊'}], id='2025-10-03 14:52:21.396_98a1ad', created_at='2025-10-03 14:52:21.396', type='chat', usage=ChatUsage(input_tokens=11, output_tokens=1123, time=11.326148, type='chat'), metadata=None)
+</pre></div>
+</div>
+</section>
+<section id="api">
+<h2>工具 API<a class="headerlink" href="#api" title="Link to this heading">¶</a></h2>
+<p>不同的模型提供商在工具 API 方面有所不同，例如工具 JSON schema、工具调用/响应格式。
+为了提供统一的接口，AgentScope 通过以下方式解决了这个问题：</p>
+<ul class="simple">
+<li><p>提供了统一的工具调用结构 block <a class="reference internal" href="quickstart_message.html#tool-block"><span class="std std-ref">ToolUseBlock</span></a> 和工具响应结构 <a class="reference internal" href="quickstart_message.html#tool-block"><span class="std std-ref">ToolResultBlock</span></a>。</p></li>
+<li><p>在模型类的 <code class="docutils literal notranslate"><span class="pre">__call__</span></code> 方法中提供统一的工具接口 <code class="docutils literal notranslate"><span class="pre">tools</span></code>，接受工具 JSON schema 列表，如下所示：</p></li>
+</ul>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">json_schemas</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="p">{</span>
+        <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"function"</span><span class="p">,</span>
+        <span class="s2">"function"</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">"name"</span><span class="p">:</span> <span class="s2">"google_search"</span><span class="p">,</span>
+            <span class="s2">"description"</span><span class="p">:</span> <span class="s2">"在 Google 上搜索查询。"</span><span class="p">,</span>
+            <span class="s2">"parameters"</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"object"</span><span class="p">,</span>
+                <span class="s2">"properties"</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">"query"</span><span class="p">:</span> <span class="p">{</span>
+                        <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"string"</span><span class="p">,</span>
+                        <span class="s2">"description"</span><span class="p">:</span> <span class="s2">"搜索查询。"</span><span class="p">,</span>
+                    <span class="p">},</span>
+                <span class="p">},</span>
+                <span class="s2">"required"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"query"</span><span class="p">],</span>
+            <span class="p">},</span>
+        <span class="p">},</span>
+    <span class="p">},</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+</section>
+<section id="id4">
+<h2>进一步阅读<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="quickstart_message.html#message"><span class="std std-ref">创建消息</span></a></p></li>
+<li><p><a class="reference internal" href="task_prompt.html#prompt"><span class="std std-ref">提示词格式化</span></a></p></li>
+</ul>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 15.182 seconds)</p>
+<div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-tutorial-task-model-py">
+<div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/6d26becb6abae50c483b7d863e1725fb/task_model.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">task_model.ipynb</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-python docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/97c5a462d1854e30b1d7216f522b18ac/task_model.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">task_model.py</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-zip docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/aba5c06880c93e4cbdcad0acd42280fa/task_model.zip"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">zipped:</span> <span class="pre">task_model.zip</span></code></a></p>
+</div>
+</div>
+<p class="sphx-glr-signature"><a class="reference external" href="https://sphinx-gallery.github.io">Gallery generated by Sphinx-Gallery</a></p>
+</section>
+</section>
+
+        

@@ -1,0 +1,348 @@
+<!-- Title: 计划 - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/tutorial/task_plan.html -->
+
+          <div class="sphx-glr-download-link-note admonition note">
+<p class="admonition-title">备注</p>
+<p><a class="reference internal" href="#sphx-glr-download-tutorial-task-plan-py"><span class="std std-ref">Go to the end</span></a>
+to download the full example code.</p>
+</div>
+<section class="sphx-glr-example-title" id="plan">
+<span id="sphx-glr-tutorial-task-plan-py"></span><span id="id1"></span><h1>计划<a class="headerlink" href="#plan" title="Link to this heading">¶</a></h1>
+<p>AgentScope 中的计划（Plan）模块使智能体能够正式地将复杂任务分解为可管理的子任务并系统地执行它们。主要功能包括：</p>
+<ul class="simple">
+<li><p>支持 <strong>手动计划规范</strong></p></li>
+<li><dl class="simple">
+<dt>全面的计划管理功能：</dt><dd><ul>
+<li><p><strong>创建、修改、放弃和恢复</strong> 计划</p></li>
+<li><p>在多个计划之间 <strong>切换</strong></p></li>
+<li><p>通过临时暂停计划来处理用户查询或紧急任务，<strong>优雅地处理中断</strong></p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p>计划执行的 <strong>实时可视化和监控</strong></p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>当前计划模块仅支持子任务按照顺序执行。</p>
+</div>
+<p>具体来说，计划模块的工作原理是</p>
+<ul class="simple">
+<li><p>提供计划管理的工具函数</p></li>
+<li><p>插入提示消息来指导ReAct智能体完成计划</p></li>
+</ul>
+<p>下图说明了计划模块如何与ReAct智能体协作：</p>
+<figure class="align-center" id="id5">
+<a class="bordered-image reference internal image-reference" href="../_images/plan.png"><img alt="计划模块" class="bordered-image" src="../_images/plan.png" style="width: 90%;">
+</a>
+<figcaption>
+<p><span class="caption-text">计划模块如何与ReAct智能体协作</span><a class="headerlink" href="#id5" title="Link to this image">¶</a></p>
+</figcaption>
+</figure>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.agent</span><span class="w"> </span><span class="kn">import</span> <span class="n">ReActAgent</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.formatter</span><span class="w"> </span><span class="kn">import</span> <span class="n">DashScopeChatFormatter</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.model</span><span class="w"> </span><span class="kn">import</span> <span class="n">DashScopeChatModel</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.plan</span><span class="w"> </span><span class="kn">import</span> <span class="n">PlanNotebook</span><span class="p">,</span> <span class="n">Plan</span><span class="p">,</span> <span class="n">SubTask</span>
+</pre></div>
+</div>
+<section id="plannotebook">
+<h2>PlanNotebook<a class="headerlink" href="#plannotebook" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">PlanNotebook</span></code> 类是计划模块的核心，负责提供</p>
+<ul class="simple">
+<li><p>管理计划，子任务的工具函数</p></li>
+<li><p>提供用于“引导智能体正确完成任务”的提示消息（Hint message）</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">PlanNotebook</span></code> 类使用以下参数实例化：</p>
+<div class="table-wrapper docutils container" id="id6">
+<table class="docutils align-default" id="id6">
+<caption><span class="caption-text"><code class="docutils literal notranslate"><span class="pre">PlanNotebook</span></code> 构造函数的参数</span><a class="headerlink" href="#id6" title="Link to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>名称</p></th>
+<th class="head"><p>类型</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">max_subtasks</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">int</span> <span class="pre">|</span> <span class="pre">None</span></code></p></td>
+<td><p>计划中允许的子任务最大数量，如果为 <code class="docutils literal notranslate"><span class="pre">None</span></code> 则无限制</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">plan_to_hint</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Callable[[Plan</span> <span class="pre">|</span> <span class="pre">None],</span> <span class="pre">str</span> <span class="pre">|</span> <span class="pre">None]</span> <span class="pre">|</span> <span class="pre">None</span></code></p></td>
+<td><p>基于当前计划的完成情况，生成对应提示消息的函数。如果未提供，将使用默认的 <code class="docutils literal notranslate"><span class="pre">DefaultPlanToHint</span></code> 对象。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">storage</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">PlanStorageBase</span> <span class="pre">|</span> <span class="pre">None</span></code></p></td>
+<td><p>计划的存储模块，用于恢复，保存历史计划。如果未提供，将使用默认的内存（In-memory）存储。</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">plan_to_hint</span></code> 参数是 <code class="docutils literal notranslate"><span class="pre">PlanNotebook</span></code> 类的核心参数，也是开发者进行提示工程的接口。
+作为可调用对象，接受当前计划作为输入，并返回一个字符串类型的提示消息。
+AgentScope 构建了一个默认的 <code class="docutils literal notranslate"><span class="pre">DefaultPlanToHint</span></code> 类，可以直接使用，同时我们鼓励开发者提供自己的 <code class="docutils literal notranslate"><span class="pre">plan_to_hint</span></code> 函数以获得更好的性能。</p>
+<p><code class="docutils literal notranslate"><span class="pre">storage</span></code> 用于存储历史计划，允许智能体检索和恢复历史计划。
+我们同样鼓励开发者通过继承 <code class="docutils literal notranslate"><span class="pre">PlanStorageBase</span></code> 类来实现自己的计划存储。如果未提供，将使用默认的内存存储。</p>
+<div class="admonition tip">
+<p class="admonition-title">小技巧</p>
+<p><code class="docutils literal notranslate"><span class="pre">PlanStorageBase</span></code> 类继承自 <code class="docutils literal notranslate"><span class="pre">StateModule</span></code> 类，因此 storage也会通过会话管理进行保存和加载。</p>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">PlanNotebook</span></code> 类的核心属性和方法总结如下：</p>
+<div class="table-wrapper docutils container" id="id7">
+<table class="docutils align-default" id="id7">
+<caption><span class="caption-text"><code class="docutils literal notranslate"><span class="pre">PlanNotebook</span></code> 类的核心属性和方法</span><a class="headerlink" href="#id7" title="Link to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>类型</p></th>
+<th class="head"><p>名称</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>属性</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">current_plan</span></code></p></td>
+<td><p>智能体正在执行的当前计划</p></td>
+</tr>
+<tr class="row-odd"><td></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">storage</span></code></p></td>
+<td><p>历史计划的存储，用于检索和恢复历史计划</p></td>
+</tr>
+<tr class="row-even"><td></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">plan_to_hint</span></code></p></td>
+<td><p>一个可调用对象，以当前计划为输入并生成提示消息来指导智能体完成计划</p></td>
+</tr>
+<tr class="row-odd"><td><p>函数</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">list_tools</span></code></p></td>
+<td><p>列出 <code class="docutils literal notranslate"><span class="pre">PlanNotebook</span></code> 类提供的所有工具函数</p></td>
+</tr>
+<tr class="row-even"><td></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">get_current_hint</span></code></p></td>
+<td><p>获取当前计划的提示消息，将调用 <code class="docutils literal notranslate"><span class="pre">plan_to_hint</span></code> 函数</p></td>
+</tr>
+<tr class="row-odd"><td></td>
+<td><div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">create_plan</span></code>,</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">view_subtasks</span></code>,</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">revise_current_plan</span></code>,</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">update_subtask_state</span></code>,</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">finish_subtask</span></code>,</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">finish_plan</span></code>,</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">view_historical_plans</span></code>,</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">recover_historical_plan</span></code></div>
+</div>
+</td>
+<td><p>允许智能体管理计划和子任务的工具函数</p></td>
+</tr>
+<tr class="row-even"><td></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">register_plan_change_hook</span></code></p></td>
+<td><p>注册一个钩子函数，当计划发生变化时将被调用，用于计划可视化和监控</p></td>
+</tr>
+<tr class="row-odd"><td></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">remove_plan_change_hook</span></code></p></td>
+<td><p>移除已注册的钩子函数</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">list_tools</span></code> 方法是获取所有工具函数的快速方法，这样您就可以将它们注册到智能体的工具包中。</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">plan_notebook</span> <span class="o">=</span> <span class="n">PlanNotebook</span><span class="p">()</span>
+
+
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">list_tools</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""列出PlanNotebook提供的工具函数。"""</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"PlanNotebook提供的工具："</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">tool</span> <span class="ow">in</span> <span class="n">plan_notebook</span><span class="o">.</span><span class="n">list_tools</span><span class="p">():</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">tool</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">list_tools</span><span class="p">())</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>PlanNotebook提供的工具：
+view_subtasks
+update_subtask_state
+finish_subtask
+create_plan
+revise_current_plan
+finish_plan
+view_historical_plans
+recover_historical_plan
+</pre></div>
+</div>
+</section>
+<section id="reactagent">
+<h2>与ReActAgent协作<a class="headerlink" href="#reactagent" title="Link to this heading">¶</a></h2>
+<p>AgentScope中的 <code class="docutils literal notranslate"><span class="pre">ReActAgent</span></code> 已通过构造函数中的 <code class="docutils literal notranslate"><span class="pre">plan_notebook</span></code> 参数集成了计划模块。
+一旦提供，智能体将</p>
+<ul class="simple">
+<li><p>配备计划管理工具函数，并且</p></li>
+<li><p>在每个推理步骤开始时插入提示消息</p></li>
+</ul>
+<p>有两种方式在 <code class="docutils literal notranslate"><span class="pre">ReActAgent</span></code> 中使用计划模块：</p>
+<ul class="simple">
+<li><p>开发者指定计划：开发者可以通过调用 <code class="docutils literal notranslate"><span class="pre">create_plan</span></code> 工具函数手动创建计划，并使用该计划来初始化 <code class="docutils literal notranslate"><span class="pre">ReActAgent</span></code> 。</p></li>
+<li><p>智能体管理的计划执行：智能体将通过调用计划管理工具函数自己创建和管理计划。</p></li>
+</ul>
+<section id="id2">
+<h3>手动计划规范<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h3>
+<p>通过调用 <code class="docutils literal notranslate"><span class="pre">create_plan</span></code> 工具函数手动创建计划非常简单。
+以下是手动创建计划以对LLM赋能的智能体进行全面研究的示例。</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">manual_plan_specification</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""手动计划规范示例。"""</span>
+    <span class="k">await</span> <span class="n">plan_notebook</span><span class="o">.</span><span class="n">create_plan</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">"智能体研究"</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">"对基于LLM的智能体进行全面研究"</span><span class="p">,</span>
+        <span class="n">expected_outcome</span><span class="o">=</span><span class="s2">"一份Markdown格式的报告，回答三个问题：1. 什么是智能体？2. 智能体的当前技术水平是什么？3. 智能体的未来趋势是什么？"</span><span class="p">,</span>
+        <span class="n">subtasks</span><span class="o">=</span><span class="p">[</span>
+            <span class="n">SubTask</span><span class="p">(</span>
+                <span class="n">name</span><span class="o">=</span><span class="s2">"搜索智能体相关调研论文"</span><span class="p">,</span>
+                <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+                    <span class="s2">"在多个来源搜索调研论文，包括"</span>
+                    <span class="s2">"Google Scholar、arXiv和Semantic Scholar。必须"</span>
+                    <span class="s2">"在2021年后发表且引用数超过50。"</span>
+                <span class="p">),</span>
+                <span class="n">expected_outcome</span><span class="o">=</span><span class="s2">"Markdown格式的论文列表"</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="n">SubTask</span><span class="p">(</span>
+                <span class="n">name</span><span class="o">=</span><span class="s2">"阅读和总结论文"</span><span class="p">,</span>
+                <span class="n">description</span><span class="o">=</span><span class="s2">"阅读前一步找到的论文，并总结关键点，包括定义、分类、挑战和关键方向。"</span><span class="p">,</span>
+                <span class="n">expected_outcome</span><span class="o">=</span><span class="s2">"Markdown格式的关键点总结"</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="n">SubTask</span><span class="p">(</span>
+                <span class="n">name</span><span class="o">=</span><span class="s2">"研究大公司的最新进展"</span><span class="p">,</span>
+                <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+                    <span class="s2">"研究大公司的最新进展，包括但不限于Google、Microsoft、OpenAI、"</span>
+                    <span class="s2">"Anthropic、阿里巴巴和Meta。查找官方博客或新闻文章。"</span>
+                <span class="p">),</span>
+                <span class="n">expected_outcome</span><span class="o">=</span><span class="s2">"大公司的最新进展"</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="n">SubTask</span><span class="p">(</span>
+                <span class="n">name</span><span class="o">=</span><span class="s2">"撰写报告"</span><span class="p">,</span>
+                <span class="n">description</span><span class="o">=</span><span class="s2">"基于前面的步骤撰写报告，并回答预期结果中的三个问题。"</span><span class="p">,</span>
+                <span class="n">expected_outcome</span><span class="o">=</span><span class="p">(</span>
+                    <span class="s2">"一份Markdown格式的报告，回答三个问题：1. "</span>
+                    <span class="s2">"什么是智能体？2. 智能体的当前技术水平"</span>
+                    <span class="s2">"是什么？3. 智能体的未来趋势是什么？"</span>
+                <span class="p">),</span>
+            <span class="p">),</span>
+        <span class="p">],</span>
+    <span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"当前提示消息：</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+    <span class="n">msg</span> <span class="o">=</span> <span class="k">await</span> <span class="n">plan_notebook</span><span class="o">.</span><span class="n">get_current_hint</span><span class="p">()</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">msg</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">msg</span><span class="o">.</span><span class="n">content</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+
+<span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">manual_plan_specification</span><span class="p">())</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>当前提示消息：
+
+user: &lt;system-hint&gt;The current plan:
+```
+# 智能体研究
+**Description**: 对基于LLM的智能体进行全面研究
+**Expected Outcome**: 一份Markdown格式的报告，回答三个问题：1. 什么是智能体？2. 智能体的当前技术水平是什么？3. 智能体的未来趋势是什么？
+**State**: todo
+**Created At**: 2025-10-03 14:52:30.952
+## Subtasks
+- [ ] 搜索智能体相关调研论文
+- [ ] 阅读和总结论文
+- [ ] 研究大公司的最新进展
+- [ ] 撰写报告
+```
+Your options include:
+- Mark the first subtask as 'in_progress' by calling 'update_subtask_state' with subtask_idx=0 and state='in_progress', and start executing it.
+- If the first subtask is not executable, analyze why and what you can do to advance the plan, e.g. ask user for more information, revise the plan by calling 'revise_current_plan'.
+- If the user asks you to do something unrelated to the plan, prioritize the completion of user's query first, and then return to the plan afterward.
+- If the user no longer wants to perform the current plan, confirm with the user and call the 'finish_plan' function.
+&lt;/system-hint&gt;
+</pre></div>
+</div>
+<p>创建计划后，可以按如下方式使用计划笔记本初始化 <code class="docutils literal notranslate"><span class="pre">ReActAgent</span></code> ：</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">agent</span> <span class="o">=</span> <span class="n">ReActAgent</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"Friday"</span><span class="p">,</span>
+    <span class="n">sys_prompt</span><span class="o">=</span><span class="s2">"你是一个有用的助手。"</span><span class="p">,</span>
+    <span class="n">model</span><span class="o">=</span><span class="n">DashScopeChatModel</span><span class="p">(</span>
+        <span class="n">model_name</span><span class="o">=</span><span class="s2">"qwen-max"</span><span class="p">,</span>
+        <span class="n">api_key</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"DASHSCOPE_API_KEY"</span><span class="p">],</span>
+    <span class="p">),</span>
+    <span class="n">formatter</span><span class="o">=</span><span class="n">DashScopeChatFormatter</span><span class="p">(),</span>
+    <span class="n">plan_notebook</span><span class="o">=</span><span class="n">plan_notebook</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="id3">
+<h3>智能体自主管理<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h3>
+<p>智能体也可以通过调用计划管理工具函数自己创建和管理计划。
+我们只需要按如下方式使用计划笔记本初始化 <code class="docutils literal notranslate"><span class="pre">ReActAgent</span></code> ：</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">agent</span> <span class="o">=</span> <span class="n">ReActAgent</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"Friday"</span><span class="p">,</span>
+    <span class="n">sys_prompt</span><span class="o">=</span><span class="s2">"你是一个有用的助手。"</span><span class="p">,</span>
+    <span class="n">model</span><span class="o">=</span><span class="n">DashScopeChatModel</span><span class="p">(</span>
+        <span class="n">model_name</span><span class="o">=</span><span class="s2">"qwen-max"</span><span class="p">,</span>
+        <span class="n">api_key</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"DASHSCOPE_API_KEY"</span><span class="p">],</span>
+    <span class="p">),</span>
+    <span class="n">formatter</span><span class="o">=</span><span class="n">DashScopeChatFormatter</span><span class="p">(),</span>
+    <span class="n">plan_notebook</span><span class="o">=</span><span class="n">PlanNotebook</span><span class="p">(),</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>之后，我们可以构建一个循环来与智能体交互，如下所示。
+一旦用户的任务复杂比较复杂，智能体将自己创建计划并逐步执行计划。</p>
+<div class="literal-block-wrapper docutils container" id="id8">
+<div class="code-block-caption"><span class="caption-text">与计划智能体建立对话</span><a class="headerlink" href="#id8" title="Link to this code">¶</a></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">interact_with_agent</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""与计划智能体交互。"""</span>
+    <span class="n">user</span> <span class="o">=</span> <span class="n">UserAgent</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"user"</span><span class="p">)</span>
+
+    <span class="n">msg</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="k">await</span> <span class="n">user</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">get_text_content</span><span class="p">()</span> <span class="o">==</span> <span class="s2">"exit"</span><span class="p">:</span>
+            <span class="k">break</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+<span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">interact_with_agent</span><span class="p">())</span>
+</pre></div>
+</div>
+</div>
+</section>
+</section>
+<section id="id4">
+<h2>可视化和监控<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h2>
+<p>AgentScope 通过钩子函数支持计划执行的实时可视化和监控。</p>
+<p>当前计划被工具函数改变时，钩子函数将被触发，开发者可以在这些钩子函数中将当前的计划转发到对应的前端进行可视化或其他处理。
+计划变化钩子函数的模板如下：</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">plan_change_hook_template</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">PlanNotebook</span><span class="p">,</span> <span class="n">plan</span><span class="p">:</span> <span class="n">Plan</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""计划变化钩子函数的模板。</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        self (`PlanNotebook`):</span>
+<span class="sd">            PlanNotebook实例。</span>
+<span class="sd">        plan (`Plan`):</span>
+<span class="sd">            当前计划实例（变化后）。</span>
+<span class="sd">    """</span>
+    <span class="c1"># 将计划转发到前端进行可视化或其他处理</span>
+</pre></div>
+</div>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 0.027 seconds)</p>
+<div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-tutorial-task-plan-py">
+<div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/a776edd4ceeb1e1c060eeaa2e2a79b11/task_plan.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">task_plan.ipynb</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-python docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/e3be9dea50f510671a7e5a3004633395/task_plan.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">task_plan.py</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-zip docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/352223a0f46cc685afdc85db6dc59146/task_plan.zip"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">zipped:</span> <span class="pre">task_plan.zip</span></code></a></p>
+</div>
+</div>
+<p class="sphx-glr-signature"><a class="reference external" href="https://sphinx-gallery.github.io">Gallery generated by Sphinx-Gallery</a></p>
+</section>
+</section>
+
+        

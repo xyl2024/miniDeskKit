@@ -1,0 +1,40 @@
+<!-- Title: agentscope.tool._response - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/tool/_response.html -->
+
+          <h1>agentscope.tool._response 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The tool response class."""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">List</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._utils._common</span><span class="w"> </span><span class="kn">import</span> <span class="n">_get_timestamp</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..message</span><span class="w"> </span><span class="kn">import</span> <span class="n">AudioBlock</span><span class="p">,</span> <span class="n">ImageBlock</span><span class="p">,</span> <span class="n">TextBlock</span>
+
+
+<div class="viewcode-block" id="ToolResponse">
+<a class="viewcode-back" href="../../../api/agentscope.tool.html#agentscope.tool.ToolResponse">[文档]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ToolResponse</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""The result chunk of a tool call."""</span>
+
+    <span class="n">content</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">TextBlock</span> <span class="o">|</span> <span class="n">ImageBlock</span> <span class="o">|</span> <span class="n">AudioBlock</span><span class="p">]</span>
+<span class="w">    </span><span class="sd">"""The execution output of the tool function."""</span>
+
+    <span class="n">metadata</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="w">    </span><span class="sd">"""The metadata to be accessed within the agent, so that we don't need to</span>
+<span class="sd">    parse the tool result block."""</span>
+
+    <span class="n">stream</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="w">    </span><span class="sd">"""Whether the tool output is streamed."""</span>
+
+    <span class="n">is_last</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="w">    </span><span class="sd">"""Whether this is the last response in a stream tool execution."""</span>
+
+    <span class="n">is_interrupted</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="w">    </span><span class="sd">"""Whether the tool execution is interrupted."""</span>
+
+    <span class="nb">id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="n">_get_timestamp</span><span class="p">(</span><span class="kc">True</span><span class="p">))</span>
+<span class="w">    </span><span class="sd">"""The identity of the tool response."""</span></div>
+
+</pre></div>
+        

@@ -1,0 +1,738 @@
+<!-- Title: agentscope.agent._agent_base - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/agent/_agent_base.html -->
+
+          <h1>agentscope.agent._agent_base 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The agent base class in agentscope."""</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">asyncio</span><span class="w"> </span><span class="kn">import</span> <span class="n">Task</span><span class="p">,</span> <span class="n">Queue</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Any</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">base64</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">shortuuid</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">deprecated</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">._agent_meta</span><span class="w"> </span><span class="kn">import</span> <span class="n">_AgentMeta</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..module</span><span class="w"> </span><span class="kn">import</span> <span class="n">StateModule</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..message</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Msg</span><span class="p">,</span>
+    <span class="n">AudioBlock</span><span class="p">,</span>
+    <span class="n">ToolUseBlock</span><span class="p">,</span>
+    <span class="n">ToolResultBlock</span><span class="p">,</span>
+    <span class="n">ImageBlock</span><span class="p">,</span>
+    <span class="n">VideoBlock</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..types</span><span class="w"> </span><span class="kn">import</span> <span class="n">AgentHookTypes</span>
+
+
+<div class="viewcode-block" id="AgentBase">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.AgentBase">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">AgentBase</span><span class="p">(</span><span class="n">StateModule</span><span class="p">,</span> <span class="n">metaclass</span><span class="o">=</span><span class="n">_AgentMeta</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Base class for asynchronous agents."""</span>
+
+    <span class="nb">id</span><span class="p">:</span> <span class="nb">str</span>
+<span class="w">    </span><span class="sd">"""The agent's unique identifier, generated using shortuuid."""</span>
+
+    <span class="n">supported_hook_types</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">"pre_reply"</span><span class="p">,</span>
+        <span class="s2">"post_reply"</span><span class="p">,</span>
+        <span class="s2">"pre_print"</span><span class="p">,</span>
+        <span class="s2">"post_print"</span><span class="p">,</span>
+        <span class="s2">"pre_observe"</span><span class="p">,</span>
+        <span class="s2">"post_observe"</span><span class="p">,</span>
+    <span class="p">]</span>
+<span class="w">    </span><span class="sd">"""Supported hook types for the agent base class."""</span>
+
+    <span class="n">_class_pre_reply_hooks</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span>
+        <span class="nb">str</span><span class="p">,</span>
+        <span class="n">Callable</span><span class="p">[</span>
+            <span class="p">[</span>
+                <span class="s2">"AgentBase"</span><span class="p">,</span>  <span class="c1"># self</span>
+                <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>  <span class="c1"># kwargs</span>
+            <span class="p">],</span>
+            <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>  <span class="c1"># The modified kwargs or None</span>
+        <span class="p">],</span>
+    <span class="p">]</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+<span class="w">    </span><span class="sd">"""The class-level hook functions that will be called before the reply</span>
+<span class="sd">    function, taking `self` object, the input arguments as input, and</span>
+<span class="sd">    generating the modified arguments (if needed). Then input arguments of the</span>
+<span class="sd">    reply function will be re-organized into a keyword arguments dictionary.</span>
+<span class="sd">    If the one hook returns a new dictionary, the modified arguments will be</span>
+<span class="sd">    passed to the next hook or the original reply function."""</span>
+
+    <span class="n">_class_post_reply_hooks</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span>
+        <span class="nb">str</span><span class="p">,</span>
+        <span class="n">Callable</span><span class="p">[</span>
+            <span class="p">[</span>
+                <span class="s2">"AgentBase"</span><span class="p">,</span>  <span class="c1"># self</span>
+                <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>  <span class="c1"># kwargs</span>
+                <span class="n">Msg</span><span class="p">,</span>  <span class="c1"># output, the output message</span>
+            <span class="p">],</span>
+            <span class="n">Msg</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="p">],</span>
+    <span class="p">]</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+<span class="w">    </span><span class="sd">"""The class-level hook functions that will be called after the reply</span>
+<span class="sd">    function, which takes the `self` object and deep copied</span>
+<span class="sd">    positional and keyword arguments (args and kwargs), and the output message</span>
+<span class="sd">    as input. If the hook returns a message, the new message will be passed</span>
+<span class="sd">    to the next hook or the original reply function. Otherwise, the original</span>
+<span class="sd">    output will be passed instead."""</span>
+
+    <span class="n">_class_pre_print_hooks</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span>
+        <span class="nb">str</span><span class="p">,</span>
+        <span class="n">Callable</span><span class="p">[</span>
+            <span class="p">[</span>
+                <span class="s2">"AgentBase"</span><span class="p">,</span>  <span class="c1"># self</span>
+                <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>  <span class="c1"># kwargs</span>
+            <span class="p">],</span>
+            <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>  <span class="c1"># The modified kwargs or None</span>
+        <span class="p">],</span>
+    <span class="p">]</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+<span class="w">    </span><span class="sd">"""The class-level hook functions that will be called before printing,</span>
+<span class="sd">    which takes the `self` object, a deep copied arguments dictionary as input,</span>
+<span class="sd">    and output the modified arguments (if needed). """</span>
+
+    <span class="n">_class_post_print_hooks</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span>
+        <span class="nb">str</span><span class="p">,</span>
+        <span class="n">Callable</span><span class="p">[</span>
+            <span class="p">[</span>
+                <span class="s2">"AgentBase"</span><span class="p">,</span>  <span class="c1"># self</span>
+                <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>  <span class="c1"># kwargs</span>
+                <span class="n">Any</span><span class="p">,</span>  <span class="c1"># output, `None` if no output</span>
+            <span class="p">],</span>
+            <span class="n">Any</span><span class="p">,</span>
+        <span class="p">],</span>
+    <span class="p">]</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+<span class="w">    </span><span class="sd">"""The class-level hook functions that will be called after the speak</span>
+<span class="sd">    function, which takes the `self` object as input."""</span>
+
+    <span class="n">_class_pre_observe_hooks</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span>
+        <span class="nb">str</span><span class="p">,</span>
+        <span class="n">Callable</span><span class="p">[</span>
+            <span class="p">[</span>
+                <span class="s2">"AgentBase"</span><span class="p">,</span>  <span class="c1"># self</span>
+                <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>  <span class="c1"># kwargs</span>
+            <span class="p">],</span>
+            <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>  <span class="c1"># The modified kwargs or None</span>
+        <span class="p">],</span>
+    <span class="p">]</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+<span class="w">    </span><span class="sd">"""The class-level hook functions that will be called before the observe</span>
+<span class="sd">    function, which takes the `self` object and a deep copied input</span>
+<span class="sd">    arguments dictionary as input. To change the input arguments, the hook</span>
+<span class="sd">    function needs to output the modified arguments dictionary, which will be</span>
+<span class="sd">    used as the input of the next hook function or the original observe</span>
+<span class="sd">    function."""</span>
+
+    <span class="n">_class_post_observe_hooks</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span>
+        <span class="nb">str</span><span class="p">,</span>
+        <span class="n">Callable</span><span class="p">[</span>
+            <span class="p">[</span>
+                <span class="s2">"AgentBase"</span><span class="p">,</span>  <span class="c1"># self</span>
+                <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>  <span class="c1"># kwargs</span>
+                <span class="kc">None</span><span class="p">,</span>  <span class="c1"># The output, `None` if no output</span>
+            <span class="p">],</span>
+            <span class="kc">None</span><span class="p">,</span>
+        <span class="p">],</span>
+    <span class="p">]</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+<span class="w">    </span><span class="sd">"""The class-level hook functions that will be called after the observe</span>
+<span class="sd">    function, which takes the `self` object as input."""</span>
+
+<div class="viewcode-block" id="AgentBase.__init__">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.AgentBase.__init__">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize the agent."""</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">shortuuid</span><span class="o">.</span><span class="n">uuid</span><span class="p">()</span>
+
+        <span class="c1"># The replying task and identify of the current replying</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_reply_task</span><span class="p">:</span> <span class="n">Task</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_reply_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># Initialize the instance-level hooks</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_instance_pre_print_hooks</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_instance_post_print_hooks</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_instance_pre_reply_hooks</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_instance_post_reply_hooks</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_instance_pre_observe_hooks</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_instance_post_observe_hooks</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+
+        <span class="c1"># The prefix used in streaming printing, which will save the</span>
+        <span class="c1"># accumulated text and audio streaming data for each message id.</span>
+        <span class="c1"># e.g. {"text": "xxx", "audio": (stream_obj, "{base64_data}")}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_stream_prefix</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="c1"># The subscribers that will receive the reply message by their</span>
+        <span class="c1"># `observe` method. The key is the MsgHub id, and the value is the</span>
+        <span class="c1"># list of agents.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_subscribers</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="n">AgentBase</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="c1"># We add this variable in case developers want to disable the console</span>
+        <span class="c1"># output of the agent, e.g., in a production environment.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_disable_console_output</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="c1"># The streaming message queue used to export the messages as a</span>
+        <span class="c1"># generator</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_disable_msg_queue</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">msg_queue</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="AgentBase.observe">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.AgentBase.observe">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">observe</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">:</span> <span class="n">Msg</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">Msg</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Receive the given message(s) without generating a reply.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            msg (`Msg | list[Msg] | None`):</span>
+<span class="sd">                The message(s) to be observed.</span>
+<span class="sd">        """</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"The observe function is not implemented in"</span>
+            <span class="sa">f</span><span class="s2">" </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> class."</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AgentBase.reply">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.AgentBase.reply">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">reply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Msg</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""The main logic of the agent, which generates a reply based on the</span>
+<span class="sd">        current state and input arguments."""</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+            <span class="s2">"The reply function is not implemented in "</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> class."</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AgentBase.print">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.AgentBase.print">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">print</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">:</span> <span class="n">Msg</span><span class="p">,</span> <span class="n">last</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""The function to display the message.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            msg (`Msg`):</span>
+<span class="sd">                The message object to be printed.</span>
+<span class="sd">            last (`bool`, defaults to `True`):</span>
+<span class="sd">                Whether this is the last one in streaming messages. For</span>
+<span class="sd">                non-streaming message, this should always be `True`.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_disable_msg_queue</span><span class="p">:</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">msg_queue</span><span class="o">.</span><span class="n">put</span><span class="p">((</span><span class="n">msg</span><span class="p">,</span> <span class="n">last</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_disable_console_output</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="c1"># The accumulated textual content to print, including the text blocks</span>
+        <span class="c1"># and the thinking blocks</span>
+        <span class="n">thinking_and_text_to_print</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="n">msg</span><span class="o">.</span><span class="n">get_content_blocks</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">block</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"audio"</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_process_audio_block</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">block</span><span class="p">)</span>
+
+            <span class="k">elif</span> <span class="n">block</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"text"</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_print_text_block</span><span class="p">(</span>
+                    <span class="n">msg</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                    <span class="n">name_prefix</span><span class="o">=</span><span class="n">msg</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                    <span class="n">text_content</span><span class="o">=</span><span class="n">block</span><span class="p">[</span><span class="s2">"text"</span><span class="p">],</span>
+                    <span class="n">thinking_and_text_to_print</span><span class="o">=</span><span class="n">thinking_and_text_to_print</span><span class="p">,</span>
+                <span class="p">)</span>
+
+            <span class="k">elif</span> <span class="n">block</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"thinking"</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_print_text_block</span><span class="p">(</span>
+                    <span class="n">msg</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                    <span class="n">name_prefix</span><span class="o">=</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">msg</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">(thinking)"</span><span class="p">,</span>
+                    <span class="n">text_content</span><span class="o">=</span><span class="n">block</span><span class="p">[</span><span class="s2">"thinking"</span><span class="p">],</span>
+                    <span class="n">thinking_and_text_to_print</span><span class="o">=</span><span class="n">thinking_and_text_to_print</span><span class="p">,</span>
+                <span class="p">)</span>
+
+            <span class="k">elif</span> <span class="n">last</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_print_last_block</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="n">msg</span><span class="p">)</span>
+
+        <span class="c1"># Clean up resources if this is the last message in streaming</span>
+        <span class="k">if</span> <span class="n">last</span> <span class="ow">and</span> <span class="n">msg</span><span class="o">.</span><span class="n">id</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stream_prefix</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s2">"audio"</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stream_prefix</span><span class="p">[</span><span class="n">msg</span><span class="o">.</span><span class="n">id</span><span class="p">]:</span>
+                <span class="n">player</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stream_prefix</span><span class="p">[</span><span class="n">msg</span><span class="o">.</span><span class="n">id</span><span class="p">][</span><span class="s2">"audio"</span><span class="p">]</span>
+                <span class="c1"># Close the miniaudio player</span>
+                <span class="n">player</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="n">stream_prefix</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stream_prefix</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+            <span class="k">if</span> <span class="s2">"text"</span> <span class="ow">in</span> <span class="n">stream_prefix</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">stream_prefix</span><span class="p">[</span><span class="s2">"text"</span><span class="p">]</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span>
+                <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">,</span>
+            <span class="p">):</span>
+                <span class="nb">print</span><span class="p">()</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_process_audio_block</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">msg_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">audio_block</span><span class="p">:</span> <span class="n">AudioBlock</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Process audio block content.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            msg_id (`str`):</span>
+<span class="sd">                The unique identifier of the message</span>
+<span class="sd">            audio_block (`AudioBlock`):</span>
+<span class="sd">                The audio content block</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="s2">"source"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">audio_block</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"The audio block must contain the 'source' field."</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">audio_block</span><span class="p">[</span><span class="s2">"source"</span><span class="p">][</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"url"</span><span class="p">:</span>
+            <span class="c1"># TODO: maybe download and play the audio from the URL?</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">audio_block</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">ensure_ascii</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+
+        <span class="k">elif</span> <span class="n">audio_block</span><span class="p">[</span><span class="s2">"source"</span><span class="p">][</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"base64"</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">audio_block</span><span class="p">[</span><span class="s2">"source"</span><span class="p">][</span><span class="s2">"data"</span><span class="p">]</span>
+
+            <span class="k">if</span> <span class="n">msg_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stream_prefix</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_stream_prefix</span><span class="p">[</span><span class="n">msg_id</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+            <span class="n">audio_prefix</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stream_prefix</span><span class="p">[</span><span class="n">msg_id</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"audio"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+            <span class="kn">import</span><span class="w"> </span><span class="nn">sounddevice</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sd</span>
+
+            <span class="c1"># The player and the prefix data is cached for streaming audio</span>
+            <span class="k">if</span> <span class="n">audio_prefix</span><span class="p">:</span>
+                <span class="n">player</span><span class="p">,</span> <span class="n">audio_prefix_data</span> <span class="o">=</span> <span class="n">audio_prefix</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">player</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">OutputStream</span><span class="p">(</span>
+                    <span class="n">samplerate</span><span class="o">=</span><span class="mi">24000</span><span class="p">,</span>
+                    <span class="n">channels</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                    <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span>
+                    <span class="n">blocksize</span><span class="o">=</span><span class="mi">1024</span><span class="p">,</span>
+                    <span class="n">latency</span><span class="o">=</span><span class="s2">"low"</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="n">player</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+                <span class="n">audio_prefix_data</span> <span class="o">=</span> <span class="s2">""</span>
+
+            <span class="c1"># play the audio data</span>
+            <span class="n">new_audio_data</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">audio_prefix_data</span><span class="p">)</span> <span class="p">:]</span>
+            <span class="k">if</span> <span class="n">new_audio_data</span><span class="p">:</span>
+                <span class="n">audio_bytes</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">b64decode</span><span class="p">(</span><span class="n">new_audio_data</span><span class="p">)</span>
+                <span class="n">audio_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">frombuffer</span><span class="p">(</span><span class="n">audio_bytes</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int16</span><span class="p">)</span>
+                <span class="n">audio_float</span> <span class="o">=</span> <span class="n">audio_np</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span> <span class="o">/</span> <span class="mf">32768.0</span>
+
+                <span class="c1"># Write to the audio output stream</span>
+                <span class="n">player</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">audio_float</span><span class="p">)</span>
+
+            <span class="c1"># save the player and the prefix data</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_stream_prefix</span><span class="p">[</span><span class="n">msg_id</span><span class="p">][</span><span class="s2">"audio"</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="n">player</span><span class="p">,</span>
+                <span class="n">data</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"Unsupported audio source type: "</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">audio_block</span><span class="p">[</span><span class="s1">'source'</span><span class="p">][</span><span class="s1">'type'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_print_text_block</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">msg_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">name_prefix</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">text_content</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">thinking_and_text_to_print</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Print the text block and thinking block content.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            msg_id (`str`):</span>
+<span class="sd">                The unique identifier of the message</span>
+<span class="sd">            name_prefix (`str`):</span>
+<span class="sd">                The prefix for the message, e.g. "{name}: " for text block and</span>
+<span class="sd">                "{name}(thinking): " for thinking block.</span>
+<span class="sd">            text_content (`str`):</span>
+<span class="sd">                The textual content to be printed.</span>
+<span class="sd">            thinking_and_text_to_print (`list[str]`):</span>
+<span class="sd">                A list of textual content to be printed together. Here we</span>
+<span class="sd">                gather the text and thinking blocks to print them together.</span>
+<span class="sd">        """</span>
+        <span class="n">thinking_and_text_to_print</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">name_prefix</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">text_content</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="c1"># The accumulated text and thinking blocks to print</span>
+        <span class="n">to_print</span> <span class="o">=</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">thinking_and_text_to_print</span><span class="p">)</span>
+
+        <span class="c1"># The text prefix that has been printed</span>
+        <span class="k">if</span> <span class="n">msg_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stream_prefix</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_stream_prefix</span><span class="p">[</span><span class="n">msg_id</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="n">text_prefix</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stream_prefix</span><span class="p">[</span><span class="n">msg_id</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"text"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+
+        <span class="c1"># Only print when there is new text content</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">to_print</span><span class="p">)</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">text_prefix</span><span class="p">):</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">to_print</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">text_prefix</span><span class="p">)</span> <span class="p">:],</span> <span class="n">end</span><span class="o">=</span><span class="s2">""</span><span class="p">)</span>
+
+            <span class="c1"># Save the printed text prefix</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_stream_prefix</span><span class="p">[</span><span class="n">msg_id</span><span class="p">][</span><span class="s2">"text"</span><span class="p">]</span> <span class="o">=</span> <span class="n">to_print</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_print_last_block</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">block</span><span class="p">:</span> <span class="n">ToolUseBlock</span> <span class="o">|</span> <span class="n">ToolResultBlock</span> <span class="o">|</span> <span class="n">ImageBlock</span> <span class="o">|</span> <span class="n">VideoBlock</span><span class="p">,</span>
+        <span class="n">msg</span><span class="p">:</span> <span class="n">Msg</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Process and print the last content block, and the block type</span>
+<span class="sd">        is not audio, text, or thinking.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            block (`ToolUseBlock | ToolResultBlock | ImageBlock | VideoBlock`):</span>
+<span class="sd">                The content block to be printed</span>
+<span class="sd">            msg (`Msg`):</span>
+<span class="sd">                The message object</span>
+<span class="sd">        """</span>
+        <span class="n">text_prefix</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stream_prefix</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"text"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">text_prefix</span><span class="p">:</span>
+            <span class="c1"># Add a newline to separate from previous text content</span>
+            <span class="n">print_newline</span> <span class="o">=</span> <span class="s2">""</span> <span class="k">if</span> <span class="n">text_prefix</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span> <span class="k">else</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">print_newline</span><span class="si">}</span><span class="s2">"</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">block</span><span class="p">,</span><span class="w"> </span><span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="n">ensure_ascii</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">msg</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">:"</span>
+                <span class="sa">f</span><span class="s2">" </span><span class="si">{</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">block</span><span class="p">,</span><span class="w"> </span><span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="n">ensure_ascii</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="p">)</span>
+
+<div class="viewcode-block" id="AgentBase.__call__">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.AgentBase.__call__">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Msg</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Call the reply function with the given arguments."""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_reply_id</span> <span class="o">=</span> <span class="n">shortuuid</span><span class="o">.</span><span class="n">uuid</span><span class="p">()</span>
+
+        <span class="n">reply_msg</span><span class="p">:</span> <span class="n">Msg</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_reply_task</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">current_task</span><span class="p">()</span>
+            <span class="n">reply_msg</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">reply</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="c1"># The interruption is triggered by calling the interrupt method</span>
+        <span class="k">except</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">CancelledError</span><span class="p">:</span>
+            <span class="n">reply_msg</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_interrupt</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="c1"># Broadcast the reply message to all subscribers</span>
+            <span class="k">if</span> <span class="n">reply_msg</span><span class="p">:</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_broadcast_to_subscribers</span><span class="p">(</span><span class="n">reply_msg</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_reply_task</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">return</span> <span class="n">reply_msg</span></div>
+
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_broadcast_to_subscribers</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">msg</span><span class="p">:</span> <span class="n">Msg</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">Msg</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Broadcast the message to all subscribers."""</span>
+        <span class="k">for</span> <span class="n">subscribers</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subscribers</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">subscriber</span> <span class="ow">in</span> <span class="n">subscribers</span><span class="p">:</span>
+                <span class="k">await</span> <span class="n">subscriber</span><span class="o">.</span><span class="n">observe</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+<div class="viewcode-block" id="AgentBase.handle_interrupt">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.AgentBase.handle_interrupt">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">handle_interrupt</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Msg</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""The post-processing logic when the reply is interrupted by the</span>
+<span class="sd">        user or something else."""</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"The handle_interrupt function is not implemented in "</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AgentBase.interrupt">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.AgentBase.interrupt">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">interrupt</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">:</span> <span class="n">Msg</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">Msg</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Interrupt the current reply process."""</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reply_task</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reply_task</span><span class="o">.</span><span class="n">done</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_reply_task</span><span class="o">.</span><span class="n">cancel</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AgentBase.register_instance_hook">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.AgentBase.register_instance_hook">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">register_instance_hook</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">hook_type</span><span class="p">:</span> <span class="n">AgentHookTypes</span><span class="p">,</span>
+        <span class="n">hook_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">hook</span><span class="p">:</span> <span class="n">Callable</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Register a hook to the agent instance, which only takes effect</span>
+<span class="sd">        for the current instance.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            hook_type (`str`):</span>
+<span class="sd">                The type of the hook, indicating where the hook is to be</span>
+<span class="sd">                triggered.</span>
+<span class="sd">            hook_name (`str`):</span>
+<span class="sd">                The name of the hook. If the name is already registered, the</span>
+<span class="sd">                hook will be overwritten.</span>
+<span class="sd">            hook (`Callable`):</span>
+<span class="sd">                The hook function.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">AgentBase</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="s2">"The register_instance_hook method should be called on an "</span>
+                <span class="sa">f</span><span class="s2">"instance of AsyncAgentBase, but got </span><span class="si">{</span><span class="bp">self</span><span class="si">}</span><span class="s2"> of "</span>
+                <span class="sa">f</span><span class="s2">"type </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="n">hooks</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"_instance_</span><span class="si">{</span><span class="n">hook_type</span><span class="si">}</span><span class="s2">_hooks"</span><span class="p">)</span>
+        <span class="n">hooks</span><span class="p">[</span><span class="n">hook_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">hook</span></div>
+
+
+<div class="viewcode-block" id="AgentBase.remove_instance_hook">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.AgentBase.remove_instance_hook">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">remove_instance_hook</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">hook_type</span><span class="p">:</span> <span class="n">AgentHookTypes</span><span class="p">,</span>
+        <span class="n">hook_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Remove an instance-level hook from the agent instance.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            hook_type (`AgentHookTypes`):</span>
+<span class="sd">                The type of the hook, indicating where the hook is to be</span>
+<span class="sd">                triggered.</span>
+<span class="sd">            hook_name (`str`):</span>
+<span class="sd">                The name of the hook to remove.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">AgentBase</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="s2">"The remove_instance_hook method should be called on an "</span>
+                <span class="sa">f</span><span class="s2">"instance of AsyncAgentBase, but got </span><span class="si">{</span><span class="bp">self</span><span class="si">}</span><span class="s2"> of "</span>
+                <span class="sa">f</span><span class="s2">"type </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="n">hooks</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"_instance_</span><span class="si">{</span><span class="n">hook_type</span><span class="si">}</span><span class="s2">_hooks"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">hook_name</span> <span class="ow">in</span> <span class="n">hooks</span><span class="p">:</span>
+            <span class="k">del</span> <span class="n">hooks</span><span class="p">[</span><span class="n">hook_name</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Hook '</span><span class="si">{</span><span class="n">hook_name</span><span class="si">}</span><span class="s2">' not found in '</span><span class="si">{</span><span class="n">hook_type</span><span class="si">}</span><span class="s2">' hooks of "</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> instance."</span><span class="p">,</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AgentBase.register_class_hook">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.AgentBase.register_class_hook">[文档]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">register_class_hook</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">hook_type</span><span class="p">:</span> <span class="n">AgentHookTypes</span><span class="p">,</span>
+        <span class="n">hook_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">hook</span><span class="p">:</span> <span class="n">Callable</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""The universal function to register a hook to the agent class, which</span>
+<span class="sd">        will take effect for all instances of the class.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            hook_type (`AgentHookTypes`):</span>
+<span class="sd">                The type of the hook, indicating where the hook is to be</span>
+<span class="sd">                triggered.</span>
+<span class="sd">            hook_name (`str`):</span>
+<span class="sd">                The name of the hook. If the name is already registered, the</span>
+<span class="sd">                hook will be overwritten.</span>
+<span class="sd">            hook (`Callable`):</span>
+<span class="sd">                The hook function.</span>
+<span class="sd">        """</span>
+
+        <span class="k">assert</span> <span class="p">(</span>
+            <span class="n">hook_type</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">supported_hook_types</span>
+        <span class="p">),</span> <span class="sa">f</span><span class="s2">"Invalid hook type: </span><span class="si">{</span><span class="n">hook_type</span><span class="si">}</span><span class="s2">"</span>
+
+        <span class="n">hooks</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"_class_</span><span class="si">{</span><span class="n">hook_type</span><span class="si">}</span><span class="s2">_hooks"</span><span class="p">)</span>
+        <span class="n">hooks</span><span class="p">[</span><span class="n">hook_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">hook</span></div>
+
+
+<div class="viewcode-block" id="AgentBase.remove_class_hook">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.AgentBase.remove_class_hook">[文档]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">remove_class_hook</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">hook_type</span><span class="p">:</span> <span class="n">AgentHookTypes</span><span class="p">,</span>
+        <span class="n">hook_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Remove a class-level hook from the agent class.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            hook_type (`AgentHookTypes`):</span>
+<span class="sd">                The type of the hook, indicating where the hook is to be</span>
+<span class="sd">                triggered.</span>
+<span class="sd">            hook_name (`str`):</span>
+<span class="sd">                The name of the hook to remove.</span>
+<span class="sd">        """</span>
+
+        <span class="k">assert</span> <span class="p">(</span>
+            <span class="n">hook_type</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">supported_hook_types</span>
+        <span class="p">),</span> <span class="sa">f</span><span class="s2">"Invalid hook type: </span><span class="si">{</span><span class="n">hook_type</span><span class="si">}</span><span class="s2">"</span>
+        <span class="n">hooks</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"_class_</span><span class="si">{</span><span class="n">hook_type</span><span class="si">}</span><span class="s2">_hooks"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">hook_name</span> <span class="ow">in</span> <span class="n">hooks</span><span class="p">:</span>
+            <span class="k">del</span> <span class="n">hooks</span><span class="p">[</span><span class="n">hook_name</span><span class="p">]</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Hook '</span><span class="si">{</span><span class="n">hook_name</span><span class="si">}</span><span class="s2">' not found in '</span><span class="si">{</span><span class="n">hook_type</span><span class="si">}</span><span class="s2">' hooks of "</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> class."</span><span class="p">,</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AgentBase.clear_class_hooks">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.AgentBase.clear_class_hooks">[文档]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">clear_class_hooks</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">hook_type</span><span class="p">:</span> <span class="n">AgentHookTypes</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Clear all class-level hooks.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            hook_type (`AgentHookTypes`, optional):</span>
+<span class="sd">                The type of the hook to clear. If not specified, all</span>
+<span class="sd">                class-level hooks will be cleared.</span>
+<span class="sd">        """</span>
+
+        <span class="k">if</span> <span class="n">hook_type</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">typ</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">supported_hook_types</span><span class="p">:</span>
+                <span class="n">hooks</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"_class_</span><span class="si">{</span><span class="n">typ</span><span class="si">}</span><span class="s2">_hooks"</span><span class="p">)</span>
+                <span class="n">hooks</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="p">(</span>
+                <span class="n">hook_type</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">supported_hook_types</span>
+            <span class="p">),</span> <span class="sa">f</span><span class="s2">"Invalid hook type: </span><span class="si">{</span><span class="n">hook_type</span><span class="si">}</span><span class="s2">"</span>
+            <span class="n">hooks</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"_class_</span><span class="si">{</span><span class="n">hook_type</span><span class="si">}</span><span class="s2">_hooks"</span><span class="p">)</span>
+            <span class="n">hooks</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="AgentBase.clear_instance_hooks">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.AgentBase.clear_instance_hooks">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">clear_instance_hooks</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">hook_type</span><span class="p">:</span> <span class="n">AgentHookTypes</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""If `hook_type` is not specified, clear all instance-level hooks.</span>
+<span class="sd">        Otherwise, clear the specified type of instance-level hooks."""</span>
+        <span class="k">if</span> <span class="n">hook_type</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">typ</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">supported_hook_types</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"_instance_</span><span class="si">{</span><span class="n">typ</span><span class="si">}</span><span class="s2">_hooks"</span><span class="p">):</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">"Call super().__init__() in the constructor "</span>
+                        <span class="sa">f</span><span class="s2">"to initialize the instance-level hooks for "</span>
+                        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">."</span><span class="p">,</span>
+                    <span class="p">)</span>
+                <span class="n">hooks</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"_instance_</span><span class="si">{</span><span class="n">typ</span><span class="si">}</span><span class="s2">_hooks"</span><span class="p">)</span>
+                <span class="n">hooks</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="p">(</span>
+                <span class="n">hook_type</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">supported_hook_types</span>
+            <span class="p">),</span> <span class="sa">f</span><span class="s2">"Invalid hook type: </span><span class="si">{</span><span class="n">hook_type</span><span class="si">}</span><span class="s2">"</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"_instance_</span><span class="si">{</span><span class="n">hook_type</span><span class="si">}</span><span class="s2">_hooks"</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"Call super().__init__() in the constructor "</span>
+                    <span class="sa">f</span><span class="s2">"to initialize the instance-level hooks for "</span>
+                    <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">."</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="n">hooks</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"_instance_</span><span class="si">{</span><span class="n">hook_type</span><span class="si">}</span><span class="s2">_hooks"</span><span class="p">)</span>
+            <span class="n">hooks</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="AgentBase.reset_subscribers">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.AgentBase.reset_subscribers">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">reset_subscribers</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">msghub_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">subscribers</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="s2">"AgentBase"</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Reset the subscribers of the agent.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            msghub_name (`str`):</span>
+<span class="sd">                The name of the MsgHub that manages the subscribers.</span>
+<span class="sd">            subscribers (`list[AgentBase]`):</span>
+<span class="sd">                A list of agents that will receive the reply message from</span>
+<span class="sd">                this agent via their `observe` method.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_subscribers</span><span class="p">[</span><span class="n">msghub_name</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">_</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">subscribers</span> <span class="k">if</span> <span class="n">_</span> <span class="o">!=</span> <span class="bp">self</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="AgentBase.remove_subscribers">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.AgentBase.remove_subscribers">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">remove_subscribers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msghub_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Remove the msghub subscribers by the given msg hub name.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            msghub_name (`str`):</span>
+<span class="sd">                The name of the MsgHub that manages the subscribers.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">msghub_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subscribers</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">"MsgHub named '</span><span class="si">%s</span><span class="s2">' not found"</span><span class="p">,</span>
+                <span class="n">msghub_name</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_subscribers</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">msghub_name</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="AgentBase.disable_console_output">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.AgentBase.disable_console_output">[文档]</a>
+    <span class="nd">@deprecated</span><span class="p">(</span><span class="s2">"Please use set_console_output_enabled() instead."</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">disable_console_output</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""This function will disable the console output of the agent, e.g.</span>
+<span class="sd">        in a production environment to avoid messy logs."""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_disable_console_output</span> <span class="o">=</span> <span class="kc">True</span></div>
+
+
+<div class="viewcode-block" id="AgentBase.set_console_output_enabled">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.AgentBase.set_console_output_enabled">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_console_output_enabled</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">enabled</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Enable or disable the console output of the agent. E.g. in a</span>
+<span class="sd">        production environment, you may want to disable the console output to</span>
+<span class="sd">        avoid messy logs.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            enabled (`bool`):</span>
+<span class="sd">                If `True`, enable the console output. If `False`, disable</span>
+<span class="sd">                the console output.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_disable_console_output</span> <span class="o">=</span> <span class="ow">not</span> <span class="n">enabled</span></div>
+
+
+<div class="viewcode-block" id="AgentBase.set_msg_queue_enabled">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.AgentBase.set_msg_queue_enabled">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_msg_queue_enabled</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">enabled</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+        <span class="n">queue</span><span class="p">:</span> <span class="n">Queue</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Enable or disable the message queue for streaming outputs.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            enabled (`bool`):</span>
+<span class="sd">                If `True`, enable the message queue to allow streaming</span>
+<span class="sd">                outputs. If `False`, disable the message queue.</span>
+<span class="sd">            queue (`Queue | None`, optional):</span>
+<span class="sd">                The queue instance that will be used to initialize the</span>
+<span class="sd">                message queue when `enable` is `True`.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">enabled</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">queue</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">msg_queue</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">msg_queue</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">Queue</span><span class="p">(</span><span class="n">maxsize</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">msg_queue</span> <span class="o">=</span> <span class="n">queue</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">msg_queue</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_disable_msg_queue</span> <span class="o">=</span> <span class="ow">not</span> <span class="n">enabled</span></div>
+</div>
+
+</pre></div>
+        

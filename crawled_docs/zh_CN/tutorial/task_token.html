@@ -1,0 +1,109 @@
+<!-- Title: Token 计数 - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/tutorial/task_token.html -->
+
+          <div class="sphx-glr-download-link-note admonition note">
+<p class="admonition-title">备注</p>
+<p><a class="reference internal" href="#sphx-glr-download-tutorial-task-token-py"><span class="std std-ref">Go to the end</span></a>
+to download the full example code.</p>
+</div>
+<section class="sphx-glr-example-title" id="token">
+<span id="sphx-glr-tutorial-task-token-py"></span><span id="id1"></span><h1>Token 计数<a class="headerlink" href="#token" title="Link to this heading">¶</a></h1>
+<p>AgentScope 在 <code class="docutils literal notranslate"><span class="pre">agentscope.token</span></code> 模块下提供了 token 计数功能，用于计算给定消息中
+的 token 数量，允许开发者在调用 LLM API 前预估 token 数量。</p>
+<p>具体而言，可用的 token 计数器如下：</p>
+<div class="table-wrapper docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>LLM API</p></th>
+<th class="head"><p>类</p></th>
+<th class="head"><p>实现方式</p></th>
+<th class="head"><p>支持图像数据</p></th>
+<th class="head"><p>支持工具</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Anthropic</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">AnthropicTokenCounter</span></code></p></td>
+<td><p>官方 API</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+</tr>
+<tr class="row-odd"><td><p>OpenAI</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">OpenAITokenCounter</span></code></p></td>
+<td><p>本地计算</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+</tr>
+<tr class="row-even"><td><p>Gemini</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">GeminiTokenCounter</span></code></p></td>
+<td><p>官方 API</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+</tr>
+<tr class="row-odd"><td><p>HuggingFace</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">HuggingFaceTokenCounter</span></code></p></td>
+<td><p>基于Tokenizer计算</p></td>
+<td><p>取决于模型</p></td>
+<td><p>取决于模型</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">小技巧</p>
+<p>格式化器模块已集成了 token 计数器以支持提示截断。更多详细信息请参考 <a class="reference internal" href="task_prompt.html#prompt"><span class="std std-ref">提示词格式化</span></a> 部分。</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<ul class="simple">
+<li><p>对于 DashScope 模型，目前 dashscope 库不提供 token 计数 API。因此我们建议使用 HuggingFace token 计数器代替。</p></li>
+<li><p>对于 OpenAI 模型，由于官方未提供 token 计数 API，因此可能存在与官方计算结果不一致的情况。</p></li>
+</ul>
+</div>
+<p>下面展示使用 OpenAI token 计数器计算 token 数量的示例：</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.token</span><span class="w"> </span><span class="kn">import</span> <span class="n">OpenAITokenCounter</span>
+
+
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">example_token_counting</span><span class="p">():</span>
+    <span class="c1"># 示例消息</span>
+    <span class="n">messages</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"Hello!"</span><span class="p">},</span>
+        <span class="p">{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"assistant"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"Hi, how can I help you?"</span><span class="p">},</span>
+    <span class="p">]</span>
+
+    <span class="c1"># OpenAI token 计数</span>
+    <span class="n">openai_counter</span> <span class="o">=</span> <span class="n">OpenAITokenCounter</span><span class="p">(</span><span class="n">model_name</span><span class="o">=</span><span class="s2">"gpt-4.1"</span><span class="p">)</span>
+    <span class="n">n_tokens</span> <span class="o">=</span> <span class="k">await</span> <span class="n">openai_counter</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">messages</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Token 数量: </span><span class="si">{</span><span class="n">n_tokens</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+
+<span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">example_token_counting</span><span class="p">())</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Token 数量: 21
+</pre></div>
+</div>
+<section id="id2">
+<h2>进一步阅读<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="task_prompt.html#prompt"><span class="std std-ref">提示词格式化</span></a></p></li>
+</ul>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 0.658 seconds)</p>
+<div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-tutorial-task-token-py">
+<div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/88e9480ef84c8c1b502a18c720aefa2a/task_token.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">task_token.ipynb</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-python docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/75e8dce54d27df435495cfe52f2ad665/task_token.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">task_token.py</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-zip docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/62dcda57d57afbfc218272dcf137d620/task_token.zip"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">zipped:</span> <span class="pre">task_token.zip</span></code></a></p>
+</div>
+</div>
+<p class="sphx-glr-signature"><a class="reference external" href="https://sphinx-gallery.github.io">Gallery generated by Sphinx-Gallery</a></p>
+</section>
+</section>
+
+        

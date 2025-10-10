@@ -1,0 +1,320 @@
+<!-- Title: agentscope.formatter._truncated_formatter_base - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/formatter/_truncated_formatter_base.html -->
+
+          <h1>agentscope.formatter._truncated_formatter_base 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The truncated formatter base class, which allows to truncate the input</span>
+<span class="sd">messages."""</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">ABC</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">copy</span><span class="w"> </span><span class="kn">import</span> <span class="n">deepcopy</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Any</span><span class="p">,</span>
+    <span class="n">Tuple</span><span class="p">,</span>
+    <span class="n">Literal</span><span class="p">,</span>
+    <span class="n">AsyncGenerator</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">._formatter_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">FormatterBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..message</span><span class="w"> </span><span class="kn">import</span> <span class="n">Msg</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..token</span><span class="w"> </span><span class="kn">import</span> <span class="n">TokenCounterBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..tracing</span><span class="w"> </span><span class="kn">import</span> <span class="n">trace_format</span>
+
+
+<div class="viewcode-block" id="TruncatedFormatterBase">
+<a class="viewcode-back" href="../../../api/agentscope.formatter.html#agentscope.formatter.TruncatedFormatterBase">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">TruncatedFormatterBase</span><span class="p">(</span><span class="n">FormatterBase</span><span class="p">,</span> <span class="n">ABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Base class for truncated formatters, which formats input messages into</span>
+<span class="sd">    required formats with tokens under a specified limit."""</span>
+
+<div class="viewcode-block" id="TruncatedFormatterBase.__init__">
+<a class="viewcode-back" href="../../../api/agentscope.formatter.html#agentscope.formatter.TruncatedFormatterBase.__init__">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">token_counter</span><span class="p">:</span> <span class="n">TokenCounterBase</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">max_tokens</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize the TruncatedFormatterBase.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            token_counter (`TokenCounterBase | None`, optional):</span>
+<span class="sd">                A token counter instance used to count tokens in the messages.</span>
+<span class="sd">                If not provided, the formatter will format the messages</span>
+<span class="sd">                without considering token limits.</span>
+<span class="sd">            max_tokens (`int | None`, optional):</span>
+<span class="sd">                The maximum number of tokens allowed in the formatted</span>
+<span class="sd">                messages. If not provided, the formatter will not truncate</span>
+<span class="sd">                the messages.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">token_counter</span> <span class="o">=</span> <span class="n">token_counter</span>
+
+        <span class="k">assert</span> <span class="p">(</span>
+            <span class="n">max_tokens</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="mi">0</span> <span class="o">&lt;</span> <span class="n">max_tokens</span>
+        <span class="p">),</span> <span class="s2">"max_tokens must be greater than 0"</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_tokens</span> <span class="o">=</span> <span class="n">max_tokens</span></div>
+
+
+<div class="viewcode-block" id="TruncatedFormatterBase.format">
+<a class="viewcode-back" href="../../../api/agentscope.formatter.html#agentscope.formatter.TruncatedFormatterBase.format">[文档]</a>
+    <span class="nd">@trace_format</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">format</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">msgs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Msg</span><span class="p">],</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">"""Format the input messages into the required format. If token</span>
+<span class="sd">        counter and max token limit are provided, the messages will be</span>
+<span class="sd">        truncated to fit the limit.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            msgs (`list[Msg]`):</span>
+<span class="sd">                The input messages to be formatted.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `list[dict[str, Any]]`:</span>
+<span class="sd">                The formatted messages in the required format.</span>
+<span class="sd">        """</span>
+
+        <span class="c1"># Check if the input messages are valid</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assert_list_of_msgs</span><span class="p">(</span><span class="n">msgs</span><span class="p">)</span>
+
+        <span class="n">msgs</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">msgs</span><span class="p">)</span>
+
+        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="n">formatted_msgs</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_format</span><span class="p">(</span><span class="n">msgs</span><span class="p">)</span>
+            <span class="n">n_tokens</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_count</span><span class="p">(</span><span class="n">formatted_msgs</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="n">n_tokens</span> <span class="ow">is</span> <span class="kc">None</span>
+                <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_tokens</span> <span class="ow">is</span> <span class="kc">None</span>
+                <span class="ow">or</span> <span class="n">n_tokens</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_tokens</span>
+            <span class="p">):</span>
+                <span class="k">return</span> <span class="n">formatted_msgs</span>
+
+            <span class="c1"># truncate the input messages</span>
+            <span class="n">msgs</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_truncate</span><span class="p">(</span><span class="n">msgs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="TruncatedFormatterBase._format">
+<a class="viewcode-back" href="../../../api/agentscope.formatter.html#agentscope.formatter.TruncatedFormatterBase._format">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_format</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msgs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Msg</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">"""Format the input messages into the required format. This method</span>
+<span class="sd">        should be implemented by the subclasses."""</span>
+
+        <span class="n">formatted_msgs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">start_index</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">msgs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">msgs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">role</span> <span class="o">==</span> <span class="s2">"system"</span><span class="p">:</span>
+            <span class="n">formatted_msgs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_format_system_message</span><span class="p">(</span><span class="n">msgs</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
+            <span class="p">)</span>
+            <span class="n">start_index</span> <span class="o">=</span> <span class="mi">1</span>
+
+        <span class="n">is_first_agent_message</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">async</span> <span class="k">for</span> <span class="n">typ</span><span class="p">,</span> <span class="n">group</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_group_messages</span><span class="p">(</span><span class="n">msgs</span><span class="p">[</span><span class="n">start_index</span><span class="p">:]):</span>
+            <span class="k">match</span> <span class="n">typ</span><span class="p">:</span>
+                <span class="k">case</span> <span class="s2">"tool_sequence"</span><span class="p">:</span>
+                    <span class="n">formatted_msgs</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+                        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_format_tool_sequence</span><span class="p">(</span><span class="n">group</span><span class="p">),</span>
+                    <span class="p">)</span>
+                <span class="k">case</span> <span class="s2">"agent_message"</span><span class="p">:</span>
+                    <span class="n">formatted_msgs</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+                        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_format_agent_message</span><span class="p">(</span>
+                            <span class="n">group</span><span class="p">,</span>
+                            <span class="n">is_first_agent_message</span><span class="p">,</span>
+                        <span class="p">),</span>
+                    <span class="p">)</span>
+                    <span class="n">is_first_agent_message</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="k">return</span> <span class="n">formatted_msgs</span></div>
+
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_format_system_message</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">msg</span><span class="p">:</span> <span class="n">Msg</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Format system message for the LLM API.</span>
+
+<span class="sd">        .. note:: This is the default implementation. For certain LLM APIs</span>
+<span class="sd">        with specific requirements, you may need to implement a custom</span>
+<span class="sd">        formatting function to accommodate those particular needs.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">"role"</span><span class="p">:</span> <span class="s2">"system"</span><span class="p">,</span>
+            <span class="s2">"content"</span><span class="p">:</span> <span class="n">msg</span><span class="o">.</span><span class="n">get_content_blocks</span><span class="p">(</span><span class="s2">"text"</span><span class="p">),</span>
+        <span class="p">}</span>
+
+<div class="viewcode-block" id="TruncatedFormatterBase._format_tool_sequence">
+<a class="viewcode-back" href="../../../api/agentscope.formatter.html#agentscope.formatter.TruncatedFormatterBase._format_tool_sequence">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_format_tool_sequence</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">msgs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Msg</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">"""Given a sequence of tool call/result messages, format them into</span>
+<span class="sd">        the required format for the LLM API."""</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+            <span class="s2">"_format_tool_sequence is not implemented"</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="TruncatedFormatterBase._format_agent_message">
+<a class="viewcode-back" href="../../../api/agentscope.formatter.html#agentscope.formatter.TruncatedFormatterBase._format_agent_message">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_format_agent_message</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">msgs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Msg</span><span class="p">],</span>
+        <span class="n">is_first</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">"""Given a sequence of messages without tool calls/results, format</span>
+<span class="sd">        them into the required format for the LLM API."""</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+            <span class="s2">"_format_agent_message is not implemented"</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_truncate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msgs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Msg</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Msg</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Truncate the input messages, so that it can fit the token limit.</span>
+<span class="sd">        This function is called only when</span>
+
+<span class="sd">        - both `token_counter` and `max_tokens` are provided,</span>
+<span class="sd">        - the formatted output of the input messages exceeds the token limit.</span>
+
+<span class="sd">        .. tip:: This function only provides a simple strategy, and developers</span>
+<span class="sd">         can override this method to implement more sophisticated</span>
+<span class="sd">         truncation strategies.</span>
+
+<span class="sd">        .. note:: The tool call message should be truncated together with</span>
+<span class="sd">         its corresponding tool result message to satisfy the LLM API</span>
+<span class="sd">         requirements.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            msgs (`list[Msg]`):</span>
+<span class="sd">                The input messages to be truncated.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            `ValueError`:</span>
+<span class="sd">                If the system prompt message already exceeds the token limit,</span>
+<span class="sd">                or if there are tool calls without corresponding tool results.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `list[Msg]`:</span>
+<span class="sd">                The truncated messages.</span>
+<span class="sd">        """</span>
+        <span class="n">start_index</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">msgs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">msgs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">role</span> <span class="o">==</span> <span class="s2">"system"</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">msgs</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="c1"># If the system prompt already exceeds the token limit, we</span>
+                <span class="c1"># raise an error.</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"The system prompt message already exceeds the token "</span>
+                    <span class="sa">f</span><span class="s2">"limit (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">max_tokens</span><span class="si">}</span><span class="s2"> tokens)."</span><span class="p">,</span>
+                <span class="p">)</span>
+
+            <span class="n">start_index</span> <span class="o">=</span> <span class="mi">1</span>
+
+        <span class="c1"># Create a tool call IDs queues to delete the corresponding tool</span>
+        <span class="c1"># result message</span>
+        <span class="n">tool_call_ids</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">start_index</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">msgs</span><span class="p">)):</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="n">msgs</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="n">msg</span><span class="o">.</span><span class="n">get_content_blocks</span><span class="p">(</span><span class="s2">"tool_use"</span><span class="p">):</span>
+                <span class="n">tool_call_ids</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">block</span><span class="p">[</span><span class="s2">"id"</span><span class="p">])</span>
+
+            <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="n">msg</span><span class="o">.</span><span class="n">get_content_blocks</span><span class="p">(</span><span class="s2">"tool_result"</span><span class="p">):</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">tool_call_ids</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">block</span><span class="p">[</span><span class="s2">"id"</span><span class="p">])</span>
+                <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                    <span class="k">pass</span>
+
+            <span class="c1"># We can stop truncating if the queue is empty</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tool_call_ids</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">msgs</span><span class="p">[:</span><span class="n">start_index</span><span class="p">]</span> <span class="o">+</span> <span class="n">msgs</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span> <span class="p">:]</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tool_call_ids</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"The input messages contains tool call(s) that do not have "</span>
+                <span class="sa">f</span><span class="s2">"the corresponding tool result(s): </span><span class="si">{</span><span class="n">tool_call_ids</span><span class="si">}</span><span class="s2">. "</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">msgs</span><span class="p">[:</span><span class="n">start_index</span><span class="p">]</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_count</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msgs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Count the number of tokens in the input messages. If token counter</span>
+<span class="sd">        is not provided, `None` will be returned.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            msgs (`list[Msg]`):</span>
+<span class="sd">                The input messages to count tokens for.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">token_counter</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">token_counter</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">msgs</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_group_messages</span><span class="p">(</span>
+        <span class="n">msgs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Msg</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AsyncGenerator</span><span class="p">[</span>
+        <span class="n">Tuple</span><span class="p">[</span><span class="n">Literal</span><span class="p">[</span><span class="s2">"tool_sequence"</span><span class="p">,</span> <span class="s2">"agent_message"</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="n">Msg</span><span class="p">]],</span>
+        <span class="kc">None</span><span class="p">,</span>
+    <span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Group the input messages into two types and yield them as a</span>
+<span class="sd">        generator. The two types are:</span>
+
+<span class="sd">        - agent message that doesn't contain tool calls/results, and</span>
+<span class="sd">        - tool sequence that consisted of a sequence of tool calls/results</span>
+
+<span class="sd">        .. note:: The group operation is used in multi-agent scenario, where</span>
+<span class="sd">         multiple entities are involved in the input messages. So that to be</span>
+<span class="sd">         compatible with tools API, we have to group the messages and format</span>
+<span class="sd">         them with different strategies.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            msgs (`list[Msg]`):</span>
+<span class="sd">                The input messages to be grouped, where the system prompt</span>
+<span class="sd">                message shouldn't be included.</span>
+
+<span class="sd">        Yields:</span>
+<span class="sd">            `AsyncGenerator[Tuple[str, list[Msg]], None]`:</span>
+<span class="sd">                A generator that yields tuples of group type and the list of</span>
+<span class="sd">                messages in that group. The group type can be either</span>
+<span class="sd">                "tool_sequence" or "agent_message".</span>
+<span class="sd">        """</span>
+
+        <span class="n">group_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"tool_sequence"</span><span class="p">,</span> <span class="s2">"agent_message"</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">group</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">msgs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">group_type</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">has_content_blocks</span><span class="p">(</span>
+                    <span class="s2">"tool_use"</span><span class="p">,</span>
+                <span class="p">)</span> <span class="ow">or</span> <span class="n">msg</span><span class="o">.</span><span class="n">has_content_blocks</span><span class="p">(</span><span class="s2">"tool_result"</span><span class="p">):</span>
+                    <span class="n">group_type</span> <span class="o">=</span> <span class="s2">"tool_sequence"</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">group_type</span> <span class="o">=</span> <span class="s2">"agent_message"</span>
+
+                <span class="n">group</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+                <span class="k">continue</span>
+
+            <span class="c1"># determine if this msg has the same type as the current group</span>
+            <span class="k">if</span> <span class="n">group_type</span> <span class="o">==</span> <span class="s2">"tool_sequence"</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">has_content_blocks</span><span class="p">(</span>
+                    <span class="s2">"tool_use"</span><span class="p">,</span>
+                <span class="p">)</span> <span class="ow">or</span> <span class="n">msg</span><span class="o">.</span><span class="n">has_content_blocks</span><span class="p">(</span><span class="s2">"tool_result"</span><span class="p">):</span>
+                    <span class="n">group</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">yield</span> <span class="n">group_type</span><span class="p">,</span> <span class="n">group</span>
+                    <span class="n">group</span> <span class="o">=</span> <span class="p">[</span><span class="n">msg</span><span class="p">]</span>
+                    <span class="n">group_type</span> <span class="o">=</span> <span class="s2">"agent_message"</span>
+
+            <span class="k">elif</span> <span class="n">group_type</span> <span class="o">==</span> <span class="s2">"agent_message"</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">msg</span><span class="o">.</span><span class="n">has_content_blocks</span><span class="p">(</span>
+                    <span class="s2">"tool_use"</span><span class="p">,</span>
+                <span class="p">)</span> <span class="ow">or</span> <span class="n">msg</span><span class="o">.</span><span class="n">has_content_blocks</span><span class="p">(</span><span class="s2">"tool_result"</span><span class="p">):</span>
+                    <span class="k">yield</span> <span class="n">group_type</span><span class="p">,</span> <span class="n">group</span>
+                    <span class="n">group</span> <span class="o">=</span> <span class="p">[</span><span class="n">msg</span><span class="p">]</span>
+                    <span class="n">group_type</span> <span class="o">=</span> <span class="s2">"tool_sequence"</span>
+
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">group</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">group_type</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="n">group_type</span><span class="p">,</span> <span class="n">group</span></div>
+
+</pre></div>
+        

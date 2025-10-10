@@ -1,0 +1,772 @@
+<!-- Title: agentscope.agent - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/api/agentscope.agent.html -->
+
+          <section id="module-agentscope.agent">
+<span id="agentscope-agent"></span><h1>agentscope.agent<a class="headerlink" href="#module-agentscope.agent" title="Link to this heading">¶</a></h1>
+<p>The agent base class.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.agent.AgentBase">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">AgentBase</span></span><a class="reference internal" href="../_modules/agentscope/agent/_agent_base.html#AgentBase"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.AgentBase" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<a class="reference internal" href="agentscope.module.html#agentscope.module.StateModule" title="agentscope.module._state_module.StateModule"><code class="xref py py-class docutils literal notranslate"><span class="pre">StateModule</span></code></a></p>
+<p>Base class for asynchronous agents.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.agent.AgentBase.supported_hook_types">
+<span class="sig-name descname"><span class="pre">supported_hook_types</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">['pre_reply',</span> <span class="pre">'post_reply',</span> <span class="pre">'pre_print',</span> <span class="pre">'post_print',</span> <span class="pre">'pre_observe',</span> <span class="pre">'post_observe']</span></em><a class="headerlink" href="#agentscope.agent.AgentBase.supported_hook_types" title="Link to this definition">¶</a></dt>
+<dd><p>Supported hook types for the agent base class.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.agent.AgentBase.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/agent/_agent_base.html#AgentBase.__init__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.AgentBase.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize the agent.</p>
+<dl class="field-list simple">
+<dt class="field-odd">返回类型<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.agent.AgentBase.id">
+<span class="sig-name descname"><span class="pre">id</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#agentscope.agent.AgentBase.id" title="Link to this definition">¶</a></dt>
+<dd><p>The agent's unique identifier, generated using shortuuid.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.agent.AgentBase.observe">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">observe</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msg</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/agent/_agent_base.html#AgentBase.observe"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.AgentBase.observe" title="Link to this definition">¶</a></dt>
+<dd><p>Receive the given message(s) without generating a reply.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>msg</strong> (<cite>Msg | list[Msg] | None</cite>) -- The message(s) to be observed.</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.agent.AgentBase.reply">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">reply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/agent/_agent_base.html#AgentBase.reply"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.AgentBase.reply" title="Link to this definition">¶</a></dt>
+<dd><p>The main logic of the agent, which generates a reply based on the
+current state and input arguments.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>args</strong> (<em>Any</em>)</p></li>
+<li><p><strong>kwargs</strong> (<em>Any</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="agentscope.message.html#agentscope.message.Msg" title="agentscope.message._message_base.Msg"><em>Msg</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.agent.AgentBase.print">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">print</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">last</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/agent/_agent_base.html#AgentBase.print"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.AgentBase.print" title="Link to this definition">¶</a></dt>
+<dd><p>The function to display the message.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>msg</strong> (<cite>Msg</cite>) -- The message object to be printed.</p></li>
+<li><p><strong>last</strong> (<cite>bool</cite>, defaults to <cite>True</cite>) -- Whether this is the last one in streaming messages. For
+non-streaming message, this should always be <cite>True</cite>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.agent.AgentBase.__call__">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/agent/_agent_base.html#AgentBase.__call__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.AgentBase.__call__" title="Link to this definition">¶</a></dt>
+<dd><p>Call the reply function with the given arguments.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>args</strong> (<em>Any</em>)</p></li>
+<li><p><strong>kwargs</strong> (<em>Any</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="agentscope.message.html#agentscope.message.Msg" title="agentscope.message._message_base.Msg"><em>Msg</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.agent.AgentBase.handle_interrupt">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">handle_interrupt</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/agent/_agent_base.html#AgentBase.handle_interrupt"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.AgentBase.handle_interrupt" title="Link to this definition">¶</a></dt>
+<dd><p>The post-processing logic when the reply is interrupted by the
+user or something else.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>args</strong> (<em>Any</em>)</p></li>
+<li><p><strong>kwargs</strong> (<em>Any</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="agentscope.message.html#agentscope.message.Msg" title="agentscope.message._message_base.Msg"><em>Msg</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.agent.AgentBase.interrupt">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">interrupt</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/agent/_agent_base.html#AgentBase.interrupt"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.AgentBase.interrupt" title="Link to this definition">¶</a></dt>
+<dd><p>Interrupt the current reply process.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>msg</strong> (<a class="reference internal" href="agentscope.message.html#agentscope.message.Msg" title="agentscope.message._message_base.Msg"><em>Msg</em></a><em> | </em><em>list</em><em>[</em><a class="reference internal" href="agentscope.message.html#agentscope.message.Msg" title="agentscope.message._message_base.Msg"><em>Msg</em></a><em>] </em><em>| </em><em>None</em>)</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.agent.AgentBase.register_instance_hook">
+<span class="sig-name descname"><span class="pre">register_instance_hook</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hook_type</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hook_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hook</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/agent/_agent_base.html#AgentBase.register_instance_hook"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.AgentBase.register_instance_hook" title="Link to this definition">¶</a></dt>
+<dd><p>Register a hook to the agent instance, which only takes effect
+for the current instance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>hook_type</strong> (<cite>str</cite>) -- The type of the hook, indicating where the hook is to be
+triggered.</p></li>
+<li><p><strong>hook_name</strong> (<cite>str</cite>) -- The name of the hook. If the name is already registered, the
+hook will be overwritten.</p></li>
+<li><p><strong>hook</strong> (<cite>Callable</cite>) -- The hook function.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.agent.AgentBase.remove_instance_hook">
+<span class="sig-name descname"><span class="pre">remove_instance_hook</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hook_type</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hook_name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/agent/_agent_base.html#AgentBase.remove_instance_hook"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.AgentBase.remove_instance_hook" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an instance-level hook from the agent instance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>hook_type</strong> (<cite>AgentHookTypes</cite>) -- The type of the hook, indicating where the hook is to be
+triggered.</p></li>
+<li><p><strong>hook_name</strong> (<cite>str</cite>) -- The name of the hook to remove.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.agent.AgentBase.register_class_hook">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">register_class_hook</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hook_type</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hook_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hook</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/agent/_agent_base.html#AgentBase.register_class_hook"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.AgentBase.register_class_hook" title="Link to this definition">¶</a></dt>
+<dd><p>The universal function to register a hook to the agent class, which
+will take effect for all instances of the class.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>hook_type</strong> (<cite>AgentHookTypes</cite>) -- The type of the hook, indicating where the hook is to be
+triggered.</p></li>
+<li><p><strong>hook_name</strong> (<cite>str</cite>) -- The name of the hook. If the name is already registered, the
+hook will be overwritten.</p></li>
+<li><p><strong>hook</strong> (<cite>Callable</cite>) -- The hook function.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.agent.AgentBase.remove_class_hook">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">remove_class_hook</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hook_type</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hook_name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/agent/_agent_base.html#AgentBase.remove_class_hook"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.AgentBase.remove_class_hook" title="Link to this definition">¶</a></dt>
+<dd><p>Remove a class-level hook from the agent class.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>hook_type</strong> (<cite>AgentHookTypes</cite>) -- The type of the hook, indicating where the hook is to be
+triggered.</p></li>
+<li><p><strong>hook_name</strong> (<cite>str</cite>) -- The name of the hook to remove.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.agent.AgentBase.clear_class_hooks">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">clear_class_hooks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hook_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/agent/_agent_base.html#AgentBase.clear_class_hooks"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.AgentBase.clear_class_hooks" title="Link to this definition">¶</a></dt>
+<dd><p>Clear all class-level hooks.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>hook_type</strong> (<cite>AgentHookTypes</cite>, optional) -- The type of the hook to clear. If not specified, all
+class-level hooks will be cleared.</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.agent.AgentBase.clear_instance_hooks">
+<span class="sig-name descname"><span class="pre">clear_instance_hooks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hook_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/agent/_agent_base.html#AgentBase.clear_instance_hooks"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.AgentBase.clear_instance_hooks" title="Link to this definition">¶</a></dt>
+<dd><p>If <cite>hook_type</cite> is not specified, clear all instance-level hooks.
+Otherwise, clear the specified type of instance-level hooks.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>hook_type</strong> (<em>str</em><em> | </em><em>Literal</em><em>[</em><em>'pre_reply'</em><em>, </em><em>'post_reply'</em><em>, </em><em>'pre_print'</em><em>, </em><em>'post_print'</em><em>, </em><em>'pre_observe'</em><em>, </em><em>'post_observe'</em><em>] </em><em>| </em><em>None</em>)</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.agent.AgentBase.reset_subscribers">
+<span class="sig-name descname"><span class="pre">reset_subscribers</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msghub_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subscribers</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/agent/_agent_base.html#AgentBase.reset_subscribers"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.AgentBase.reset_subscribers" title="Link to this definition">¶</a></dt>
+<dd><p>Reset the subscribers of the agent.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>msghub_name</strong> (<cite>str</cite>) -- The name of the MsgHub that manages the subscribers.</p></li>
+<li><p><strong>subscribers</strong> (<cite>list[AgentBase]</cite>) -- A list of agents that will receive the reply message from
+this agent via their <cite>observe</cite> method.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.agent.AgentBase.remove_subscribers">
+<span class="sig-name descname"><span class="pre">remove_subscribers</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msghub_name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/agent/_agent_base.html#AgentBase.remove_subscribers"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.AgentBase.remove_subscribers" title="Link to this definition">¶</a></dt>
+<dd><p>Remove the msghub subscribers by the given msg hub name.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>msghub_name</strong> (<cite>str</cite>) -- The name of the MsgHub that manages the subscribers.</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.agent.AgentBase.disable_console_output">
+<span class="sig-name descname"><span class="pre">disable_console_output</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/agent/_agent_base.html#AgentBase.disable_console_output"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.AgentBase.disable_console_output" title="Link to this definition">¶</a></dt>
+<dd><p>This function will disable the console output of the agent, e.g.
+in a production environment to avoid messy logs.</p>
+<dl class="field-list simple">
+<dt class="field-odd">返回类型<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.agent.AgentBase.set_console_output_enabled">
+<span class="sig-name descname"><span class="pre">set_console_output_enabled</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">enabled</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/agent/_agent_base.html#AgentBase.set_console_output_enabled"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.AgentBase.set_console_output_enabled" title="Link to this definition">¶</a></dt>
+<dd><p>Enable or disable the console output of the agent. E.g. in a
+production environment, you may want to disable the console output to
+avoid messy logs.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>enabled</strong> (<cite>bool</cite>) -- If <cite>True</cite>, enable the console output. If <cite>False</cite>, disable
+the console output.</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.agent.AgentBase.set_msg_queue_enabled">
+<span class="sig-name descname"><span class="pre">set_msg_queue_enabled</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">enabled</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">queue</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/agent/_agent_base.html#AgentBase.set_msg_queue_enabled"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.AgentBase.set_msg_queue_enabled" title="Link to this definition">¶</a></dt>
+<dd><p>Enable or disable the message queue for streaming outputs.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>enabled</strong> (<cite>bool</cite>) -- If <cite>True</cite>, enable the message queue to allow streaming
+outputs. If <cite>False</cite>, disable the message queue.</p></li>
+<li><p><strong>queue</strong> (<cite>Queue | None</cite>, optional) -- The queue instance that will be used to initialize the
+message queue when <cite>enable</cite> is <cite>True</cite>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.agent.ReActAgentBase">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ReActAgentBase</span></span><a class="reference internal" href="../_modules/agentscope/agent/_react_agent_base.html#ReActAgentBase"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.ReActAgentBase" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<a class="reference internal" href="#agentscope.agent.AgentBase" title="agentscope.agent._agent_base.AgentBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">AgentBase</span></code></a></p>
+<p>The ReAct agent base class.</p>
+<p>To support ReAct algorithm, this class extends the AgentBase class by
+adding two abstract interfaces: reasoning and acting, while supporting
+hook functions at four positions: pre-reasoning, post-reasoning,
+pre-acting, and post-acting by the <cite>_ReActAgentMeta</cite> metaclass.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.agent.ReActAgentBase.supported_hook_types">
+<span class="sig-name descname"><span class="pre">supported_hook_types</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">['pre_reply',</span> <span class="pre">'post_reply',</span> <span class="pre">'pre_print',</span> <span class="pre">'post_print',</span> <span class="pre">'pre_observe',</span> <span class="pre">'post_observe',</span> <span class="pre">'pre_reasoning',</span> <span class="pre">'post_reasoning',</span> <span class="pre">'pre_acting',</span> <span class="pre">'post_acting']</span></em><a class="headerlink" href="#agentscope.agent.ReActAgentBase.supported_hook_types" title="Link to this definition">¶</a></dt>
+<dd><p>Supported hook types for the agent base class.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.agent.ReActAgentBase.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/agent/_react_agent_base.html#ReActAgentBase.__init__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.ReActAgentBase.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize the ReAct agent base class.</p>
+<dl class="field-list simple">
+<dt class="field-odd">返回类型<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.agent.ReActAgent">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ReActAgent</span></span><a class="reference internal" href="../_modules/agentscope/agent/_react_agent.html#ReActAgent"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.ReActAgent" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<a class="reference internal" href="#agentscope.agent.ReActAgentBase" title="agentscope.agent._react_agent_base.ReActAgentBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">ReActAgentBase</span></code></a></p>
+<p>A ReAct agent implementation in AgentScope, which supports</p>
+<ul class="simple">
+<li><p>Realtime steering</p></li>
+<li><p>API-based (parallel) tool calling</p></li>
+<li><p>Hooks around reasoning, acting, reply, observe and print functions</p></li>
+<li><p>Structured output generation</p></li>
+</ul>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.agent.ReActAgent.finish_function_name">
+<span class="sig-name descname"><span class="pre">finish_function_name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'generate_response'</span></em><a class="headerlink" href="#agentscope.agent.ReActAgent.finish_function_name" title="Link to this definition">¶</a></dt>
+<dd><p>The function name used to finish replying and return a response to
+the user.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.agent.ReActAgent.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sys_prompt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">formatter</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">toolkit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">memory</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">long_term_memory</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">long_term_memory_mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'both'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_meta_tool</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parallel_tool_calls</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">knowledge</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_rewrite_query</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">plan_notebook</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">print_hint_msg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_iters</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/agent/_react_agent.html#ReActAgent.__init__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.ReActAgent.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize the ReAct agent</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>name</strong> (<cite>str</cite>) -- The name of the agent.</p></li>
+<li><p><strong>sys_prompt</strong> (<cite>str</cite>) -- The system prompt of the agent.</p></li>
+<li><p><strong>model</strong> (<cite>ChatModelBase</cite>) -- The chat model used by the agent.</p></li>
+<li><p><strong>formatter</strong> (<cite>FormatterBase</cite>) -- The formatter used to format the messages into the required
+format of the model API provider.</p></li>
+<li><p><strong>toolkit</strong> (<cite>Toolkit | None</cite>, optional) -- A <cite>Toolkit</cite> object that contains the tool functions. If not
+provided, a default empty <cite>Toolkit</cite> will be created.</p></li>
+<li><p><strong>memory</strong> (<cite>MemoryBase | None</cite>, optional) -- The memory used to store the dialogue history. If not provided,
+a default <cite>InMemoryMemory</cite> will be created, which stores
+messages in a list in memory.</p></li>
+<li><p><strong>long_term_memory</strong> (<cite>LongTermMemoryBase | None</cite>, optional) -- The optional long-term memory, which will provide two tool
+functions: <cite>retrieve_from_memory</cite> and <cite>record_to_memory</cite>, and
+will attach the retrieved information to the system prompt
+before each reply.</p></li>
+<li><p><strong>enable_meta_tool</strong> (<cite>bool</cite>, defaults to <cite>False</cite>) -- If <cite>True</cite>, a meta tool function <cite>reset_equipped_tools</cite> will be
+added to the toolkit, which allows the agent to manage its
+equipped tools dynamically.</p></li>
+<li><p><strong>long_term_memory_mode</strong> (<cite>Literal['agent_control', 'static_control',              'both']</cite>, defaults to <cite>both</cite>) -- The mode of the long-term memory. If <cite>agent_control</cite>, two
+tool functions <cite>retrieve_from_memory</cite> and <cite>record_to_memory</cite>
+will be registered in the toolkit to allow the agent to
+manage the long-term memory. If <cite>static_control</cite>, retrieving
+and recording will happen in the beginning and end of
+each reply respectively.</p></li>
+<li><p><strong>parallel_tool_calls</strong> (<cite>bool</cite>, defaults to <cite>False</cite>) -- When LLM generates multiple tool calls, whether to execute
+them in parallel.</p></li>
+<li><p><strong>knowledge</strong> (<cite>KnowledgeBase | list[KnowledgeBase] | None</cite>, optional) -- The knowledge object(s) used by the agent to retrieve
+relevant documents at the beginning of each reply.</p></li>
+<li><p><strong>enable_rewrite_query</strong> (<cite>bool</cite>, defaults to <cite>True</cite>) -- Whether ask the agent to rewrite the user input query before
+retrieving from the knowledge base(s), e.g. rewrite "Who am I"
+to "{user's name}" to get more relevant documents. Only works
+when the knowledge base(s) is provided.</p></li>
+<li><p><strong>plan_notebook</strong> (<cite>PlanNotebook | None</cite>, optional) -- The plan notebook instance, allow the agent to finish the
+complex task by decomposing it into a sequence of subtasks.</p></li>
+<li><p><strong>print_hint_msg</strong> (<cite>bool</cite>, defaults to <cite>False</cite>) -- Whether to print the hint messages, including the reasoning
+hint from the plan notebook, the retrieved information from
+the long-term memory and knowledge base(s).</p></li>
+<li><p><strong>max_iters</strong> (<cite>int</cite>, defaults to <cite>10</cite>) -- The maximum number of iterations of the reasoning-acting loops.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="agentscope.agent.ReActAgent.sys_prompt">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">sys_prompt</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#agentscope.agent.ReActAgent.sys_prompt" title="Link to this definition">¶</a></dt>
+<dd><p>The dynamic system prompt of the agent.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.agent.ReActAgent.reply">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">reply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">structured_model</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/agent/_react_agent.html#ReActAgent.reply"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.ReActAgent.reply" title="Link to this definition">¶</a></dt>
+<dd><p>Generate a reply based on the current state and input arguments.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>msg</strong> (<cite>Msg | list[Msg] | None</cite>, optional) -- The input message(s) to the agent.</p></li>
+<li><p><strong>structured_model</strong> (<cite>Type[BaseModel] | None</cite>, optional) -- The required structured output model. If provided, the agent
+is expected to generate structured output in the <cite>metadata</cite>
+field of the output message.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回<span class="colon">:</span></dt>
+<dd class="field-even"><p>The output message generated by the agent.</p>
+</dd>
+<dt class="field-odd">返回类型<span class="colon">:</span></dt>
+<dd class="field-odd"><p><cite>Msg</cite></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.agent.ReActAgent.observe">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">observe</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msg</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/agent/_react_agent.html#ReActAgent.observe"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.ReActAgent.observe" title="Link to this definition">¶</a></dt>
+<dd><p>Receive observing message(s) without generating a reply.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>msg</strong> (<cite>Msg | list[Msg] | None</cite>) -- The message or messages to be observed.</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.agent.ReActAgent.handle_interrupt">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">handle_interrupt</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">_msg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/agent/_react_agent.html#ReActAgent.handle_interrupt"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.ReActAgent.handle_interrupt" title="Link to this definition">¶</a></dt>
+<dd><p>The post-processing logic when the reply is interrupted by the
+user or something else.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>_msg</strong> (<a class="reference internal" href="agentscope.message.html#agentscope.message.Msg" title="agentscope.message._message_base.Msg"><em>Msg</em></a><em> | </em><em>list</em><em>[</em><a class="reference internal" href="agentscope.message.html#agentscope.message.Msg" title="agentscope.message._message_base.Msg"><em>Msg</em></a><em>] </em><em>| </em><em>None</em>)</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="agentscope.message.html#agentscope.message.Msg" title="agentscope.message._message_base.Msg"><em>Msg</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.agent.ReActAgent.generate_response">
+<span class="sig-name descname"><span class="pre">generate_response</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">response</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/agent/_react_agent.html#ReActAgent.generate_response"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.ReActAgent.generate_response" title="Link to this definition">¶</a></dt>
+<dd><p>Generate a response. Note only the input argument <cite>response</cite> is
+visible to the others, you should include all the necessary
+information in the <cite>response</cite> argument.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>response</strong> (<cite>str</cite>) -- Your response to the user.</p></li>
+<li><p><strong>kwargs</strong> (<em>Any</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="agentscope.tool.html#agentscope.tool.ToolResponse" title="agentscope.tool._response.ToolResponse"><em>ToolResponse</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.agent.UserInputData">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">UserInputData</span></span><a class="reference internal" href="../_modules/agentscope/agent/_user_input.html#UserInputData"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.UserInputData" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>The user input data.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.agent.UserInputData.blocks_input">
+<span class="sig-name descname"><span class="pre">blocks_input</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="agentscope.message.html#agentscope.message.TextBlock" title="agentscope.message._message_block.TextBlock"><span class="pre">TextBlock</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="agentscope.message.html#agentscope.message.ImageBlock" title="agentscope.message._message_block.ImageBlock"><span class="pre">ImageBlock</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="agentscope.message.html#agentscope.message.AudioBlock" title="agentscope.message._message_block.AudioBlock"><span class="pre">AudioBlock</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="agentscope.message.html#agentscope.message.VideoBlock" title="agentscope.message._message_block.VideoBlock"><span class="pre">VideoBlock</span></a><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#agentscope.agent.UserInputData.blocks_input" title="Link to this definition">¶</a></dt>
+<dd><p>The text input from the user</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.agent.UserInputData.structured_input">
+<span class="sig-name descname"><span class="pre">structured_input</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#agentscope.agent.UserInputData.structured_input" title="Link to this definition">¶</a></dt>
+<dd><p>The structured input from the user</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.agent.UserInputData.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">blocks_input</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">structured_input</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#agentscope.agent.UserInputData.__init__" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>blocks_input</strong> (<em>List</em><em>[</em><a class="reference internal" href="agentscope.message.html#agentscope.message.TextBlock" title="agentscope.message._message_block.TextBlock"><em>TextBlock</em></a><em> | </em><a class="reference internal" href="agentscope.message.html#agentscope.message.ImageBlock" title="agentscope.message._message_block.ImageBlock"><em>ImageBlock</em></a><em> | </em><a class="reference internal" href="agentscope.message.html#agentscope.message.AudioBlock" title="agentscope.message._message_block.AudioBlock"><em>AudioBlock</em></a><em> | </em><a class="reference internal" href="agentscope.message.html#agentscope.message.VideoBlock" title="agentscope.message._message_block.VideoBlock"><em>VideoBlock</em></a><em>] </em><em>| </em><em>None</em>)</p></li>
+<li><p><strong>structured_input</strong> (<em>dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>] </em><em>| </em><em>None</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.agent.UserInputBase">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">UserInputBase</span></span><a class="reference internal" href="../_modules/agentscope/agent/_user_input.html#UserInputBase"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.UserInputBase" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>The base class used to handle the user input from different sources.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.agent.UserInputBase.__call__">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">agent_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">agent_name</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">structured_model</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/agent/_user_input.html#UserInputBase.__call__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.UserInputBase.__call__" title="Link to this definition">¶</a></dt>
+<dd><p>The user input method, which returns the user input and the
+required structured data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>agent_id</strong> (<cite>str</cite>) -- The agent identifier.</p></li>
+<li><p><strong>agent_name</strong> (<cite>str</cite>) -- The agent name.</p></li>
+<li><p><strong>structured_model</strong> (<cite>Type[BaseModel] | None</cite>, optional) -- A base model class that defines the structured input format.</p></li>
+<li><p><strong>args</strong> (<em>Any</em>)</p></li>
+<li><p><strong>kwargs</strong> (<em>Any</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回<span class="colon">:</span></dt>
+<dd class="field-even"><p>The user input data.</p>
+</dd>
+<dt class="field-odd">返回类型<span class="colon">:</span></dt>
+<dd class="field-odd"><p><cite>UserInputData</cite></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.agent.TerminalUserInput">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">TerminalUserInput</span></span><a class="reference internal" href="../_modules/agentscope/agent/_user_input.html#TerminalUserInput"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.TerminalUserInput" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<a class="reference internal" href="#agentscope.agent.UserInputBase" title="agentscope.agent._user_input.UserInputBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">UserInputBase</span></code></a></p>
+<p>The terminal user input.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.agent.TerminalUserInput.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_hint</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'User</span> <span class="pre">Input:</span> <span class="pre">'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/agent/_user_input.html#TerminalUserInput.__init__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.TerminalUserInput.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize the terminal user input with a hint.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>input_hint</strong> (<em>str</em>)</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.agent.TerminalUserInput.__call__">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">agent_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">agent_name</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">structured_model</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/agent/_user_input.html#TerminalUserInput.__call__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.TerminalUserInput.__call__" title="Link to this definition">¶</a></dt>
+<dd><p>Handle the user input from the terminal.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>agent_id</strong> (<cite>str</cite>) -- The agent identifier.</p></li>
+<li><p><strong>agent_name</strong> (<cite>str</cite>) -- The agent name.</p></li>
+<li><p><strong>structured_model</strong> (<cite>Type[BaseModel] | None</cite>, optional) -- A base model class that defines the structured input format.</p></li>
+<li><p><strong>args</strong> (<em>Any</em>)</p></li>
+<li><p><strong>kwargs</strong> (<em>Any</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回<span class="colon">:</span></dt>
+<dd class="field-even"><p>The user input data.</p>
+</dd>
+<dt class="field-odd">返回类型<span class="colon">:</span></dt>
+<dd class="field-odd"><p><cite>UserInputData</cite></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.agent.StudioUserInput">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">StudioUserInput</span></span><a class="reference internal" href="../_modules/agentscope/agent/_user_input.html#StudioUserInput"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.StudioUserInput" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<a class="reference internal" href="#agentscope.agent.UserInputBase" title="agentscope.agent._user_input.UserInputBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">UserInputBase</span></code></a></p>
+<p>The class that host the user input on the AgentScope Studio.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.agent.StudioUserInput.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">studio_url</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">run_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_retries</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reconnect_attempts</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reconnection_delay</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reconnection_delay_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/agent/_user_input.html#StudioUserInput.__init__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.StudioUserInput.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize the StudioUserInput object.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>studio_url</strong> (<cite>str</cite>) -- The URL of the AgentScope Studio.</p></li>
+<li><p><strong>run_id</strong> (<cite>str</cite>) -- The current run identity.</p></li>
+<li><p><strong>max_retries</strong> (<cite>int</cite>, defaults to <cite>3</cite>) -- The maximum number of retries to get user input.</p></li>
+<li><p><strong>reconnect_attempts</strong> (<em>int</em>)</p></li>
+<li><p><strong>reconnection_delay</strong> (<em>int</em>)</p></li>
+<li><p><strong>reconnection_delay_max</strong> (<em>int</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.agent.StudioUserInput.__call__">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">agent_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">agent_name</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">structured_model</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/agent/_user_input.html#StudioUserInput.__call__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.StudioUserInput.__call__" title="Link to this definition">¶</a></dt>
+<dd><p>Get the user input from AgentScope Studio.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>agent_id</strong> (<cite>str</cite>) -- The identity of the agent.</p></li>
+<li><p><strong>agent_name</strong> (<cite>str</cite>) -- The name of the agent.</p></li>
+<li><p><strong>structured_model</strong> (<cite>Type[BaseModel] | None</cite>, optional) -- The base model class of the structured input.</p></li>
+<li><p><strong>args</strong> (<em>Any</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">抛出<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>RuntimeError</strong> -- Failed to get user input from AgentScope Studio.</p>
+</dd>
+<dt class="field-odd">返回<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The user input.</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p><cite>UserInputData</cite></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.agent.UserAgent">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">UserAgent</span></span><a class="reference internal" href="../_modules/agentscope/agent/_user_agent.html#UserAgent"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.UserAgent" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<a class="reference internal" href="#agentscope.agent.AgentBase" title="agentscope.agent._agent_base.AgentBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">AgentBase</span></code></a></p>
+<p>The class for user interaction, allowing developers to handle the user
+input from different sources, such as web UI, cli, and other interfaces.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.agent.UserAgent.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/agent/_user_agent.html#UserAgent.__init__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.UserAgent.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize the user agent with a name.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>name</strong> (<em>str</em>)</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.agent.UserAgent.reply">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">reply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">structured_model</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/agent/_user_agent.html#UserAgent.reply"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.UserAgent.reply" title="Link to this definition">¶</a></dt>
+<dd><p>Receive input message(s) and generate a reply message from the user.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>msg</strong> (<cite>Msg | list[Msg] | None</cite>, defaults to <cite>None</cite>) -- The message(s) to be replied. If <cite>None</cite>, the agent will wait
+for user input.</p></li>
+<li><p><strong>structured_model</strong> (<cite>Type[BaseModel] | None</cite>, defaults to <cite>None</cite>) -- A child class of <cite>pydantic.BaseModel</cite> that defines the
+structured output format. If provided, the user will be
+prompted to fill in the required fields.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回<span class="colon">:</span></dt>
+<dd class="field-even"><p>The reply message generated by the user.</p>
+</dd>
+<dt class="field-odd">返回类型<span class="colon">:</span></dt>
+<dd class="field-odd"><p><cite>Msg</cite></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.agent.UserAgent.override_instance_input_method">
+<span class="sig-name descname"><span class="pre">override_instance_input_method</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_method</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/agent/_user_agent.html#UserAgent.override_instance_input_method"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.UserAgent.override_instance_input_method" title="Link to this definition">¶</a></dt>
+<dd><p>Override the input method of the current UserAgent instance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>input_method</strong> (<cite>UserInputBase</cite>) -- The callable input method, which should be an object of a
+class that inherits from <cite>UserInputBase</cite>.</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.agent.UserAgent.override_class_input_method">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">override_class_input_method</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_method</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/agent/_user_agent.html#UserAgent.override_class_input_method"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.UserAgent.override_class_input_method" title="Link to this definition">¶</a></dt>
+<dd><p>Override the input method of the current UserAgent class.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>input_method</strong> (<cite>UserInputBase</cite>) -- The callable input method, which should be an object of a
+class that inherits from <cite>UserInputBase</cite>.</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.agent.UserAgent.handle_interrupt">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">handle_interrupt</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/agent/_user_agent.html#UserAgent.handle_interrupt"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.UserAgent.handle_interrupt" title="Link to this definition">¶</a></dt>
+<dd><p>The post-processing logic when the reply is interrupted by the
+user or something else.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>args</strong> (<em>Any</em>)</p></li>
+<li><p><strong>kwargs</strong> (<em>Any</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="agentscope.message.html#agentscope.message.Msg" title="agentscope.message._message_base.Msg"><em>Msg</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.agent.UserAgent.observe">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">observe</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msg</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/agent/_user_agent.html#UserAgent.observe"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.agent.UserAgent.observe" title="Link to this definition">¶</a></dt>
+<dd><p>Observe the message(s) from the other agents or the environment.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>msg</strong> (<a class="reference internal" href="agentscope.message.html#agentscope.message.Msg" title="agentscope.message._message_base.Msg"><em>Msg</em></a><em> | </em><em>list</em><em>[</em><a class="reference internal" href="agentscope.message.html#agentscope.message.Msg" title="agentscope.message._message_base.Msg"><em>Msg</em></a><em>] </em><em>| </em><em>None</em>)</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+        

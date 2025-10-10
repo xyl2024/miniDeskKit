@@ -1,0 +1,212 @@
+<!-- Title: agentscope.plan._plan_model - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/plan/_plan_model.html -->
+
+          <h1>agentscope.plan._plan_model 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The models used in the plan module."""</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Literal</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">shortuuid</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span><span class="p">,</span> <span class="n">Field</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._utils._common</span><span class="w"> </span><span class="kn">import</span> <span class="n">_get_timestamp</span>
+
+
+<div class="viewcode-block" id="SubTask">
+<a class="viewcode-back" href="../../../api/agentscope.plan.html#agentscope.plan.SubTask">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SubTask</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The subtask model used in the plan module."""</span>
+
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"The subtask name, should be concise, descriptive and not"</span>
+            <span class="s2">"exceed 10 words."</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+    <span class="n">description</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"The subtask description, including the constraints, target and "</span>
+            <span class="s2">"outcome to be achieved. The description should be clear, "</span>
+            <span class="s2">"specific and concise, and all the constraints, target and "</span>
+            <span class="s2">"outcome should be specific and measurable."</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+    <span class="n">expected_outcome</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"The expected outcome of the subtask, which should be specific, "</span>
+            <span class="s2">"concrete and measurable."</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+    <span class="n">outcome</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">"The actual outcome of the subtask."</span><span class="p">,</span>
+        <span class="n">exclude</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">state</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"todo"</span><span class="p">,</span> <span class="s2">"in_progress"</span><span class="p">,</span> <span class="s2">"done"</span><span class="p">,</span> <span class="s2">"abandoned"</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">"The state of the subtask."</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="s2">"todo"</span><span class="p">,</span>
+        <span class="n">exclude</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">created_at</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">"The time the subtask was created."</span><span class="p">,</span>
+        <span class="n">default_factory</span><span class="o">=</span><span class="n">_get_timestamp</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="c1"># Result related fields</span>
+    <span class="n">finished_at</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">"The time the subtask was finished."</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">exclude</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span>
+
+<div class="viewcode-block" id="SubTask.finish">
+<a class="viewcode-back" href="../../../api/agentscope.plan.html#agentscope.plan.SubTask.finish">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">finish</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">outcome</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Finish the subtask with the actual outcome."""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="s2">"done"</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">outcome</span> <span class="o">=</span> <span class="n">outcome</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">finished_at</span> <span class="o">=</span> <span class="n">_get_timestamp</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="SubTask.to_oneline_markdown">
+<a class="viewcode-back" href="../../../api/agentscope.plan.html#agentscope.plan.SubTask.to_oneline_markdown">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_oneline_markdown</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Convert the subtask to MarkDown format."""</span>
+        <span class="n">status_map</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"todo"</span><span class="p">:</span> <span class="s2">"- []"</span><span class="p">,</span>
+            <span class="s2">"in_progress"</span><span class="p">:</span> <span class="s2">"- [][WIP]"</span><span class="p">,</span>
+            <span class="s2">"done"</span><span class="p">:</span> <span class="s2">"- [x]"</span><span class="p">,</span>
+            <span class="s2">"abandoned"</span><span class="p">:</span> <span class="s2">"- [][Abandoned]"</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">status_map</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="p">]</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span></div>
+
+
+<div class="viewcode-block" id="SubTask.to_markdown">
+<a class="viewcode-back" href="../../../api/agentscope.plan.html#agentscope.plan.SubTask.to_markdown">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_markdown</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">detailed</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Convert the subtask to MarkDown format.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            detailed (`bool`, defaults to `False`):</span>
+<span class="sd">                Whether to include detailed information about the subtask.</span>
+<span class="sd">        """</span>
+        <span class="n">status_map</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"todo"</span><span class="p">:</span> <span class="s2">"- [ ] "</span><span class="p">,</span>
+            <span class="s2">"in_progress"</span><span class="p">:</span> <span class="s2">"- [ ] [WIP]"</span><span class="p">,</span>
+            <span class="s2">"done"</span><span class="p">:</span> <span class="s2">"- [x] "</span><span class="p">,</span>
+            <span class="s2">"abandoned"</span><span class="p">:</span> <span class="s2">"- [ ] [Abandoned]"</span><span class="p">,</span>
+        <span class="p">}</span>
+
+        <span class="k">if</span> <span class="n">detailed</span><span class="p">:</span>
+            <span class="n">markdown_strs</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">status_map</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="p">]</span><span class="si">}{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="se">\t</span><span class="s2">- Created At: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">created_at</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="se">\t</span><span class="s2">- Description: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">description</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="se">\t</span><span class="s2">- Expected Outcome: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">expected_outcome</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="se">\t</span><span class="s2">- State: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="p">]</span>
+
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">==</span> <span class="s2">"done"</span><span class="p">:</span>
+                <span class="n">markdown_strs</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+                    <span class="p">[</span>
+                        <span class="sa">f</span><span class="s2">"</span><span class="se">\t</span><span class="s2">- Finished At: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">finished_at</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                        <span class="sa">f</span><span class="s2">"</span><span class="se">\t</span><span class="s2">- Actual Outcome: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">outcome</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                    <span class="p">],</span>
+                <span class="p">)</span>
+
+            <span class="k">return</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">markdown_strs</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">status_map</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="p">]</span><span class="si">}{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="Plan">
+<a class="viewcode-back" href="../../../api/agentscope.plan.html#agentscope.plan.Plan">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Plan</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The plan model used in the plan module, contains a list of subtasks."""</span>
+
+    <span class="nb">id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">exclude</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">default_factory</span><span class="o">=</span><span class="n">shortuuid</span><span class="o">.</span><span class="n">uuid</span><span class="p">)</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"The plan name, should be concise, descriptive and not exceed 10 "</span>
+            <span class="s2">"words."</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+    <span class="n">description</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"The plan description, including the constraints, target and "</span>
+            <span class="s2">"outcome to be achieved. The description should be clear, "</span>
+            <span class="s2">"specific and concise, and all the constraints, target and "</span>
+            <span class="s2">"outcome should be specific and measurable."</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+    <span class="n">expected_outcome</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"The expected outcome of the plan, which should be specific, "</span>
+            <span class="s2">"concrete and measurable."</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+    <span class="n">subtasks</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">SubTask</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span><span class="s2">"A list of subtasks that make up the plan."</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="n">created_at</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">"The time the plan was created."</span><span class="p">,</span>
+        <span class="n">default_factory</span><span class="o">=</span><span class="n">_get_timestamp</span><span class="p">,</span>
+        <span class="n">exclude</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">state</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"todo"</span><span class="p">,</span> <span class="s2">"in_progress"</span><span class="p">,</span> <span class="s2">"done"</span><span class="p">,</span> <span class="s2">"abandoned"</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">"The state of the plan."</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="s2">"todo"</span><span class="p">,</span>
+        <span class="n">exclude</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">finished_at</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">"The time the plan was finished."</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">exclude</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">outcome</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">"The actual outcome of the plan."</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">exclude</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span>
+
+<div class="viewcode-block" id="Plan.finish">
+<a class="viewcode-back" href="../../../api/agentscope.plan.html#agentscope.plan.Plan.finish">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">finish</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">state</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"done"</span><span class="p">,</span> <span class="s2">"abandoned"</span><span class="p">],</span>
+        <span class="n">outcome</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Finish the plan."""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="n">state</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">outcome</span> <span class="o">=</span> <span class="n">outcome</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">finished_at</span> <span class="o">=</span> <span class="n">_get_timestamp</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="Plan.to_markdown">
+<a class="viewcode-back" href="../../../api/agentscope.plan.html#agentscope.plan.Plan.to_markdown">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_markdown</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">detailed</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Convert the plan to MarkDown format."""</span>
+        <span class="n">subtasks_markdown</span> <span class="o">=</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="n">subtask</span><span class="o">.</span><span class="n">to_markdown</span><span class="p">(</span>
+                    <span class="n">detailed</span><span class="o">=</span><span class="n">detailed</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="k">for</span> <span class="n">subtask</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">subtasks</span>
+            <span class="p">],</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="sa">f</span><span class="s2">"# </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">"**Description**: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">description</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">"**Expected Outcome**: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">expected_outcome</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">"**State**: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">"**Created At**: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">created_at</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="s2">"## Subtasks"</span><span class="p">,</span>
+                <span class="n">subtasks_markdown</span><span class="p">,</span>
+            <span class="p">],</span>
+        <span class="p">)</span></div>
+</div>
+
+</pre></div>
+        

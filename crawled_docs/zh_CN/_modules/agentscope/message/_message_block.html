@@ -1,0 +1,146 @@
+<!-- Title: agentscope.message._message_block - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/message/_message_block.html -->
+
+          <h1>agentscope.message._message_block 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="c1"># pylint: disable=R0901</span>
+<span class="sd">"""The content blocks of messages"""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">List</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">TypedDict</span><span class="p">,</span> <span class="n">Required</span>
+
+
+<div class="viewcode-block" id="TextBlock">
+<a class="viewcode-back" href="../../../api/agentscope.message.html#agentscope.message.TextBlock">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">TextBlock</span><span class="p">(</span><span class="n">TypedDict</span><span class="p">,</span> <span class="n">total</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The text block."""</span>
+
+    <span class="nb">type</span><span class="p">:</span> <span class="n">Required</span><span class="p">[</span><span class="n">Literal</span><span class="p">[</span><span class="s2">"text"</span><span class="p">]]</span>
+<span class="w">    </span><span class="sd">"""The type of the block"""</span>
+    <span class="n">text</span><span class="p">:</span> <span class="nb">str</span>
+<span class="w">    </span><span class="sd">"""The text content"""</span></div>
+
+
+
+<div class="viewcode-block" id="ThinkingBlock">
+<a class="viewcode-back" href="../../../api/agentscope.message.html#agentscope.message.ThinkingBlock">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ThinkingBlock</span><span class="p">(</span><span class="n">TypedDict</span><span class="p">,</span> <span class="n">total</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The thinking block."""</span>
+
+    <span class="nb">type</span><span class="p">:</span> <span class="n">Required</span><span class="p">[</span><span class="n">Literal</span><span class="p">[</span><span class="s2">"thinking"</span><span class="p">]]</span>
+<span class="w">    </span><span class="sd">"""The type of the block"""</span>
+    <span class="n">thinking</span><span class="p">:</span> <span class="nb">str</span></div>
+
+
+
+<div class="viewcode-block" id="Base64Source">
+<a class="viewcode-back" href="../../../api/agentscope.message.html#agentscope.message.Base64Source">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Base64Source</span><span class="p">(</span><span class="n">TypedDict</span><span class="p">,</span> <span class="n">total</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The base64 source"""</span>
+
+    <span class="nb">type</span><span class="p">:</span> <span class="n">Required</span><span class="p">[</span><span class="n">Literal</span><span class="p">[</span><span class="s2">"base64"</span><span class="p">]]</span>
+<span class="w">    </span><span class="sd">"""The type of the src, must be `base64`"""</span>
+
+    <span class="n">media_type</span><span class="p">:</span> <span class="n">Required</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+<span class="w">    </span><span class="sd">"""The media type of the data, e.g. `image/jpeg` or `audio/mpeg`"""</span>
+
+    <span class="n">data</span><span class="p">:</span> <span class="n">Required</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+<span class="w">    </span><span class="sd">"""The base64 data, in format of RFC 2397"""</span></div>
+
+
+
+<div class="viewcode-block" id="URLSource">
+<a class="viewcode-back" href="../../../api/agentscope.message.html#agentscope.message.URLSource">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">URLSource</span><span class="p">(</span><span class="n">TypedDict</span><span class="p">,</span> <span class="n">total</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The URL source"""</span>
+
+    <span class="nb">type</span><span class="p">:</span> <span class="n">Required</span><span class="p">[</span><span class="n">Literal</span><span class="p">[</span><span class="s2">"url"</span><span class="p">]]</span>
+<span class="w">    </span><span class="sd">"""The type of the src, must be `url`"""</span>
+
+    <span class="n">url</span><span class="p">:</span> <span class="n">Required</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+<span class="w">    </span><span class="sd">"""The URL of the image or audio"""</span></div>
+
+
+
+<div class="viewcode-block" id="ImageBlock">
+<a class="viewcode-back" href="../../../api/agentscope.message.html#agentscope.message.ImageBlock">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ImageBlock</span><span class="p">(</span><span class="n">TypedDict</span><span class="p">,</span> <span class="n">total</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The image block"""</span>
+
+    <span class="nb">type</span><span class="p">:</span> <span class="n">Required</span><span class="p">[</span><span class="n">Literal</span><span class="p">[</span><span class="s2">"image"</span><span class="p">]]</span>
+<span class="w">    </span><span class="sd">"""The type of the block"""</span>
+
+    <span class="n">source</span><span class="p">:</span> <span class="n">Required</span><span class="p">[</span><span class="n">Base64Source</span> <span class="o">|</span> <span class="n">URLSource</span><span class="p">]</span>
+<span class="w">    </span><span class="sd">"""The src of the image"""</span></div>
+
+
+
+<div class="viewcode-block" id="AudioBlock">
+<a class="viewcode-back" href="../../../api/agentscope.message.html#agentscope.message.AudioBlock">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">AudioBlock</span><span class="p">(</span><span class="n">TypedDict</span><span class="p">,</span> <span class="n">total</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The audio block"""</span>
+
+    <span class="nb">type</span><span class="p">:</span> <span class="n">Required</span><span class="p">[</span><span class="n">Literal</span><span class="p">[</span><span class="s2">"audio"</span><span class="p">]]</span>
+<span class="w">    </span><span class="sd">"""The type of the block"""</span>
+
+    <span class="n">source</span><span class="p">:</span> <span class="n">Required</span><span class="p">[</span><span class="n">Base64Source</span> <span class="o">|</span> <span class="n">URLSource</span><span class="p">]</span>
+<span class="w">    </span><span class="sd">"""The src of the audio"""</span></div>
+
+
+
+<div class="viewcode-block" id="VideoBlock">
+<a class="viewcode-back" href="../../../api/agentscope.message.html#agentscope.message.VideoBlock">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">VideoBlock</span><span class="p">(</span><span class="n">TypedDict</span><span class="p">,</span> <span class="n">total</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The video block"""</span>
+
+    <span class="nb">type</span><span class="p">:</span> <span class="n">Required</span><span class="p">[</span><span class="n">Literal</span><span class="p">[</span><span class="s2">"video"</span><span class="p">]]</span>
+<span class="w">    </span><span class="sd">"""The type of the block"""</span>
+
+    <span class="n">source</span><span class="p">:</span> <span class="n">Required</span><span class="p">[</span><span class="n">Base64Source</span> <span class="o">|</span> <span class="n">URLSource</span><span class="p">]</span>
+<span class="w">    </span><span class="sd">"""The src of the audio"""</span></div>
+
+
+
+<div class="viewcode-block" id="ToolUseBlock">
+<a class="viewcode-back" href="../../../api/agentscope.message.html#agentscope.message.ToolUseBlock">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ToolUseBlock</span><span class="p">(</span><span class="n">TypedDict</span><span class="p">,</span> <span class="n">total</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The tool use block."""</span>
+
+    <span class="nb">type</span><span class="p">:</span> <span class="n">Required</span><span class="p">[</span><span class="n">Literal</span><span class="p">[</span><span class="s2">"tool_use"</span><span class="p">]]</span>
+<span class="w">    </span><span class="sd">"""The type of the block, must be `tool_use`"""</span>
+    <span class="nb">id</span><span class="p">:</span> <span class="n">Required</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+<span class="w">    </span><span class="sd">"""The identity of the tool call"""</span>
+    <span class="n">name</span><span class="p">:</span> <span class="n">Required</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+<span class="w">    </span><span class="sd">"""The name of the tool"""</span>
+    <span class="nb">input</span><span class="p">:</span> <span class="n">Required</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]]</span>
+<span class="w">    </span><span class="sd">"""The input of the tool"""</span></div>
+
+
+
+<div class="viewcode-block" id="ToolResultBlock">
+<a class="viewcode-back" href="../../../api/agentscope.message.html#agentscope.message.ToolResultBlock">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ToolResultBlock</span><span class="p">(</span><span class="n">TypedDict</span><span class="p">,</span> <span class="n">total</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The tool result block."""</span>
+
+    <span class="nb">type</span><span class="p">:</span> <span class="n">Required</span><span class="p">[</span><span class="n">Literal</span><span class="p">[</span><span class="s2">"tool_result"</span><span class="p">]]</span>
+<span class="w">    </span><span class="sd">"""The type of the block"""</span>
+    <span class="nb">id</span><span class="p">:</span> <span class="n">Required</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+<span class="w">    </span><span class="sd">"""The identity of the tool call result"""</span>
+    <span class="n">output</span><span class="p">:</span> <span class="n">Required</span><span class="p">[</span><span class="nb">str</span> <span class="o">|</span> <span class="n">List</span><span class="p">[</span><span class="n">TextBlock</span> <span class="o">|</span> <span class="n">ImageBlock</span> <span class="o">|</span> <span class="n">AudioBlock</span><span class="p">]]</span>
+<span class="w">    </span><span class="sd">"""The output of the tool function"""</span>
+    <span class="n">name</span><span class="p">:</span> <span class="n">Required</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+<span class="w">    </span><span class="sd">"""The name of the tool function"""</span></div>
+
+
+
+<span class="c1"># The content block</span>
+<span class="n">ContentBlock</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">ToolUseBlock</span>
+    <span class="o">|</span> <span class="n">ToolResultBlock</span>
+    <span class="o">|</span> <span class="n">TextBlock</span>
+    <span class="o">|</span> <span class="n">ThinkingBlock</span>
+    <span class="o">|</span> <span class="n">ImageBlock</span>
+    <span class="o">|</span> <span class="n">AudioBlock</span>
+    <span class="o">|</span> <span class="n">VideoBlock</span>
+<span class="p">)</span>
+</pre></div>
+        

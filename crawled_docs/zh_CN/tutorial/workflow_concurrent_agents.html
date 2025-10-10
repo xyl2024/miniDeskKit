@@ -1,0 +1,72 @@
+<!-- Title: Concurrent Agents - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/tutorial/workflow_concurrent_agents.html -->
+
+          <div class="sphx-glr-download-link-note admonition note">
+<p class="admonition-title">备注</p>
+<p><a class="reference internal" href="#sphx-glr-download-tutorial-workflow-concurrent-agents-py"><span class="std std-ref">Go to the end</span></a>
+to download the full example code.</p>
+</div>
+<section class="sphx-glr-example-title" id="concurrent-agents">
+<span id="sphx-glr-tutorial-workflow-concurrent-agents-py"></span><h1>Concurrent Agents<a class="headerlink" href="#concurrent-agents" title="Link to this heading">¶</a></h1>
+<p>在异步编程的帮助下，多智能体并发可以通过 Python 中的 <code class="docutils literal notranslate"><span class="pre">asyncio.gather</span></code> 执行。</p>
+<p>下面展示了一个简单的示例，其中创建了两个智能体并并发执行。</p>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>智能体 1 开始于 14:49:46.213
+智能体 2 开始于 14:49:46.213
+智能体 1 结束于 14:49:49.217
+智能体 2 结束于 14:49:49.217
+</pre></div>
+</div>
+<div class="line-block">
+<div class="line"><br></div>
+</div>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.agent</span><span class="w"> </span><span class="kn">import</span> <span class="n">AgentBase</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">ExampleAgent</span><span class="p">(</span><span class="n">AgentBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""用于并发执行的示例智能体。"""</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""使用智能体名称初始化智能体。"""</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">reply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""回复消息。"""</span>
+        <span class="n">start_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">"%H:%M:%S.</span><span class="si">%f</span><span class="s2">"</span><span class="p">)[:</span><span class="o">-</span><span class="mi">3</span><span class="p">]</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> 开始于 </span><span class="si">{</span><span class="n">start_time</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>  <span class="c1"># 模拟长时间运行的任务</span>
+        <span class="n">end_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">"%H:%M:%S.</span><span class="si">%f</span><span class="s2">"</span><span class="p">)[:</span><span class="o">-</span><span class="mi">3</span><span class="p">]</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> 结束于 </span><span class="si">{</span><span class="n">end_time</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">run_concurrent_agents</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""运行并发智能体。"""</span>
+    <span class="n">agent1</span> <span class="o">=</span> <span class="n">ExampleAgent</span><span class="p">(</span><span class="s2">"智能体 1"</span><span class="p">)</span>
+    <span class="n">agent2</span> <span class="o">=</span> <span class="n">ExampleAgent</span><span class="p">(</span><span class="s2">"智能体 2"</span><span class="p">)</span>
+
+    <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="n">agent1</span><span class="p">(),</span> <span class="n">agent2</span><span class="p">())</span>
+
+
+<span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">run_concurrent_agents</span><span class="p">())</span>
+</pre></div>
+</div>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 3.005 seconds)</p>
+<div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-tutorial-workflow-concurrent-agents-py">
+<div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/f527c4754f6b5d0f59f17934af084403/workflow_concurrent_agents.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">workflow_concurrent_agents.ipynb</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-python docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/7c051c24f03892a1bac6fbfa1ae1122a/workflow_concurrent_agents.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">workflow_concurrent_agents.py</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-zip docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/7bce0deb21cca92389205d25db93c43a/workflow_concurrent_agents.zip"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">zipped:</span> <span class="pre">workflow_concurrent_agents.zip</span></code></a></p>
+</div>
+</div>
+<p class="sphx-glr-signature"><a class="reference external" href="https://sphinx-gallery.github.io">Gallery generated by Sphinx-Gallery</a></p>
+</section>
+
+        

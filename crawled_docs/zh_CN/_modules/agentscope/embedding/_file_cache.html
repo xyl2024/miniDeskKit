@@ -1,0 +1,210 @@
+<!-- Title: agentscope.embedding._file_cache - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/embedding/_file_cache.html -->
+
+          <h1>agentscope.embedding._file_cache 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""A file embedding cache implementation for storing and retrieving</span>
+<span class="sd">embeddings in binary files."""</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">hashlib</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">List</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">._cache_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">EmbeddingCacheBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..types</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Embedding</span><span class="p">,</span>
+    <span class="n">JSONSerializableObject</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="FileEmbeddingCache">
+<a class="viewcode-back" href="../../../api/agentscope.embedding.html#agentscope.embedding.FileEmbeddingCache">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">FileEmbeddingCache</span><span class="p">(</span><span class="n">EmbeddingCacheBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The embedding cache class that stores each embeddings vector in</span>
+<span class="sd">    binary files."""</span>
+
+<div class="viewcode-block" id="FileEmbeddingCache.__init__">
+<a class="viewcode-back" href="../../../api/agentscope.embedding.html#agentscope.embedding.FileEmbeddingCache.__init__">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">cache_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"./.cache/embeddings"</span><span class="p">,</span>
+        <span class="n">max_file_number</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">max_cache_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize the file embedding cache class.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            cache_dir (`str`, defaults to `"./.cache/embeddings"`):</span>
+<span class="sd">                The directory to store the embedding files.</span>
+<span class="sd">            max_file_number (`int | None`, defaults to `None`):</span>
+<span class="sd">                The maximum number of files to keep in the cache directory. If</span>
+<span class="sd">                exceeded, the oldest files will be removed.</span>
+<span class="sd">            max_cache_size (`int | None`, defaults to `None`):</span>
+<span class="sd">                The maximum size of the cache directory in MB. If exceeded,</span>
+<span class="sd">                the oldest files will be removed until the size is within the</span>
+<span class="sd">                limit.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">cache_dir</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_file_number</span> <span class="o">=</span> <span class="n">max_file_number</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_cache_size</span> <span class="o">=</span> <span class="n">max_cache_size</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">cache_dir</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""The cache directory where the embedding files are stored."""</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cache_dir</span><span class="p">):</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cache_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache_dir</span>
+
+<div class="viewcode-block" id="FileEmbeddingCache.store">
+<a class="viewcode-back" href="../../../api/agentscope.embedding.html#agentscope.embedding.FileEmbeddingCache.store">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">store</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">embeddings</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Embedding</span><span class="p">],</span>
+        <span class="n">identifier</span><span class="p">:</span> <span class="n">JSONSerializableObject</span><span class="p">,</span>
+        <span class="n">overwrite</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Store the embeddings with the given identifier.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            embeddings (`List[Embedding]`):</span>
+<span class="sd">                The embeddings to store.</span>
+<span class="sd">            identifier (`JSONSerializableObject`):</span>
+<span class="sd">                The identifier to distinguish the embeddings, which will be</span>
+<span class="sd">                used to generate a hashable filename, so it should be</span>
+<span class="sd">                JSON serializable (e.g. a string, number, list, dict).</span>
+<span class="sd">            overwrite (`bool`, defaults to `False`):</span>
+<span class="sd">                Whether to overwrite existing embeddings with the same</span>
+<span class="sd">                identifier. If `True`, existing embeddings will be replaced.</span>
+<span class="sd">        """</span>
+        <span class="n">filename</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_filename</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span>
+        <span class="n">path_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache_dir</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path_file</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">path_file</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"Path </span><span class="si">{</span><span class="n">path_file</span><span class="si">}</span><span class="s2"> exists but is not a file."</span><span class="p">,</span>
+                <span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">overwrite</span><span class="p">:</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">path_file</span><span class="p">,</span> <span class="n">embeddings</span><span class="p">)</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_maintain_cache_dir</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">path_file</span><span class="p">,</span> <span class="n">embeddings</span><span class="p">)</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_maintain_cache_dir</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="FileEmbeddingCache.retrieve">
+<a class="viewcode-back" href="../../../api/agentscope.embedding.html#agentscope.embedding.FileEmbeddingCache.retrieve">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">retrieve</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">identifier</span><span class="p">:</span> <span class="n">JSONSerializableObject</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Embedding</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Retrieve the embeddings with the given identifier. If not found,</span>
+<span class="sd">        return `None`.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            identifier (`JSONSerializableObject`):</span>
+<span class="sd">                The identifier to retrieve the embeddings, which will be</span>
+<span class="sd">                used to generate a hashable filename, so it should be</span>
+<span class="sd">                JSON serializable (e.g. a string, number, list, dict).</span>
+<span class="sd">        """</span>
+        <span class="n">filename</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_filename</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span>
+        <span class="n">path_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache_dir</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path_file</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache_dir</span><span class="p">,</span> <span class="n">filename</span><span class="p">))</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="FileEmbeddingCache.remove">
+<a class="viewcode-back" href="../../../api/agentscope.embedding.html#agentscope.embedding.FileEmbeddingCache.remove">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">remove</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">:</span> <span class="n">JSONSerializableObject</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Remove the embeddings with the given identifier.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            identifier (`JSONSerializableObject`):</span>
+<span class="sd">                The identifiers to remove the embeddings, which will be</span>
+<span class="sd">                used to generate a hashable filename, so it should be</span>
+<span class="sd">                JSON serializable (e.g. a string, number, list, dict).</span>
+<span class="sd">        """</span>
+        <span class="n">filename</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_filename</span><span class="p">(</span><span class="n">identifier</span><span class="p">)</span>
+        <span class="n">path_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache_dir</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path_file</span><span class="p">):</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">path_file</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"File </span><span class="si">{</span><span class="n">path_file</span><span class="si">}</span><span class="s2"> does not exist."</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="FileEmbeddingCache.clear">
+<a class="viewcode-back" href="../../../api/agentscope.embedding.html#agentscope.embedding.FileEmbeddingCache.clear">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">clear</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Clear the cache directory by removing all files."""</span>
+        <span class="k">for</span> <span class="n">filename</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache_dir</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">filename</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">".npy"</span><span class="p">):</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache_dir</span><span class="p">,</span> <span class="n">filename</span><span class="p">))</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_cache_size</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Get the current size of the cache directory in MB."""</span>
+        <span class="n">total_size</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">filename</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache_dir</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">filename</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">".npy"</span><span class="p">):</span>
+                <span class="n">path_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache_dir</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">path_file</span><span class="p">):</span>
+                    <span class="n">total_size</span> <span class="o">+=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">getsize</span><span class="p">(</span><span class="n">path_file</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">total_size</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1024.0</span> <span class="o">*</span> <span class="mf">1024.0</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_filename</span><span class="p">(</span><span class="n">identifier</span><span class="p">:</span> <span class="n">JSONSerializableObject</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Generate a filename based on the identifier."""</span>
+        <span class="n">json_str</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">identifier</span><span class="p">,</span> <span class="n">ensure_ascii</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">(</span><span class="n">json_str</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">"utf-8"</span><span class="p">))</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span> <span class="o">+</span> <span class="s2">".npy"</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_maintain_cache_dir</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Maintain the cache directory by removing old files if the number of</span>
+<span class="sd">        files exceeds the maximum limit or if the cache size exceeds the</span>
+<span class="sd">        maximum size."""</span>
+        <span class="n">files</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">(</span><span class="n">_</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">_</span><span class="o">.</span><span class="n">stat</span><span class="p">()</span><span class="o">.</span><span class="n">st_mtime</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">scandir</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache_dir</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">_</span><span class="o">.</span><span class="n">is_file</span><span class="p">()</span> <span class="ow">and</span> <span class="n">_</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">".npy"</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="n">files</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_file_number</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">files</span><span class="p">)</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_file_number</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">file_name</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">files</span><span class="p">[:</span> <span class="mi">0</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_file_number</span><span class="p">]:</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache_dir</span><span class="p">,</span> <span class="n">file_name</span><span class="p">))</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                    <span class="s2">"Remove cached embedding file </span><span class="si">%s</span><span class="s2"> for limited number "</span>
+                    <span class="s2">"of files (</span><span class="si">%d</span><span class="s2">)."</span><span class="p">,</span>
+                    <span class="n">file_name</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">max_file_number</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="n">files</span> <span class="o">=</span> <span class="n">files</span><span class="p">[</span><span class="mi">0</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_file_number</span> <span class="p">:]</span>
+
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">max_cache_size</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_cache_size</span><span class="p">()</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_cache_size</span>
+        <span class="p">):</span>
+            <span class="n">removed_files</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">filename</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">files</span><span class="p">:</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cache_dir</span><span class="p">,</span> <span class="n">filename</span><span class="p">))</span>
+                <span class="n">removed_files</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_cache_size</span><span class="p">()</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_cache_size</span><span class="p">:</span>
+                    <span class="k">break</span>
+
+            <span class="k">if</span> <span class="n">removed_files</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                    <span class="s2">"Remove </span><span class="si">%d</span><span class="s2"> cached embedding file(s) for limited "</span>
+                    <span class="s2">"cache size (</span><span class="si">%d</span><span class="s2"> MB)."</span><span class="p">,</span>
+                    <span class="nb">len</span><span class="p">(</span><span class="n">removed_files</span><span class="p">),</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">max_cache_size</span><span class="p">,</span>
+                <span class="p">)</span></div>
+
+</pre></div>
+        

@@ -1,0 +1,154 @@
+<!-- Title: agentscope.evaluate._ace_benchmark._ace_metric - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/evaluate/_ace_benchmark/_ace_metric.html -->
+
+          <h1>agentscope.evaluate._ace_benchmark._ace_metric 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The ACE benchmark metric implementations in AgentScope."""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._solution</span><span class="w"> </span><span class="kn">import</span> <span class="n">SolutionOutput</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._metric_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">MetricBase</span><span class="p">,</span> <span class="n">MetricResult</span><span class="p">,</span> <span class="n">MetricType</span>
+
+
+<div class="viewcode-block" id="ACEProcessAccuracy">
+<a class="viewcode-back" href="../../../../api/agentscope.evaluate.html#agentscope.evaluate.ACEProcessAccuracy">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ACEProcessAccuracy</span><span class="p">(</span><span class="n">MetricBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The ace benchmark process accuracy metric."""</span>
+
+<div class="viewcode-block" id="ACEProcessAccuracy.__init__">
+<a class="viewcode-back" href="../../../../api/agentscope.evaluate.html#agentscope.evaluate.ACEProcessAccuracy.__init__">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">mile_stone</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize the AceBench process accuracy metric."""</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">"process_accuracy"</span><span class="p">,</span>
+            <span class="n">metric_type</span><span class="o">=</span><span class="n">MetricType</span><span class="o">.</span><span class="n">NUMERICAL</span><span class="p">,</span>
+            <span class="n">description</span><span class="o">=</span><span class="s2">"The AceBench Agent eval process accuracy metric."</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mile_stone</span> <span class="o">=</span> <span class="n">mile_stone</span></div>
+
+
+<div class="viewcode-block" id="ACEProcessAccuracy.__call__">
+<a class="viewcode-back" href="../../../../api/agentscope.evaluate.html#agentscope.evaluate.ACEProcessAccuracy.__call__">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">solution</span><span class="p">:</span> <span class="n">SolutionOutput</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricResult</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Calculate the metric result."""</span>
+
+        <span class="c1"># Turn the tool use block sequence into ACEBench format</span>
+        <span class="c1"># e.g. func(arg1='dfd', arg2=44)</span>
+        <span class="n">gathered_trajectory</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">tool_call</span> <span class="ow">in</span> <span class="n">solution</span><span class="o">.</span><span class="n">trajectory</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">tool_call</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"type"</span><span class="p">)</span> <span class="o">==</span> <span class="s2">"tool_use"</span><span class="p">:</span>
+                <span class="n">function_name</span> <span class="o">=</span> <span class="n">tool_call</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"name"</span><span class="p">)</span>
+                <span class="n">kwargs</span> <span class="o">=</span> <span class="n">tool_call</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"input"</span><span class="p">)</span>
+
+                <span class="n">gathered_kwargs</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                        <span class="n">gathered_kwargs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">='</span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">'"</span><span class="p">,</span>
+                        <span class="p">)</span>
+
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">gathered_kwargs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">=</span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                        <span class="p">)</span>
+
+                <span class="n">kwargs_str</span> <span class="o">=</span> <span class="s2">", "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">gathered_kwargs</span><span class="p">)</span>
+                <span class="n">gathered_trajectory</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"[</span><span class="si">{</span><span class="n">function_name</span><span class="si">}</span><span class="s2">(</span><span class="si">{</span><span class="n">kwargs_str</span><span class="si">}</span><span class="s2">)]"</span><span class="p">,</span>
+                <span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">stone</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mile_stone</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">stone</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">gathered_trajectory</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">MetricResult</span><span class="p">(</span>
+                    <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                    <span class="n">result</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                    <span class="n">message</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Error: Missing milestone '</span><span class="si">{</span><span class="n">stone</span><span class="si">}</span><span class="s2">' in "</span>
+                    <span class="s2">"the given trajectory."</span><span class="p">,</span>
+                <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">MetricResult</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">result</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+            <span class="n">message</span><span class="o">=</span><span class="s2">"Success"</span><span class="p">,</span>
+        <span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="ACEAccuracy">
+<a class="viewcode-back" href="../../../../api/agentscope.evaluate.html#agentscope.evaluate.ACEAccuracy">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ACEAccuracy</span><span class="p">(</span><span class="n">MetricBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The ace benchmark metric"""</span>
+
+<div class="viewcode-block" id="ACEAccuracy.__init__">
+<a class="viewcode-back" href="../../../../api/agentscope.evaluate.html#agentscope.evaluate.ACEAccuracy.__init__">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">state</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize the _metric object."""</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="s2">"accuracy"</span><span class="p">,</span>
+            <span class="n">MetricType</span><span class="o">.</span><span class="n">NUMERICAL</span><span class="p">,</span>
+            <span class="s2">"The AceBench Agent eval accuracy metric."</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="n">state</span></div>
+
+
+<div class="viewcode-block" id="ACEAccuracy.__call__">
+<a class="viewcode-back" href="../../../../api/agentscope.evaluate.html#agentscope.evaluate.ACEAccuracy.__call__">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">solution</span><span class="p">:</span> <span class="n">SolutionOutput</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricResult</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Calculate the metric result."""</span>
+        <span class="c1"># Check if the solution matches the ground truth</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">solution</span><span class="o">.</span><span class="n">output</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Ground truth state must be a list."</span><span class="p">)</span>
+
+        <span class="c1"># Handle the typos in ACEBench dataset</span>
+        <span class="n">gathered_state</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">item</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">key</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">"API"</span><span class="p">):</span>
+                    <span class="n">key</span> <span class="o">=</span> <span class="n">key</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">"API"</span><span class="p">,</span> <span class="s2">"Api"</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="n">key</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">"rpi"</span><span class="p">):</span>
+                    <span class="n">key</span> <span class="o">=</span> <span class="n">key</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">"pi"</span><span class="p">,</span> <span class="s2">"Api"</span><span class="p">)</span>
+                <span class="n">gathered_state</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+
+        <span class="n">gathered_output</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">solution</span><span class="o">.</span><span class="n">output</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">item</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">gathered_output</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">set</span><span class="p">(</span><span class="n">gathered_state</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="o">.</span><span class="n">issubset</span><span class="p">(</span><span class="n">gathered_output</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"Missing keys in solution output compared to state, "</span>
+                <span class="sa">f</span><span class="s2">"ground truth keys: </span><span class="si">{</span><span class="n">gathered_state</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span><span class="si">}</span><span class="s2">, "</span>
+                <span class="sa">f</span><span class="s2">"solution keys: </span><span class="si">{</span><span class="n">gathered_output</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">gathered_state</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">value</span> <span class="o">!=</span> <span class="n">gathered_output</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">MetricResult</span><span class="p">(</span>
+                    <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                    <span class="n">result</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                    <span class="n">message</span><span class="o">=</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">"Error: Mismatch in key '</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">':"</span>
+                        <span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="se">\n</span><span class="si">{</span><span class="n">gathered_output</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span>
+                    <span class="p">),</span>
+                <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">MetricResult</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">result</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+            <span class="n">message</span><span class="o">=</span><span class="s2">"Success: All keys match"</span><span class="p">,</span>
+        <span class="p">)</span></div>
+</div>
+
+</pre></div>
+        

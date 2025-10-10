@@ -1,0 +1,233 @@
+<!-- Title: agentscope.evaluate._evaluator_storage._evaluator_storage_base - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/evaluate/_evaluator_storage/_evaluator_storage_base.html -->
+
+          <h1>agentscope.evaluate._evaluator_storage._evaluator_storage_base 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The evaluator storage base class for storing solution and evaluation</span>
+<span class="sd">results."""</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._metric_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">MetricResult</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._solution</span><span class="w"> </span><span class="kn">import</span> <span class="n">SolutionOutput</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">...agent</span><span class="w"> </span><span class="kn">import</span> <span class="n">AgentBase</span>
+
+
+<div class="viewcode-block" id="EvaluatorStorageBase">
+<a class="viewcode-back" href="../../../../api/agentscope.evaluate.html#agentscope.evaluate.EvaluatorStorageBase">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">EvaluatorStorageBase</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Used to store the solution results and evaluation results to support</span>
+<span class="sd">    resuming the evaluation process"""</span>
+
+<div class="viewcode-block" id="EvaluatorStorageBase.save_solution_result">
+<a class="viewcode-back" href="../../../../api/agentscope.evaluate.html#agentscope.evaluate.EvaluatorStorageBase.save_solution_result">[文档]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">save_solution_result</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">task_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">repeat_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">output</span><span class="p">:</span> <span class="n">SolutionOutput</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Save the solution result.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            task_id (`str`):</span>
+<span class="sd">                The task ID.</span>
+<span class="sd">            repeat_id (`str`):</span>
+<span class="sd">                The repeat ID for the task, usually the index of the repeat</span>
+<span class="sd">                evaluation.</span>
+<span class="sd">            output (`SolutionOutput`):</span>
+<span class="sd">                The solution output to be saved.</span>
+<span class="sd">        """</span></div>
+
+
+<div class="viewcode-block" id="EvaluatorStorageBase.get_evaluation_result">
+<a class="viewcode-back" href="../../../../api/agentscope.evaluate.html#agentscope.evaluate.EvaluatorStorageBase.get_evaluation_result">[文档]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_evaluation_result</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">task_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">repeat_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">metric_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricResult</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Get the evaluation result by the given task id and repeat id</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            task_id (`str`):</span>
+<span class="sd">                The task ID.</span>
+<span class="sd">            repeat_id (`str`):</span>
+<span class="sd">                The repeat ID for the task, usually the index of the repeat</span>
+<span class="sd">                evaluation.</span>
+<span class="sd">            metric_name (`str`):</span>
+<span class="sd">                The metric name.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `MetricResult`:</span>
+<span class="sd">                The evaluation result for the given task and repeat ID.</span>
+<span class="sd">        """</span></div>
+
+
+<div class="viewcode-block" id="EvaluatorStorageBase.save_evaluation_result">
+<a class="viewcode-back" href="../../../../api/agentscope.evaluate.html#agentscope.evaluate.EvaluatorStorageBase.save_evaluation_result">[文档]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">save_evaluation_result</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">task_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">repeat_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">evaluation</span><span class="p">:</span> <span class="n">MetricResult</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Save the evaluation result.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            task_id (`str`):</span>
+<span class="sd">                The task ID.</span>
+<span class="sd">            repeat_id (`str`):</span>
+<span class="sd">                The repeat ID for the task, usually the index of the repeat</span>
+<span class="sd">                evaluation.</span>
+<span class="sd">            evaluation (`MetricResult`):</span>
+<span class="sd">                The evaluation result to be saved.</span>
+<span class="sd">        """</span></div>
+
+
+<div class="viewcode-block" id="EvaluatorStorageBase.get_solution_result">
+<a class="viewcode-back" href="../../../../api/agentscope.evaluate.html#agentscope.evaluate.EvaluatorStorageBase.get_solution_result">[文档]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_solution_result</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">task_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">repeat_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SolutionOutput</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Get the solution result for the given task and repeat id.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            task_id (`str`):</span>
+<span class="sd">                The task ID.</span>
+<span class="sd">            repeat_id (`str`):</span>
+<span class="sd">                The repeat ID for the task, usually the index of the repeat</span>
+<span class="sd">                evaluation.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `SolutionOutput`:</span>
+<span class="sd">                The solution output for the given task and repeat ID.</span>
+<span class="sd">        """</span></div>
+
+
+<div class="viewcode-block" id="EvaluatorStorageBase.solution_result_exists">
+<a class="viewcode-back" href="../../../../api/agentscope.evaluate.html#agentscope.evaluate.EvaluatorStorageBase.solution_result_exists">[文档]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">solution_result_exists</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">task_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">repeat_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Check if the solution for the given task and repeat is finished.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            task_id (`str`):</span>
+<span class="sd">                The task ID.</span>
+<span class="sd">            repeat_id (`str`):</span>
+<span class="sd">                The repeat ID for the task, usually the index of the repeat</span>
+<span class="sd">                evaluation.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `bool`:</span>
+<span class="sd">                True if the solution result file exists, False otherwise.</span>
+<span class="sd">        """</span></div>
+
+
+<div class="viewcode-block" id="EvaluatorStorageBase.evaluation_result_exists">
+<a class="viewcode-back" href="../../../../api/agentscope.evaluate.html#agentscope.evaluate.EvaluatorStorageBase.evaluation_result_exists">[文档]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">evaluation_result_exists</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">task_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">repeat_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">metric_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Check if the evaluation result for the given solution and metric</span>
+<span class="sd">        is finished.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            task_id (`str`):</span>
+<span class="sd">                The task ID.</span>
+<span class="sd">            repeat_id (`str`):</span>
+<span class="sd">                The repeat ID for the task, usually the index of the repeat</span>
+<span class="sd">                evaluation.</span>
+<span class="sd">            metric_name (`str`):</span>
+<span class="sd">                The name of the metric.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `bool`:</span>
+<span class="sd">                True if the evaluation result file exists, False otherwise.</span>
+<span class="sd">        """</span></div>
+
+
+<div class="viewcode-block" id="EvaluatorStorageBase.save_aggregation_result">
+<a class="viewcode-back" href="../../../../api/agentscope.evaluate.html#agentscope.evaluate.EvaluatorStorageBase.save_aggregation_result">[文档]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">save_aggregation_result</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">aggregation_result</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Save the aggregation result.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            aggregation_result (`dict`):</span>
+<span class="sd">                A dictionary containing the aggregation result.</span>
+<span class="sd">        """</span></div>
+
+
+<div class="viewcode-block" id="EvaluatorStorageBase.aggregation_result_exists">
+<a class="viewcode-back" href="../../../../api/agentscope.evaluate.html#agentscope.evaluate.EvaluatorStorageBase.aggregation_result_exists">[文档]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">aggregation_result_exists</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Check if the aggregation result exists</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `bool`:</span>
+<span class="sd">                `True` if the aggregation result file exists.</span>
+<span class="sd">        """</span></div>
+
+
+<div class="viewcode-block" id="EvaluatorStorageBase.save_evaluation_meta">
+<a class="viewcode-back" href="../../../../api/agentscope.evaluate.html#agentscope.evaluate.EvaluatorStorageBase.save_evaluation_meta">[文档]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">save_evaluation_meta</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">meta_info</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Save the evaluation meta information.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            meta_info (`dict`):</span>
+<span class="sd">                A dictionary containing the meta information.</span>
+<span class="sd">        """</span></div>
+
+
+<div class="viewcode-block" id="EvaluatorStorageBase.get_agent_pre_print_hook">
+<a class="viewcode-back" href="../../../../api/agentscope.evaluate.html#agentscope.evaluate.EvaluatorStorageBase.get_agent_pre_print_hook">[文档]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_agent_pre_print_hook</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">task_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">repeat_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">AgentBase</span><span class="p">,</span> <span class="nb">dict</span><span class="p">],</span> <span class="kc">None</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Get a pre-print hook function for the agent to save the agent</span>
+<span class="sd">        printing in the evaluation storage.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            task_id (`str`):</span>
+<span class="sd">                The task ID.</span>
+<span class="sd">            repeat_id (`str`):</span>
+<span class="sd">                The repeat ID for the task, usually the index of the repeat</span>
+<span class="sd">                evaluation.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `Callable[[AgentBase, dict], None]`:</span>
+<span class="sd">                A hook function that takes an `AgentBase` instance and a</span>
+<span class="sd">                keyword arguments dictionary as input, saving the agent's</span>
+<span class="sd">                printing Msg into the evaluation storage.</span>
+<span class="sd">        """</span></div>
+</div>
+
+</pre></div>
+        

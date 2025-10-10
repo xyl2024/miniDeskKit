@@ -1,0 +1,321 @@
+<!-- Title: agentscope.message - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/api/agentscope.message.html -->
+
+          <section id="module-agentscope.message">
+<span id="agentscope-message"></span><h1>agentscope.message<a class="headerlink" href="#module-agentscope.message" title="Link to this heading">¶</a></h1>
+<p>The message module in agentscope.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.message.TextBlock">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">TextBlock</span></span><a class="reference internal" href="../_modules/agentscope/message/_message_block.html#TextBlock"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.message.TextBlock" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<code class="xref py py-class docutils literal notranslate"><span class="pre">TypedDict</span></code></p>
+<p>The text block.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.message.TextBlock.type">
+<span class="sig-name descname"><span class="pre">type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Required</span><span class="p"><span class="pre">[</span></span><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'text'</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#agentscope.message.TextBlock.type" title="Link to this definition">¶</a></dt>
+<dd><p>The type of the block</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.message.TextBlock.text">
+<span class="sig-name descname"><span class="pre">text</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#agentscope.message.TextBlock.text" title="Link to this definition">¶</a></dt>
+<dd><p>The text content</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.message.ThinkingBlock">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ThinkingBlock</span></span><a class="reference internal" href="../_modules/agentscope/message/_message_block.html#ThinkingBlock"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.message.ThinkingBlock" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<code class="xref py py-class docutils literal notranslate"><span class="pre">TypedDict</span></code></p>
+<p>The thinking block.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.message.ThinkingBlock.type">
+<span class="sig-name descname"><span class="pre">type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Required</span><span class="p"><span class="pre">[</span></span><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'thinking'</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#agentscope.message.ThinkingBlock.type" title="Link to this definition">¶</a></dt>
+<dd><p>The type of the block</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.message.ThinkingBlock.thinking">
+<span class="sig-name descname"><span class="pre">thinking</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#agentscope.message.ThinkingBlock.thinking" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.message.Base64Source">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Base64Source</span></span><a class="reference internal" href="../_modules/agentscope/message/_message_block.html#Base64Source"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.message.Base64Source" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<code class="xref py py-class docutils literal notranslate"><span class="pre">TypedDict</span></code></p>
+<p>The base64 source</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.message.Base64Source.type">
+<span class="sig-name descname"><span class="pre">type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Required</span><span class="p"><span class="pre">[</span></span><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'base64'</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#agentscope.message.Base64Source.type" title="Link to this definition">¶</a></dt>
+<dd><p>The type of the src, must be <cite>base64</cite></p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.message.Base64Source.media_type">
+<span class="sig-name descname"><span class="pre">media_type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Required</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#agentscope.message.Base64Source.media_type" title="Link to this definition">¶</a></dt>
+<dd><p>The media type of the data, e.g. <cite>image/jpeg</cite> or <cite>audio/mpeg</cite></p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.message.Base64Source.data">
+<span class="sig-name descname"><span class="pre">data</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Required</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#agentscope.message.Base64Source.data" title="Link to this definition">¶</a></dt>
+<dd><p>The base64 data, in format of RFC 2397</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.message.URLSource">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">URLSource</span></span><a class="reference internal" href="../_modules/agentscope/message/_message_block.html#URLSource"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.message.URLSource" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<code class="xref py py-class docutils literal notranslate"><span class="pre">TypedDict</span></code></p>
+<p>The URL source</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.message.URLSource.type">
+<span class="sig-name descname"><span class="pre">type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Required</span><span class="p"><span class="pre">[</span></span><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'url'</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#agentscope.message.URLSource.type" title="Link to this definition">¶</a></dt>
+<dd><p>The type of the src, must be <cite>url</cite></p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.message.URLSource.url">
+<span class="sig-name descname"><span class="pre">url</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Required</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#agentscope.message.URLSource.url" title="Link to this definition">¶</a></dt>
+<dd><p>The URL of the image or audio</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.message.ImageBlock">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ImageBlock</span></span><a class="reference internal" href="../_modules/agentscope/message/_message_block.html#ImageBlock"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.message.ImageBlock" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<code class="xref py py-class docutils literal notranslate"><span class="pre">TypedDict</span></code></p>
+<p>The image block</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.message.ImageBlock.type">
+<span class="sig-name descname"><span class="pre">type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Required</span><span class="p"><span class="pre">[</span></span><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'image'</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#agentscope.message.ImageBlock.type" title="Link to this definition">¶</a></dt>
+<dd><p>The type of the block</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.message.ImageBlock.source">
+<span class="sig-name descname"><span class="pre">source</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Required</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#agentscope.message.Base64Source" title="agentscope.message._message_block.Base64Source"><span class="pre">Base64Source</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="#agentscope.message.URLSource" title="agentscope.message._message_block.URLSource"><span class="pre">URLSource</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#agentscope.message.ImageBlock.source" title="Link to this definition">¶</a></dt>
+<dd><p>The src of the image</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.message.AudioBlock">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">AudioBlock</span></span><a class="reference internal" href="../_modules/agentscope/message/_message_block.html#AudioBlock"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.message.AudioBlock" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<code class="xref py py-class docutils literal notranslate"><span class="pre">TypedDict</span></code></p>
+<p>The audio block</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.message.AudioBlock.type">
+<span class="sig-name descname"><span class="pre">type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Required</span><span class="p"><span class="pre">[</span></span><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'audio'</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#agentscope.message.AudioBlock.type" title="Link to this definition">¶</a></dt>
+<dd><p>The type of the block</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.message.AudioBlock.source">
+<span class="sig-name descname"><span class="pre">source</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Required</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#agentscope.message.Base64Source" title="agentscope.message._message_block.Base64Source"><span class="pre">Base64Source</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="#agentscope.message.URLSource" title="agentscope.message._message_block.URLSource"><span class="pre">URLSource</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#agentscope.message.AudioBlock.source" title="Link to this definition">¶</a></dt>
+<dd><p>The src of the audio</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.message.VideoBlock">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">VideoBlock</span></span><a class="reference internal" href="../_modules/agentscope/message/_message_block.html#VideoBlock"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.message.VideoBlock" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<code class="xref py py-class docutils literal notranslate"><span class="pre">TypedDict</span></code></p>
+<p>The video block</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.message.VideoBlock.type">
+<span class="sig-name descname"><span class="pre">type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Required</span><span class="p"><span class="pre">[</span></span><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'video'</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#agentscope.message.VideoBlock.type" title="Link to this definition">¶</a></dt>
+<dd><p>The type of the block</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.message.VideoBlock.source">
+<span class="sig-name descname"><span class="pre">source</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Required</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#agentscope.message.Base64Source" title="agentscope.message._message_block.Base64Source"><span class="pre">Base64Source</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="#agentscope.message.URLSource" title="agentscope.message._message_block.URLSource"><span class="pre">URLSource</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#agentscope.message.VideoBlock.source" title="Link to this definition">¶</a></dt>
+<dd><p>The src of the audio</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.message.ToolUseBlock">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ToolUseBlock</span></span><a class="reference internal" href="../_modules/agentscope/message/_message_block.html#ToolUseBlock"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.message.ToolUseBlock" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<code class="xref py py-class docutils literal notranslate"><span class="pre">TypedDict</span></code></p>
+<p>The tool use block.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.message.ToolUseBlock.type">
+<span class="sig-name descname"><span class="pre">type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Required</span><span class="p"><span class="pre">[</span></span><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'tool_use'</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#agentscope.message.ToolUseBlock.type" title="Link to this definition">¶</a></dt>
+<dd><p>The type of the block, must be <cite>tool_use</cite></p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.message.ToolUseBlock.id">
+<span class="sig-name descname"><span class="pre">id</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Required</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#agentscope.message.ToolUseBlock.id" title="Link to this definition">¶</a></dt>
+<dd><p>The identity of the tool call</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.message.ToolUseBlock.name">
+<span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Required</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#agentscope.message.ToolUseBlock.name" title="Link to this definition">¶</a></dt>
+<dd><p>The name of the tool</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.message.ToolUseBlock.input">
+<span class="sig-name descname"><span class="pre">input</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Required</span><span class="p"><span class="pre">[</span></span><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">object</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#agentscope.message.ToolUseBlock.input" title="Link to this definition">¶</a></dt>
+<dd><p>The input of the tool</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.message.ToolResultBlock">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ToolResultBlock</span></span><a class="reference internal" href="../_modules/agentscope/message/_message_block.html#ToolResultBlock"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.message.ToolResultBlock" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<code class="xref py py-class docutils literal notranslate"><span class="pre">TypedDict</span></code></p>
+<p>The tool result block.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.message.ToolResultBlock.type">
+<span class="sig-name descname"><span class="pre">type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Required</span><span class="p"><span class="pre">[</span></span><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'tool_result'</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#agentscope.message.ToolResultBlock.type" title="Link to this definition">¶</a></dt>
+<dd><p>The type of the block</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.message.ToolResultBlock.id">
+<span class="sig-name descname"><span class="pre">id</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Required</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#agentscope.message.ToolResultBlock.id" title="Link to this definition">¶</a></dt>
+<dd><p>The identity of the tool call result</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.message.ToolResultBlock.output">
+<span class="sig-name descname"><span class="pre">output</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Required</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#agentscope.message.TextBlock" title="agentscope.message._message_block.TextBlock"><span class="pre">TextBlock</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="#agentscope.message.ImageBlock" title="agentscope.message._message_block.ImageBlock"><span class="pre">ImageBlock</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="#agentscope.message.AudioBlock" title="agentscope.message._message_block.AudioBlock"><span class="pre">AudioBlock</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#agentscope.message.ToolResultBlock.output" title="Link to this definition">¶</a></dt>
+<dd><p>The output of the tool function</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.message.ToolResultBlock.name">
+<span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Required</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#agentscope.message.ToolResultBlock.name" title="Link to this definition">¶</a></dt>
+<dd><p>The name of the tool function</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.message.Msg">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Msg</span></span><a class="reference internal" href="../_modules/agentscope/message/_message_base.html#Msg"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.message.Msg" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>The message class in agentscope.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.message.Msg.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">content</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">role</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timestamp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">invocation_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/message/_message_base.html#Msg.__init__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.message.Msg.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize the Msg object.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>name</strong> (<cite>str</cite>) -- The name of the message sender.</p></li>
+<li><p><strong>content</strong> (<cite>str | list[ContentBlock]</cite>) -- The content of the message.</p></li>
+<li><p><strong>role</strong> (<cite>Literal["user", "assistant", "system"]</cite>) -- The role of the message sender.</p></li>
+<li><p><strong>metadata</strong> (<cite>dict[str, JSONSerializableObject] | None</cite>, optional) -- The metadata of the message, e.g. structured output.</p></li>
+<li><p><strong>timestamp</strong> (<cite>str | None</cite>, optional) -- The created timestamp of the message. If not given, the
+timestamp will be set automatically.</p></li>
+<li><p><strong>invocation_id</strong> (<cite>str | None</cite>, optional) -- The related API invocation id, if any. This is useful for
+tracking the message in the context of an API call.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.message.Msg.to_dict">
+<span class="sig-name descname"><span class="pre">to_dict</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/message/_message_base.html#Msg.to_dict"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.message.Msg.to_dict" title="Link to this definition">¶</a></dt>
+<dd><p>Convert the message into JSON dict data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">返回类型<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.message.Msg.from_dict">
+<em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_dict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">json_data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/message/_message_base.html#Msg.from_dict"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.message.Msg.from_dict" title="Link to this definition">¶</a></dt>
+<dd><p>Load a message object from the given JSON data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>json_data</strong> (<em>dict</em>)</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#agentscope.message.Msg" title="agentscope.message._message_base.Msg"><em>Msg</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.message.Msg.has_content_blocks">
+<span class="sig-name descname"><span class="pre">has_content_blocks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">block_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/message/_message_base.html#Msg.has_content_blocks"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.message.Msg.has_content_blocks" title="Link to this definition">¶</a></dt>
+<dd><p>Check if the message has content blocks of the given type.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>block_type</strong> (<em>Literal</em><em>[</em><em>"text"</em><em>, </em><em>"tool_use"</em><em>, </em><em>"tool_result"</em><em>, </em><em>"image"</em><em>,             </em><em>"audio"</em><em>, </em><em>"video"</em><em>] </em><em>| </em><em>None</em><em>, </em><em>defaults to None</em>) -- The type of the block to be checked. If <cite>None</cite>, it will
+check if there are any content blocks.</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.message.Msg.get_text_content">
+<span class="sig-name descname"><span class="pre">get_text_content</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/message/_message_base.html#Msg.get_text_content"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.message.Msg.get_text_content" title="Link to this definition">¶</a></dt>
+<dd><p>Get the pure text blocks from the message content.</p>
+<dl class="field-list simple">
+<dt class="field-odd">返回类型<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str | None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.message.Msg.get_content_blocks">
+<span class="sig-name descname"><span class="pre">get_content_blocks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">block_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'text'</span></span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">→</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#agentscope.message.TextBlock" title="agentscope.message._message_block.TextBlock"><span class="pre">TextBlock</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/agentscope/message/_message_base.html#Msg.get_content_blocks"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.message.Msg.get_content_blocks" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">get_content_blocks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">block_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'tool_use'</span></span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">→</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#agentscope.message.ToolUseBlock" title="agentscope.message._message_block.ToolUseBlock"><span class="pre">ToolUseBlock</span></a><span class="p"><span class="pre">]</span></span></span></span></dt>
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">get_content_blocks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">block_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'tool_result'</span></span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">→</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#agentscope.message.ToolResultBlock" title="agentscope.message._message_block.ToolResultBlock"><span class="pre">ToolResultBlock</span></a><span class="p"><span class="pre">]</span></span></span></span></dt>
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">get_content_blocks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">block_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'image'</span></span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">→</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#agentscope.message.ImageBlock" title="agentscope.message._message_block.ImageBlock"><span class="pre">ImageBlock</span></a><span class="p"><span class="pre">]</span></span></span></span></dt>
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">get_content_blocks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">block_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'audio'</span></span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">→</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#agentscope.message.AudioBlock" title="agentscope.message._message_block.AudioBlock"><span class="pre">AudioBlock</span></a><span class="p"><span class="pre">]</span></span></span></span></dt>
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">get_content_blocks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">block_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'video'</span></span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">→</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#agentscope.message.VideoBlock" title="agentscope.message._message_block.VideoBlock"><span class="pre">VideoBlock</span></a><span class="p"><span class="pre">]</span></span></span></span></dt>
+<dt class="sig sig-object py">
+<span class="sig-name descname"><span class="pre">get_content_blocks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">block_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">→</span> <span class="sig-return-typehint"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#agentscope.message.ToolUseBlock" title="agentscope.message._message_block.ToolUseBlock"><span class="pre">ToolUseBlock</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="#agentscope.message.ToolResultBlock" title="agentscope.message._message_block.ToolResultBlock"><span class="pre">ToolResultBlock</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="#agentscope.message.TextBlock" title="agentscope.message._message_block.TextBlock"><span class="pre">TextBlock</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="#agentscope.message.ThinkingBlock" title="agentscope.message._message_block.ThinkingBlock"><span class="pre">ThinkingBlock</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="#agentscope.message.ImageBlock" title="agentscope.message._message_block.ImageBlock"><span class="pre">ImageBlock</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="#agentscope.message.AudioBlock" title="agentscope.message._message_block.AudioBlock"><span class="pre">AudioBlock</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="#agentscope.message.VideoBlock" title="agentscope.message._message_block.VideoBlock"><span class="pre">VideoBlock</span></a><span class="p"><span class="pre">]</span></span></span></span></dt>
+<dd><p>Get the content in block format. If the content is a string,
+it will be converted to a text block.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>block_type</strong> (<cite>Literal["text", "thinking", "tool_use",             "tool_result", "image", "audio", "video"] | None</cite>, optional) -- The type of the block to be extracted. If <cite>None</cite>, all blocks
+will be returned.</p>
+</dd>
+<dt class="field-even">返回<span class="colon">:</span></dt>
+<dd class="field-even"><p>The content blocks.</p>
+</dd>
+<dt class="field-odd">返回类型<span class="colon">:</span></dt>
+<dd class="field-odd"><p><cite>List[ContentBlock]</cite></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+        

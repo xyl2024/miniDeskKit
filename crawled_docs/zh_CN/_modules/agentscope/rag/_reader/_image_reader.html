@@ -1,0 +1,81 @@
+<!-- Title: agentscope.rag._reader._image_reader - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/rag/_reader/_image_reader.html -->
+
+          <h1>agentscope.rag._reader._image_reader 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The Image reader modules"""</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">hashlib</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">..</span><span class="w"> </span><span class="kn">import</span> <span class="n">DocMetadata</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">...message</span><span class="w"> </span><span class="kn">import</span> <span class="n">ImageBlock</span><span class="p">,</span> <span class="n">URLSource</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._reader</span><span class="w"> </span><span class="kn">import</span> <span class="n">ReaderBase</span><span class="p">,</span> <span class="n">Document</span>
+
+
+<div class="viewcode-block" id="ImageReader">
+<a class="viewcode-back" href="../../../../api/agentscope.rag.html#agentscope.rag.ImageReader">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ImageReader</span><span class="p">(</span><span class="n">ReaderBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""A simple image reader that wraps the image into a Document object.</span>
+
+<span class="sd">    This class is only a simple implementation to support multimodal RAG.</span>
+<span class="sd">    """</span>
+
+<div class="viewcode-block" id="ImageReader.__call__">
+<a class="viewcode-back" href="../../../../api/agentscope.rag.html#agentscope.rag.ImageReader.__call__">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">image_url</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Document</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Read an image and return the wrapped Document object.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            image_url (`str | list[str]`):</span>
+<span class="sd">                The image URL(s) or path(s).</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `list[Document]`:</span>
+<span class="sd">                A list of Document objects containing the image data.</span>
+<span class="sd">        """</span>
+        <span class="c1"># Read the image data and wrap it into a Document object.</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">image_url</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">image_url</span> <span class="o">=</span> <span class="p">[</span><span class="n">image_url</span><span class="p">]</span>
+
+        <span class="n">image_blocks</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ImageBlock</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">ImageBlock</span><span class="p">(</span>
+                <span class="nb">type</span><span class="o">=</span><span class="s2">"image"</span><span class="p">,</span>
+                <span class="n">source</span><span class="o">=</span><span class="n">URLSource</span><span class="p">(</span>
+                    <span class="nb">type</span><span class="o">=</span><span class="s2">"url"</span><span class="p">,</span>
+                    <span class="n">url</span><span class="o">=</span><span class="n">_</span><span class="p">,</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">image_url</span>
+        <span class="p">]</span>
+
+        <span class="n">doc_idx</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">get_doc_id</span><span class="p">(</span><span class="n">_</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">image_url</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="p">[</span>
+            <span class="n">Document</span><span class="p">(</span>
+                <span class="n">metadata</span><span class="o">=</span><span class="n">DocMetadata</span><span class="p">(</span>
+                    <span class="n">content</span><span class="o">=</span><span class="n">image_block</span><span class="p">,</span>
+                    <span class="n">doc_id</span><span class="o">=</span><span class="n">doc_id</span><span class="p">,</span>
+                    <span class="n">chunk_id</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                    <span class="n">total_chunks</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">doc_id</span><span class="p">,</span> <span class="n">image_block</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">doc_idx</span><span class="p">,</span> <span class="n">image_blocks</span><span class="p">)</span>
+        <span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="ImageReader.get_doc_id">
+<a class="viewcode-back" href="../../../../api/agentscope.rag.html#agentscope.rag.ImageReader.get_doc_id">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_doc_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">image_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Generate a document ID based on the image path.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            image_path (`str`):</span>
+<span class="sd">                The image path or URL.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `str`:</span>
+<span class="sd">                The generated document ID.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">md5</span><span class="p">(</span><span class="n">image_path</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">"utf-8"</span><span class="p">))</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span></div>
+</div>
+
+</pre></div>
+        

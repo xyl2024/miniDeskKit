@@ -1,0 +1,619 @@
+<!-- Title: RAG - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/tutorial/task_rag.html -->
+
+          <div class="sphx-glr-download-link-note admonition note">
+<p class="admonition-title">备注</p>
+<p><a class="reference internal" href="#sphx-glr-download-tutorial-task-rag-py"><span class="std std-ref">Go to the end</span></a>
+to download the full example code.</p>
+</div>
+<section class="sphx-glr-example-title" id="rag">
+<span id="sphx-glr-tutorial-task-rag-py"></span><span id="id1"></span><h1>RAG<a class="headerlink" href="#rag" title="Link to this heading">¶</a></h1>
+<p>AgentScope 提供了内置的 RAG（Retrieval-Augmented Generation) 实现。本节将详细介绍</p>
+<ul class="simple">
+<li><p>如何使用 AgentScope 中的 RAG 模块，</p></li>
+<li><p>如何实现 <strong>多模态</strong> RAG，</p></li>
+<li><dl class="simple">
+<dt>如何在 <code class="docutils literal notranslate"><span class="pre">ReActAgent</span></code> 中以两种不同的方式集成 RAG 模块：</dt><dd><ul>
+<li><p>智能体自主控制（Agentic manner）</p></li>
+<li><p>通用方式（Generic manner）</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+<p>我们在下列表格中总结了两种模式的优缺点：</p>
+<div class="table-wrapper docutils container" id="id11">
+<table class="docutils align-default" id="id11">
+<caption><span class="caption-text">RAG 集成方式比较</span><a class="headerlink" href="#id11" title="Link to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>集成方式</p></th>
+<th class="head"><p>描述</p></th>
+<th class="head"><p>优点</p></th>
+<th class="head"><p>缺点</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>智能体自主控制</p></td>
+<td><p>以工具调用方式让智能体自主决定何时进行查询，查询什么关键字</p></td>
+<td><ul class="simple">
+<li><p>与 ReAct 算法契合，灵活性高</p></li>
+<li><p>智能体能够根据当前的上下文改写查询关键词</p></li>
+<li><p>避免在不必要时发生查询</p></li>
+</ul>
+</td>
+<td><p>对 LLM 模型能力要求较高</p></td>
+</tr>
+<tr class="row-odd"><td><p>通用方式</p></td>
+<td><p>每次在 <code class="docutils literal notranslate"><span class="pre">reply</span></code> 函数开始时固定进行查询，并将检索结果整合到提示（prompt）中</p></td>
+<td><ul class="simple">
+<li><p>实现简单</p></li>
+<li><p>对 LLM 模型能力要求低</p></li>
+</ul>
+</td>
+<td><ul class="simple">
+<li><p>每次都会运行查询，因此会引入过多不必要的查询检索</p></li>
+<li><p>查询数据库较大时，回复延迟较高</p></li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>作为开源框架，AgentScope 的目标是让开发过程更简单也更有趣。因此，AgentScope 的设计中并不强制要求使用内置的 RAG 实现，同时支持、鼓励开发者集成现有的 RAG 实现或第三方 RAG 框架。</p>
+</div>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">matplotlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">pyplot</span> <span class="k">as</span> <span class="n">plt</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">agentscope</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.agent</span><span class="w"> </span><span class="kn">import</span> <span class="n">ReActAgent</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.embedding</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">DashScopeTextEmbedding</span><span class="p">,</span>
+    <span class="n">DashScopeMultiModalEmbedding</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.formatter</span><span class="w"> </span><span class="kn">import</span> <span class="n">DashScopeChatFormatter</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.message</span><span class="w"> </span><span class="kn">import</span> <span class="n">Msg</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.model</span><span class="w"> </span><span class="kn">import</span> <span class="n">DashScopeChatModel</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.rag</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">TextReader</span><span class="p">,</span>
+    <span class="n">SimpleKnowledge</span><span class="p">,</span>
+    <span class="n">QdrantStore</span><span class="p">,</span>
+    <span class="n">Document</span><span class="p">,</span>
+    <span class="n">ImageReader</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.tool</span><span class="w"> </span><span class="kn">import</span> <span class="n">Toolkit</span>
+</pre></div>
+</div>
+<section id="id2">
+<h2>使用 RAG 模块<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h2>
+<p>AgentScope 中的 RAG 模块由以下三个核心组件构成：</p>
+<ul class="simple">
+<li><p><strong>Reader</strong>：负责从数据源读取数据，并进行分块（chunking）</p></li>
+<li><p><strong>Knowledge</strong>：负责知识库查询检索和数据存储逻辑的算法实现</p></li>
+<li><p><strong>Store</strong>：负责与向量数据库交互的逻辑实现</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>我们将持续在 AgentScope 中集成新的向量数据库和数据读取模块。详情请查看我们的 <a class="reference external" href="https://github.com/orgs/agentscope-ai/projects/2">开发路线图</a>，同时也欢迎贡献代码！</p>
+</div>
+<p>当前 AgentScope 中内置支持的 reader 包括：</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">agentscope</span><span class="o">.</span><span class="n">rag</span><span class="o">.</span><span class="n">__all__</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">_</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">"Reader"</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"- </span><span class="si">{</span><span class="n">_</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>- TextReader
+- PDFReader
+- ImageReader
+</pre></div>
+</div>
+<p>这些 reader 的作用是读取数据，将数据分块并包装成 <code class="docutils literal notranslate"><span class="pre">agentscope.rag.Document</span></code> 对象。 <code class="docutils literal notranslate"><span class="pre">Document</span></code> 对象包含以下字段：</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">metadata</span></code>：数据块的元信息，包含数据内容（<code class="docutils literal notranslate"><span class="pre">content</span></code>）、数据 ID（<code class="docutils literal notranslate"><span class="pre">doc_id</span></code>）、块 ID（<code class="docutils literal notranslate"><span class="pre">chunk_id</span></code>）和总块数（<code class="docutils literal notranslate"><span class="pre">total_chunks</span></code>）</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">embedding</span></code>: 数据块的向量表示，默认为 <code class="docutils literal notranslate"><span class="pre">None</span></code>，在将数据块添加到知识库时会被填充</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">score</span></code>: 数据块的相关性分数，默认为 <code class="docutils literal notranslate"><span class="pre">None</span></code>，在从知识库检索数据块时会被填充</p></li>
+</ul>
+<p>以 <code class="docutils literal notranslate"><span class="pre">TextReader</span></code> 为例，通过如下代码读取文本字符串，并将文本分块为 <code class="docutils literal notranslate"><span class="pre">Document</span></code> 对象：</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">example_text_reader</span><span class="p">(</span><span class="n">print_docs</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Document</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""使用 TextReader 读取文本字符串，并将文本分块为 Document 对象。"""</span>
+    <span class="c1"># 创建 TextReader 对象</span>
+    <span class="n">reader</span> <span class="o">=</span> <span class="n">TextReader</span><span class="p">(</span><span class="n">chunk_size</span><span class="o">=</span><span class="mi">512</span><span class="p">,</span> <span class="n">split_by</span><span class="o">=</span><span class="s2">"paragraph"</span><span class="p">)</span>
+
+    <span class="c1"># 读取文本字符串</span>
+    <span class="n">documents</span> <span class="o">=</span> <span class="k">await</span> <span class="n">reader</span><span class="p">(</span>
+        <span class="n">text</span><span class="o">=</span><span class="p">(</span>
+            <span class="c1"># 我们准备一些文本数据用于演示 RAG 功能。</span>
+            <span class="s2">"我的名字是李明，今年28岁。</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="s2">"我居住在中国杭州，是一名算法工程师。我喜欢打篮球和玩游戏。</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="s2">"我父亲的名字是李强，是一名医生，我的母亲是陈芳芳，是一名教师，她总是指导我学习。</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="s2">"我现在在北京大学攻读博士学位，研究方向是人工智能。</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="s2">"我最好的朋友是王伟，我们从小一起长大，现在他是一名律师。"</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">print_docs</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"文本被分块为 </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">documents</span><span class="p">)</span><span class="si">}</span><span class="s2"> 个 Document 对象："</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">doc</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">documents</span><span class="p">):</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Document </span><span class="si">{</span><span class="n">idx</span><span class="si">}</span><span class="s2">:"</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\t</span><span class="s2">Score: "</span><span class="p">,</span> <span class="n">doc</span><span class="o">.</span><span class="n">score</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="s2">"</span><span class="se">\t</span><span class="s2">Metadata: "</span><span class="p">,</span>
+                <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">doc</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">ensure_ascii</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">,</span>
+            <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">documents</span>
+
+
+<span class="n">docs</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">example_text_reader</span><span class="p">(</span><span class="n">print_docs</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>文本被分块为 5 个 Document 对象：
+Document 0:
+        Score:  None
+        Metadata:  {
+  "content": {
+    "type": "text",
+    "text": "我的名字是李明，今年28岁。"
+  },
+  "doc_id": "547e45879e96438c19ddb0f06bcf750ead3cc20e079458880f3533bcb2300a13",
+  "chunk_id": 0,
+  "total_chunks": 5
+}
+
+Document 1:
+        Score:  None
+        Metadata:  {
+  "content": {
+    "type": "text",
+    "text": "我居住在中国杭州，是一名算法工程师。我喜欢打篮球和玩游戏。"
+  },
+  "doc_id": "547e45879e96438c19ddb0f06bcf750ead3cc20e079458880f3533bcb2300a13",
+  "chunk_id": 1,
+  "total_chunks": 5
+}
+
+Document 2:
+        Score:  None
+        Metadata:  {
+  "content": {
+    "type": "text",
+    "text": "我父亲的名字是李强，是一名医生，我的母亲是陈芳芳，是一名教师，她总是指导我学习。"
+  },
+  "doc_id": "547e45879e96438c19ddb0f06bcf750ead3cc20e079458880f3533bcb2300a13",
+  "chunk_id": 2,
+  "total_chunks": 5
+}
+
+Document 3:
+        Score:  None
+        Metadata:  {
+  "content": {
+    "type": "text",
+    "text": "我现在在北京大学攻读博士学位，研究方向是人工智能。"
+  },
+  "doc_id": "547e45879e96438c19ddb0f06bcf750ead3cc20e079458880f3533bcb2300a13",
+  "chunk_id": 3,
+  "total_chunks": 5
+}
+
+Document 4:
+        Score:  None
+        Metadata:  {
+  "content": {
+    "type": "text",
+    "text": "我最好的朋友是王伟，我们从小一起长大，现在他是一名律师。"
+  },
+  "doc_id": "547e45879e96438c19ddb0f06bcf750ead3cc20e079458880f3533bcb2300a13",
+  "chunk_id": 4,
+  "total_chunks": 5
+}
+</pre></div>
+</div>
+<p>由于并不存在一个 “one-for-all” 的数据读取和分块方法，特别像是 PDF 和 Word 这类复杂格式的文档。
+因此，AgentScope 鼓励开发者根据自己的数据格式实现自定义的 reader。
+只需要继承 <code class="docutils literal notranslate"><span class="pre">BaseReader</span></code> 类，并实现 <code class="docutils literal notranslate"><span class="pre">__call__</span></code> 方法即可。</p>
+<p>在数据分块后，接下来需要将数据块添加到知识库中。
+在 AgentScope 中，知识库的初始化需要提供 <strong>嵌入模型</strong> 和 <strong>向量存储</strong> （即向量数据库） 的对象。
+AgentScope 目前内置支持基于 <a class="reference external" href="https://qdrant.tech/">Qdrant</a> 实现的向量存储，以及一个知识库的基础实现 <code class="docutils literal notranslate"><span class="pre">SimpleKnowledge</span></code>。
+具体使用方式如下：</p>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<ul class="simple">
+<li><p>我们正在 AgentScope 中集成新的向量数据库，详情请查看我们的 <a class="reference external" href="https://github.com/orgs/agentscope-ai/projects/2">开发路线图</a>。欢迎贡献代码！</p></li>
+<li><p>Qdrant 的实现通过 <code class="docutils literal notranslate"><span class="pre">location</span></code> 参数支持多种不同的部署方式，包括内存模式，本地模式和云端模式。详情请参考 <a class="reference external" href="https://qdrant.tech/">Qdrant 文档</a>。</p></li>
+</ul>
+</div>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">build_knowledge_base</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">SimpleKnowledge</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""构建知识库。"""</span>
+    <span class="c1"># 读取 documents 数据</span>
+    <span class="n">documents</span> <span class="o">=</span> <span class="k">await</span> <span class="n">example_text_reader</span><span class="p">(</span><span class="n">print_docs</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1"># 创建一个内存中的 Qdrant 向量存储，以及使用 DashScopeTextEmbedding 作为嵌入模型，初始化知识库</span>
+    <span class="n">knowledge</span> <span class="o">=</span> <span class="n">SimpleKnowledge</span><span class="p">(</span>
+        <span class="c1"># 提供一个 embedding 模型用于将文本转换为向量</span>
+        <span class="n">embedding_model</span><span class="o">=</span><span class="n">DashScopeTextEmbedding</span><span class="p">(</span>
+            <span class="n">api_key</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"DASHSCOPE_API_KEY"</span><span class="p">],</span>
+            <span class="n">model_name</span><span class="o">=</span><span class="s2">"text-embedding-v4"</span><span class="p">,</span>
+            <span class="n">dimensions</span><span class="o">=</span><span class="mi">1024</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="c1"># 选择 Qdrant 作为向量存储</span>
+        <span class="n">embedding_store</span><span class="o">=</span><span class="n">QdrantStore</span><span class="p">(</span>
+            <span class="n">location</span><span class="o">=</span><span class="s2">":memory:"</span><span class="p">,</span>  <span class="c1"># 使用内存模式</span>
+            <span class="n">collection_name</span><span class="o">=</span><span class="s2">"test_collection"</span><span class="p">,</span>
+            <span class="n">dimensions</span><span class="o">=</span><span class="mi">1024</span><span class="p">,</span>  <span class="c1"># 嵌入向量的维度必须与嵌入模型输出的维度一致</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+
+    <span class="c1"># 将 documents 添加到知识库中</span>
+    <span class="k">await</span> <span class="n">knowledge</span><span class="o">.</span><span class="n">add_documents</span><span class="p">(</span><span class="n">documents</span><span class="p">)</span>
+
+    <span class="c1"># 从知识库中检索数据</span>
+    <span class="n">docs</span> <span class="o">=</span> <span class="k">await</span> <span class="n">knowledge</span><span class="o">.</span><span class="n">retrieve</span><span class="p">(</span>
+        <span class="n">query</span><span class="o">=</span><span class="s2">"李明的父亲是谁？"</span><span class="p">,</span>
+        <span class="n">limit</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+        <span class="n">score_threshold</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"检索到的 Document 对象："</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">doc</span> <span class="ow">in</span> <span class="n">docs</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">doc</span><span class="p">,</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">knowledge</span>
+
+
+<span class="n">knowledge</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">build_knowledge_base</span><span class="p">())</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>检索到的 Document 对象：
+Document(metadata=DocMetadata(content={'type': 'text', 'text': '我父亲的名字是李强，是一名医生，我的母亲是陈芳芳，是一名教师，她总是指导我学习。'}, doc_id='547e45879e96438c19ddb0f06bcf750ead3cc20e079458880f3533bcb2300a13', chunk_id=2, total_chunks=5), id='fmmSL573bCYurRCxKvAxEN', embedding=None, score=0.5971063116560947)
+
+Document(metadata=DocMetadata(content={'type': 'text', 'text': '我的名字是李明，今年28岁。'}, doc_id='547e45879e96438c19ddb0f06bcf750ead3cc20e079458880f3533bcb2300a13', chunk_id=0, total_chunks=5), id='mN2rMVEDuK4GnG5AWijEdL', embedding=None, score=0.5449764333507582)
+</pre></div>
+</div>
+<p>AgentScope 中的知识库类提供两个核心方法：<code class="docutils literal notranslate"><span class="pre">add_documents</span></code> 和 <code class="docutils literal notranslate"><span class="pre">retrieve</span></code>，分别用于添加数据块和搜索检索数据块。</p>
+<p>此外，AgentScope 提供了 <code class="docutils literal notranslate"><span class="pre">retrieve_knowledge</span></code> 方法，它将 <code class="docutils literal notranslate"><span class="pre">retrieve</span></code> 方法封装成一个智能体能够直接调用的工具函数。开发者可以直接使用该工具函数装备智能体。</p>
+</section>
+<section id="id6">
+<h2>自定义 RAG 组件<a class="headerlink" href="#id6" title="Link to this heading">¶</a></h2>
+<p>AgentScope 支持并鼓励开发者自定义 RAG 组件，包括 reader、知识库和向量数据库。
+具体来说，我们提供了以下基类用于自定义：</p>
+<div class="table-wrapper docutils container" id="id12">
+<table class="docutils align-default" id="id12">
+<caption><span class="caption-text">RAG 基类</span><a class="headerlink" href="#id12" title="Link to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>基类</p></th>
+<th class="head"><p>描述</p></th>
+<th class="head"><p>抽象方法</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ReaderBase</span></code></p></td>
+<td><p>所有 reader 的基类</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">__call__</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">VDBStoreBase</span></code></p></td>
+<td><p>向量数据库的基类</p></td>
+<td><div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">add</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">search</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">get_client</span></code> (可选)</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">delete</span></code> (可选)</div>
+</div>
+</td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">KnowledgeBase</span></code></p></td>
+<td><p>知识库的基类</p></td>
+<td><div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">retrieve</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">add_documents</span></code></div>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">VDBStoreBase</span></code> 中的 <code class="docutils literal notranslate"><span class="pre">get_client</span></code> 方法允许开发者访问底层向量数据库的完整功能。
+这样，他们就可以基于向量数据库实现更高级的功能，例如建立索引、高级搜索等。</p>
+</section>
+<section id="reactagent">
+<h2>与 ReActAgent 集成<a class="headerlink" href="#reactagent" title="Link to this heading">¶</a></h2>
+<p>接下来，我们将演示如何以智能体自主控制（agentic）和通用（generic）两种方式将 RAG 模块与 AgentScope 中的 <code class="docutils literal notranslate"><span class="pre">ReActAgent</span></code> 集成。</p>
+<section id="id7">
+<h3>智能体自主控制<a class="headerlink" href="#id7" title="Link to this heading">¶</a></h3>
+<p>在智能体自主控制的方式中，ReAct 智能体可以自主决定何时检索知识以及检索的查询内容。
+将 RAG 模块与 AgentScope 中的 <code class="docutils literal notranslate"><span class="pre">ReActAgent</span></code> 集成非常简单，只需将知识库的 <code class="docutils literal notranslate"><span class="pre">retrieve_knowledge</span></code> 方法注册为工具，并为该工具提供适当的描述即可。</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">example_agentic_manner</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""以智能体自主控制方式将 RAG 模块与 ReActAgent 集成的示例。"""</span>
+    <span class="c1"># 创建一个 ReAct 智能体</span>
+    <span class="n">toolkit</span> <span class="o">=</span> <span class="n">Toolkit</span><span class="p">()</span>
+
+    <span class="c1"># 使用 DashScope 作为模型创建 ReAct 智能体</span>
+    <span class="n">agent</span> <span class="o">=</span> <span class="n">ReActAgent</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">"Friday"</span><span class="p">,</span>
+        <span class="n">sys_prompt</span><span class="o">=</span><span class="s2">"You're a helpful assistant named Friday."</span><span class="p">,</span>
+        <span class="n">model</span><span class="o">=</span><span class="n">DashScopeChatModel</span><span class="p">(</span>
+            <span class="n">api_key</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"DASHSCOPE_API_KEY"</span><span class="p">],</span>
+            <span class="n">model_name</span><span class="o">=</span><span class="s2">"qwen-max"</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="n">formatter</span><span class="o">=</span><span class="n">DashScopeChatFormatter</span><span class="p">(),</span>
+        <span class="n">toolkit</span><span class="o">=</span><span class="n">toolkit</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"第一次回复: "</span><span class="p">)</span>
+    <span class="c1"># 第一次我们进行一些交流，提供“李明”这个名字作为上下文内容</span>
+    <span class="k">await</span> <span class="n">agent</span><span class="p">(</span>
+        <span class="n">Msg</span><span class="p">(</span>
+            <span class="s2">"user"</span><span class="p">,</span>
+            <span class="s2">"李明是我最好的朋友。"</span><span class="p">,</span>
+            <span class="s2">"user"</span><span class="p">,</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+
+    <span class="c1"># 将 retrieve_knowledge 方法注册为工具箱中的工具函数</span>
+    <span class="n">toolkit</span><span class="o">.</span><span class="n">register_tool_function</span><span class="p">(</span>
+        <span class="n">knowledge</span><span class="o">.</span><span class="n">retrieve_knowledge</span><span class="p">,</span>
+        <span class="n">func_description</span><span class="o">=</span><span class="p">(</span>  <span class="c1"># 为工具提供清晰的描述</span>
+            <span class="s2">"用于检索与给定查询相关的文档的工具。"</span> <span class="s2">"当你需要查找有关李明的信息时使用此工具。"</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n\n</span><span class="s2">第二次回复: "</span><span class="p">)</span>
+    <span class="c1"># 第二次回复中，我们希望智能体能够将查询中“他父亲”改写得更具体，例如</span>
+    <span class="c1"># “李明的父亲是谁？”或“李明的父亲”</span>
+    <span class="k">await</span> <span class="n">agent</span><span class="p">(</span>
+        <span class="n">Msg</span><span class="p">(</span>
+            <span class="s2">"user"</span><span class="p">,</span>
+            <span class="s2">"你知道他父亲是谁吗？"</span><span class="p">,</span>
+            <span class="s2">"user"</span><span class="p">,</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+
+
+<span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">example_agentic_manner</span><span class="p">())</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>第一次回复:
+Friday: 那很好啊，有好朋友在身边总是一件幸福的事情。你们经常一起做什么呢？
+
+
+第二次回复:
+Friday: {
+    "type": "tool_use",
+    "id": "call_feb0cf50fc374d4f812e98",
+    "name": "retrieve_knowledge",
+    "input": {
+        "query": "李明的父亲",
+        "limit": 5,
+        "score_threshold": null
+    }
+}
+system: {
+    "type": "tool_result",
+    "id": "call_feb0cf50fc374d4f812e98",
+    "name": "retrieve_knowledge",
+    "output": [
+        {
+            "type": "text",
+            "text": "Score: 0.5874060786403573, Content: 我父亲的名字是李强，是一名医生，我的母亲是陈芳芳，是一名教师，她总是指导我学习。"
+        },
+        {
+            "type": "text",
+            "text": "Score: 0.5298775693077571, Content: 我的名字是李明，今年28岁。"
+        },
+        {
+            "type": "text",
+            "text": "Score: 0.4109046508059505, Content: 我最好的朋友是王伟，我们从小一起长大，现在他是一名律师。"
+        },
+        {
+            "type": "text",
+            "text": "Score: 0.3137894297688633, Content: 我现在在北京大学攻读博士学位，研究方向是人工智能。"
+        },
+        {
+            "type": "text",
+            "text": "Score: 0.30488523710847326, Content: 我居住在中国杭州，是一名算法工程师。我喜欢打篮球和玩游戏。"
+        }
+    ]
+}
+Friday: 根据我找到的信息，李明的父亲名字是李强，并且他是一名医生。
+</pre></div>
+</div>
+<p>在上面的例子中，我们模拟了正常与智能体交流过程。第一次的交流我们提供了“李明”的名字作为上下文内容。
+第二次提问时，我们的问题是“你知道他父亲是谁吗？”，
+我们希望智能体能够利用上下文历史信息改写查询，使其更具体，更好的进行检索，例如改写为“李明的父亲是谁？”或“李明的父亲”。</p>
+<p>更进一步，结合 <a class="reference internal" href="task_plan.html#plan"><span class="std std-ref">计划</span></a> 模块，我们可以让智能体实现更加复杂的查询改写和多轮检索。</p>
+</section>
+<section id="id8">
+<h3>通用方式<a class="headerlink" href="#id8" title="Link to this heading">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">ReActAgent</span></code> 还以一种更加通用的方式集成了 RAG 模块，
+它在每次 <code class="docutils literal notranslate"><span class="pre">reply</span></code> 函数开始执行时检索知识，并将检索到的知识附加到用户消息的提示中。</p>
+<p>只需设置 <code class="docutils literal notranslate"><span class="pre">ReActAgent</span></code> 的 <code class="docutils literal notranslate"><span class="pre">knowledge</span></code> 参数，智能体就会在每次回复开始时自动检索知识。</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">example_generic_manner</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""以通用方式将 RAG 模块与 ReActAgent 集成的示例。"""</span>
+    <span class="c1"># 创建一个 ReAct 智能体</span>
+    <span class="n">agent</span> <span class="o">=</span> <span class="n">ReActAgent</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">"Friday"</span><span class="p">,</span>
+        <span class="n">sys_prompt</span><span class="o">=</span><span class="s2">"You're a helpful assistant named Friday."</span><span class="p">,</span>
+        <span class="n">model</span><span class="o">=</span><span class="n">DashScopeChatModel</span><span class="p">(</span>
+            <span class="n">api_key</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"DASHSCOPE_API_KEY"</span><span class="p">],</span>
+            <span class="n">model_name</span><span class="o">=</span><span class="s2">"qwen-max"</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="n">formatter</span><span class="o">=</span><span class="n">DashScopeChatFormatter</span><span class="p">(),</span>
+        <span class="c1"># 将知识库传递给智能体</span>
+        <span class="n">knowledge</span><span class="o">=</span><span class="n">knowledge</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="k">await</span> <span class="n">agent</span><span class="p">(</span>
+        <span class="n">Msg</span><span class="p">(</span>
+            <span class="s2">"user"</span><span class="p">,</span>
+            <span class="s2">"你知道李明的父亲是谁吗？"</span><span class="p">,</span>
+            <span class="s2">"user"</span><span class="p">,</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">查看智能体记忆中检索信息如何插入："</span><span class="p">)</span>
+    <span class="n">content</span> <span class="o">=</span> <span class="p">(</span><span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">get_memory</span><span class="p">())[</span><span class="o">-</span><span class="mi">4</span><span class="p">]</span><span class="o">.</span><span class="n">content</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">ensure_ascii</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+
+
+<span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">example_generic_manner</span><span class="p">())</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Friday: 根据我所了解的信息，李明的父亲名叫李强，他是一名医生。
+
+查看智能体记忆中检索信息如何插入：
+[
+  {
+    "type": "text",
+    "text": "&lt;retrieved_knowledge&gt;Use the following content from the knowledge base(s) if it's helpful:\n"
+  },
+  {
+    "type": "text",
+    "text": "我父亲的名字是李强，是一名医生，我的母亲是陈芳芳，是一名教师，她总是指导我学习。"
+  },
+  {
+    "type": "text",
+    "text": "我的名字是李明，今年28岁。"
+  },
+  {
+    "type": "text",
+    "text": "我最好的朋友是王伟，我们从小一起长大，现在他是一名律师。"
+  },
+  {
+    "type": "text",
+    "text": "我居住在中国杭州，是一名算法工程师。我喜欢打篮球和玩游戏。"
+  },
+  {
+    "type": "text",
+    "text": "我现在在北京大学攻读博士学位，研究方向是人工智能。"
+  },
+  {
+    "type": "text",
+    "text": "&lt;/retrieved_knowledge&gt;"
+  }
+]
+</pre></div>
+</div>
+</section>
+</section>
+<section id="id9">
+<h2>多模态 RAG<a class="headerlink" href="#id9" title="Link to this heading">¶</a></h2>
+<p>AgentScope 中的 RAG 模块原生支持多模态，因为</p>
+<ul class="simple">
+<li><p>AgentScope 支持多模态嵌入 API，例如 <code class="docutils literal notranslate"><span class="pre">DashScopeMultimodalEmbedding</span></code>。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">Document</span></code> 类的 <code class="docutils literal notranslate"><span class="pre">metadata</span></code> 中，<code class="docutils literal notranslate"><span class="pre">content</span></code> 字段的类型是 <code class="docutils literal notranslate"><span class="pre">TextBlock</span> <span class="pre">|</span> <span class="pre">ImageBlock</span> <span class="pre">|</span> <span class="pre">VideoBlock</span></code>，因此可以存储文本、图片和视频等多模态数据。</p></li>
+</ul>
+<p>因此，我们可以直接使用多模态 reader 和嵌入模型来构建多模态知识库，如下所示。</p>
+<p>首先，我们准备一张本地的图片，这张图片上包含了文本“My name is Ming Li”。</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="c1"># 准备一张包含文本“My name is Ming Li”的图片。</span>
+<span class="n">path_image</span> <span class="o">=</span> <span class="s2">"./example.png"</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">text</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="s2">"My name is Ming Li"</span><span class="p">,</span> <span class="n">ha</span><span class="o">=</span><span class="s2">"center"</span><span class="p">,</span> <span class="n">va</span><span class="o">=</span><span class="s2">"center"</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="s2">"off"</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">path_image</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">"tight"</span><span class="p">,</span> <span class="n">pad_inches</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>然后我们可以构建一个多模态知识库，构建过程与纯文本知识库类似。只是将 reader 和嵌入模型替换为多模态版本即可。
+在下面的例子中，我们使用了 <code class="docutils literal notranslate"><span class="pre">ImageReader</span></code> 和 <code class="docutils literal notranslate"><span class="pre">DashScopeMultiModalEmbedding</span></code>。
+同时，这里我们使用多模态模型 <code class="docutils literal notranslate"><span class="pre">qwen3-vl-plus</span></code> 作为智能体的语言模型。</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">example_multimodal_rag</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""使用多模态 RAG 的示例。"""</span>
+    <span class="c1"># 使用 ImageReader 读取图片</span>
+    <span class="n">reader</span> <span class="o">=</span> <span class="n">ImageReader</span><span class="p">()</span>
+    <span class="n">docs</span> <span class="o">=</span> <span class="k">await</span> <span class="n">reader</span><span class="p">(</span><span class="n">image_url</span><span class="o">=</span><span class="n">path_image</span><span class="p">)</span>
+
+    <span class="c1"># 创建一个知识库</span>
+    <span class="n">knowledge</span> <span class="o">=</span> <span class="n">SimpleKnowledge</span><span class="p">(</span>
+        <span class="n">embedding_model</span><span class="o">=</span><span class="n">DashScopeMultiModalEmbedding</span><span class="p">(</span>
+            <span class="n">api_key</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"DASHSCOPE_API_KEY"</span><span class="p">],</span>
+            <span class="n">model_name</span><span class="o">=</span><span class="s2">"multimodal-embedding-v1"</span><span class="p">,</span>
+            <span class="n">dimensions</span><span class="o">=</span><span class="mi">1024</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="n">embedding_store</span><span class="o">=</span><span class="n">QdrantStore</span><span class="p">(</span>
+            <span class="n">location</span><span class="o">=</span><span class="s2">":memory:"</span><span class="p">,</span>
+            <span class="n">collection_name</span><span class="o">=</span><span class="s2">"test_collection"</span><span class="p">,</span>
+            <span class="n">dimensions</span><span class="o">=</span><span class="mi">1024</span><span class="p">,</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+
+    <span class="k">await</span> <span class="n">knowledge</span><span class="o">.</span><span class="n">add_documents</span><span class="p">(</span><span class="n">docs</span><span class="p">)</span>
+
+    <span class="n">agent</span> <span class="o">=</span> <span class="n">ReActAgent</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">"Friday"</span><span class="p">,</span>
+        <span class="n">sys_prompt</span><span class="o">=</span><span class="s2">"You're a helpful assistant named Friday."</span><span class="p">,</span>
+        <span class="n">model</span><span class="o">=</span><span class="n">DashScopeChatModel</span><span class="p">(</span>
+            <span class="n">api_key</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"DASHSCOPE_API_KEY"</span><span class="p">],</span>
+            <span class="n">model_name</span><span class="o">=</span><span class="s2">"qwen3-vl-plus"</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="n">formatter</span><span class="o">=</span><span class="n">DashScopeChatFormatter</span><span class="p">(),</span>
+        <span class="n">knowledge</span><span class="o">=</span><span class="n">knowledge</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="k">await</span> <span class="n">agent</span><span class="p">(</span>
+        <span class="n">Msg</span><span class="p">(</span>
+            <span class="s2">"user"</span><span class="p">,</span>
+            <span class="s2">"你知道我的名字吗？"</span><span class="p">,</span>
+            <span class="s2">"user"</span><span class="p">,</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+
+    <span class="c1"># 让我们看看检索到的图片数据是否已经加入了智能体的记忆中</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">查看智能体记忆中检索信息如何插入："</span><span class="p">)</span>
+    <span class="n">content</span> <span class="o">=</span> <span class="p">(</span><span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">get_memory</span><span class="p">())[</span><span class="o">-</span><span class="mi">4</span><span class="p">]</span><span class="o">.</span><span class="n">content</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">ensure_ascii</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+
+
+<span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">example_multimodal_rag</span><span class="p">())</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Friday: 你的名字是Ming Li。
+
+查看智能体记忆中检索信息如何插入：
+[
+  {
+    "type": "text",
+    "text": "&lt;retrieved_knowledge&gt;Use the following content from the knowledge base(s) if it's helpful:\n"
+  },
+  {
+    "type": "image",
+    "source": {
+      "type": "url",
+      "url": "./example.png"
+    }
+  },
+  {
+    "type": "text",
+    "text": "&lt;/retrieved_knowledge&gt;"
+  }
+]
+</pre></div>
+</div>
+</section>
+<section id="id10">
+<h2>进一步阅读<a class="headerlink" href="#id10" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="task_embedding.html#embedding"><span class="std std-ref">嵌入(Embedding)</span></a></p></li>
+<li><p><a class="reference internal" href="task_plan.html#plan"><span class="std std-ref">计划</span></a></p></li>
+</ul>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 24.337 seconds)</p>
+<div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-tutorial-task-rag-py">
+<div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/dc35bacf6284d8bd4018ad68eeecf856/task_rag.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">task_rag.ipynb</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-python docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/680c828412e9013a9af698222658a54e/task_rag.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">task_rag.py</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-zip docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/c84da3ed7c258615a72afe66c8852944/task_rag.zip"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">zipped:</span> <span class="pre">task_rag.zip</span></code></a></p>
+</div>
+</div>
+<p class="sphx-glr-signature"><a class="reference external" href="https://sphinx-gallery.github.io">Gallery generated by Sphinx-Gallery</a></p>
+</section>
+</section>
+
+        

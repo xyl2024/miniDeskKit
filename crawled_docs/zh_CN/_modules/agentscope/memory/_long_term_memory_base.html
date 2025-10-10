@@ -1,0 +1,108 @@
+<!-- Title: agentscope.memory._long_term_memory_base - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/memory/_long_term_memory_base.html -->
+
+          <h1>agentscope.memory._long_term_memory_base 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The long-term memory base class."""</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">..message</span><span class="w"> </span><span class="kn">import</span> <span class="n">Msg</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..module</span><span class="w"> </span><span class="kn">import</span> <span class="n">StateModule</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..tool</span><span class="w"> </span><span class="kn">import</span> <span class="n">ToolResponse</span>
+
+
+<div class="viewcode-block" id="LongTermMemoryBase">
+<a class="viewcode-back" href="../../../api/agentscope.memory.html#agentscope.memory.LongTermMemoryBase">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">LongTermMemoryBase</span><span class="p">(</span><span class="n">StateModule</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The long-term memory base class, which should be a time-series</span>
+<span class="sd">    memory management system.</span>
+
+<span class="sd">    The `record_to_memory` and `retrieve_from_memory` methods are two tool</span>
+<span class="sd">    functions for agent to manage the long-term memory voluntarily. You can</span>
+<span class="sd">    choose not to implement these two functions.</span>
+
+<span class="sd">    The `record` and `retrieve` methods are for developers to use. For example,</span>
+<span class="sd">    retrieving/recording memory at the beginning of each reply, and adding</span>
+<span class="sd">    the retrieved memory to the system prompt.</span>
+<span class="sd">    """</span>
+
+<div class="viewcode-block" id="LongTermMemoryBase.record">
+<a class="viewcode-back" href="../../../api/agentscope.memory.html#agentscope.memory.LongTermMemoryBase.record">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">record</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">msgs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Msg</span> <span class="o">|</span> <span class="kc">None</span><span class="p">],</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""A developer-designed method to record information from the given</span>
+<span class="sd">        input message(s) to the long-term memory."""</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+            <span class="s2">"The `record` method is not implemented. "</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="LongTermMemoryBase.retrieve">
+<a class="viewcode-back" href="../../../api/agentscope.memory.html#agentscope.memory.LongTermMemoryBase.retrieve">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">retrieve</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">msg</span><span class="p">:</span> <span class="n">Msg</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">Msg</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""A developer-designed method to retrieve information from the</span>
+<span class="sd">        long-term memory based on the given input message(s). The retrieved</span>
+<span class="sd">        information will be added to the system prompt of the agent."""</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+            <span class="s2">"The `retrieve` method is not implemented. "</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="LongTermMemoryBase.record_to_memory">
+<a class="viewcode-back" href="../../../api/agentscope.memory.html#agentscope.memory.LongTermMemoryBase.record_to_memory">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">record_to_memory</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">thinking</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">content</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ToolResponse</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Use this function to record important information that you may</span>
+<span class="sd">        need later. The target content should be specific and concise, e.g.</span>
+<span class="sd">        who, when, where, do what, why, how, etc.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            thinking (`str`):</span>
+<span class="sd">                Your thinking and reasoning about what to record</span>
+<span class="sd">            content (`list[str]`):</span>
+<span class="sd">                The content to remember, which is a list of strings.</span>
+<span class="sd">        """</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+            <span class="s2">"The `record_to_memory` method is not implemented. "</span>
+            <span class="s2">"You can implement it in your own long-term memory class."</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="LongTermMemoryBase.retrieve_from_memory">
+<a class="viewcode-back" href="../../../api/agentscope.memory.html#agentscope.memory.LongTermMemoryBase.retrieve_from_memory">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">retrieve_from_memory</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">keywords</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ToolResponse</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Retrieve the memory based on the given keywords.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            keywords (`list[str]`):</span>
+<span class="sd">                The keywords to search for in the memory, which should be</span>
+<span class="sd">                specific and concise, e.g. the person's name, the date, the</span>
+<span class="sd">                location, etc.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `list[Msg]`:</span>
+<span class="sd">                A list of messages that match the keywords.</span>
+<span class="sd">        """</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+            <span class="s2">"The `retrieve_from_memory` method is not implemented. "</span>
+            <span class="s2">"You can implement it in your own long-term memory class."</span><span class="p">,</span>
+        <span class="p">)</span></div>
+</div>
+
+</pre></div>
+        

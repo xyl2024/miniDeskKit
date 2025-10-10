@@ -1,0 +1,64 @@
+<!-- Title: agentscope.evaluate._task - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/evaluate/_task.html -->
+
+          <h1>agentscope.evaluate._task 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The base class for task in evaluation."""</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">._solution</span><span class="w"> </span><span class="kn">import</span> <span class="n">SolutionOutput</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">._metric_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">MetricBase</span><span class="p">,</span> <span class="n">MetricResult</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..types._json</span><span class="w"> </span><span class="kn">import</span> <span class="n">JSONSerializableObject</span>
+
+
+<div class="viewcode-block" id="Task">
+<a class="viewcode-back" href="../../../api/agentscope.evaluate.html#agentscope.evaluate.Task">[文档]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Task</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""The base class for task in evaluation."""</span>
+
+    <span class="nb">id</span><span class="p">:</span> <span class="nb">str</span>
+<span class="w">    </span><span class="sd">"""The unique identifier for the task."""</span>
+
+    <span class="nb">input</span><span class="p">:</span> <span class="n">JSONSerializableObject</span>
+<span class="w">    </span><span class="sd">"""The task input, which should be a JSON serializable object."""</span>
+
+    <span class="n">ground_truth</span><span class="p">:</span> <span class="n">JSONSerializableObject</span>
+<span class="w">    </span><span class="sd">"""The task ground truth if exists, which should be a JSON serializable</span>
+<span class="sd">    object."""</span>
+
+    <span class="n">metrics</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">MetricBase</span><span class="p">]</span>
+<span class="w">    </span><span class="sd">"""The metrics to evaluate the task, which should be a list of</span>
+<span class="sd">    `MetricBase` objects."""</span>
+
+    <span class="n">tags</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="kc">None</span><span class="p">)</span>
+<span class="w">    </span><span class="sd">"""Tags to categorize the task, e.g. `{"difficulty": "easy",</span>
+<span class="sd">    "cate": "math"}`."""</span>
+
+    <span class="n">metadata</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span>
+        <span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span>
+<span class="w">    </span><span class="sd">"""Additional metadata for the task."""</span>
+
+<div class="viewcode-block" id="Task.evaluate">
+<a class="viewcode-back" href="../../../api/agentscope.evaluate.html#agentscope.evaluate.Task.evaluate">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">solution</span><span class="p">:</span> <span class="n">SolutionOutput</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">MetricResult</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Evaluate the task with the given solution.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            solution (`SolutionOutput`):</span>
+<span class="sd">                The solution to evaluate the task with.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `MetricResult`:</span>
+<span class="sd">                The result of the evaluation.</span>
+<span class="sd">        """</span>
+        <span class="n">evaluations</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">metrics</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">metric</span><span class="p">(</span><span class="n">solution</span><span class="p">)</span>
+            <span class="n">evaluations</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">evaluations</span></div>
+</div>
+
+</pre></div>
+        

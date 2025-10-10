@@ -1,0 +1,359 @@
+<!-- Title: agentscope.model._ollama_model - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/model/_ollama_model.html -->
+
+          <h1>agentscope.model._ollama_model 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""Model wrapper for Ollama models."""</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Any</span><span class="p">,</span>
+    <span class="n">TYPE_CHECKING</span><span class="p">,</span>
+    <span class="n">List</span><span class="p">,</span>
+    <span class="n">AsyncGenerator</span><span class="p">,</span>
+    <span class="n">AsyncIterator</span><span class="p">,</span>
+    <span class="n">Literal</span><span class="p">,</span>
+    <span class="n">Type</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChatResponse</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">._model_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChatModelBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">._model_usage</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChatUsage</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._utils._common</span><span class="w"> </span><span class="kn">import</span> <span class="n">_json_loads_with_repair</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..message</span><span class="w"> </span><span class="kn">import</span> <span class="n">ToolUseBlock</span><span class="p">,</span> <span class="n">TextBlock</span><span class="p">,</span> <span class="n">ThinkingBlock</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..tracing</span><span class="w"> </span><span class="kn">import</span> <span class="n">trace_llm</span>
+
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">ollama._types</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChatResponse</span> <span class="k">as</span> <span class="n">OllamaChatResponse</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">OllamaChatResponse</span> <span class="o">=</span> <span class="s2">"ollama._types.ChatResponse"</span>
+
+
+<div class="viewcode-block" id="OllamaChatModel">
+<a class="viewcode-back" href="../../../api/agentscope.model.html#agentscope.model.OllamaChatModel">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">OllamaChatModel</span><span class="p">(</span><span class="n">ChatModelBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The Ollama chat model class in agentscope."""</span>
+
+<div class="viewcode-block" id="OllamaChatModel.__init__">
+<a class="viewcode-back" href="../../../api/agentscope.model.html#agentscope.model.OllamaChatModel.__init__">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">model_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">stream</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">options</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">keep_alive</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"5m"</span><span class="p">,</span>
+        <span class="n">enable_thinking</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">host</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize the Ollama chat model.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">           model_name (`str`):</span>
+<span class="sd">               The name of the model.</span>
+<span class="sd">           stream (`bool`, default `True`):</span>
+<span class="sd">               Streaming mode or not.</span>
+<span class="sd">           options (`dict`, default `None`):</span>
+<span class="sd">               Additional parameters to pass to the Ollama API. These can</span>
+<span class="sd">               include temperature etc.</span>
+<span class="sd">           keep_alive (`str`, default `"5m"`):</span>
+<span class="sd">               Duration to keep the model loaded in memory. The format is a</span>
+<span class="sd">               number followed by a unit suffix (s for seconds, m for minutes</span>
+<span class="sd">               , h for hours).</span>
+<span class="sd">           enable_thinking (`bool | None`, default `None`)</span>
+<span class="sd">               Whether enable thinking or not, only for models such as qwen3,</span>
+<span class="sd">               deepseek-r1, etc. For more details, please refer to</span>
+<span class="sd">               https://ollama.com/search?c=thinking</span>
+<span class="sd">           host (`str | None`, default `None`):</span>
+<span class="sd">               The host address of the Ollama server. If None, uses the</span>
+<span class="sd">               default address (typically http://localhost:11434).</span>
+<span class="sd">           **kwargs (`Any`):</span>
+<span class="sd">               Additional keyword arguments to pass to the base chat model</span>
+<span class="sd">               class.</span>
+<span class="sd">        """</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">ollama</span>
+        <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+                <span class="s2">"The package ollama is not found. Please install it by "</span>
+                <span class="s1">'running command `pip install "ollama&gt;=0.1.7"`'</span><span class="p">,</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">model_name</span><span class="p">,</span> <span class="n">stream</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">client</span> <span class="o">=</span> <span class="n">ollama</span><span class="o">.</span><span class="n">AsyncClient</span><span class="p">(</span>
+            <span class="n">host</span><span class="o">=</span><span class="n">host</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">options</span> <span class="o">=</span> <span class="n">options</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">keep_alive</span> <span class="o">=</span> <span class="n">keep_alive</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">think</span> <span class="o">=</span> <span class="n">enable_thinking</span></div>
+
+
+<div class="viewcode-block" id="OllamaChatModel.__call__">
+<a class="viewcode-back" href="../../../api/agentscope.model.html#agentscope.model.OllamaChatModel.__call__">[文档]</a>
+    <span class="nd">@trace_llm</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">messages</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span>
+        <span class="n">tools</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">tool_choice</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"auto"</span><span class="p">,</span> <span class="s2">"none"</span><span class="p">,</span> <span class="s2">"any"</span><span class="p">,</span> <span class="s2">"required"</span><span class="p">]</span>
+        <span class="o">|</span> <span class="nb">str</span>
+        <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">structured_model</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">BaseModel</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ChatResponse</span> <span class="o">|</span> <span class="n">AsyncGenerator</span><span class="p">[</span><span class="n">ChatResponse</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Get the response from Ollama chat completions API by the given</span>
+<span class="sd">        arguments.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            messages (`list[dict]`):</span>
+<span class="sd">                A list of dictionaries, where `role` and `content` fields are</span>
+<span class="sd">                required, and `name` field is optional.</span>
+<span class="sd">            tools (`list[dict]`, default `None`):</span>
+<span class="sd">                The tools JSON schemas that the model can use.</span>
+<span class="sd">            tool_choice (`Literal["auto", "none", "any", "required"] | str \</span>
+<span class="sd">                | None`, default `None`):</span>
+<span class="sd">                Controls which (if any) tool is called by the model.</span>
+<span class="sd">                 Can be "auto", "none", "any", "required", or specific tool</span>
+<span class="sd">                 name.</span>
+<span class="sd">            structured_model (`Type[BaseModel] | None`, default `None`):</span>
+<span class="sd">                A Pydantic BaseModel class that defines the expected structure</span>
+<span class="sd">                for the model's output.</span>
+<span class="sd">            **kwargs (`Any`):</span>
+<span class="sd">                The keyword arguments for Ollama chat completions API,</span>
+<span class="sd">                e.g. `think`etc. Please refer to the Ollama API</span>
+<span class="sd">                documentation for more details.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `ChatResponse | AsyncGenerator[ChatResponse, None]`:</span>
+<span class="sd">                The response from the Ollama chat completions API.</span>
+<span class="sd">        """</span>
+
+        <span class="n">kwargs</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"model"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">,</span>
+            <span class="s2">"messages"</span><span class="p">:</span> <span class="n">messages</span><span class="p">,</span>
+            <span class="s2">"stream"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">stream</span><span class="p">,</span>
+            <span class="s2">"options"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">options</span><span class="p">,</span>
+            <span class="s2">"keep_alive"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">keep_alive</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+        <span class="p">}</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">think</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="s2">"think"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="n">kwargs</span><span class="p">[</span><span class="s2">"think"</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">think</span>
+
+        <span class="k">if</span> <span class="n">tools</span><span class="p">:</span>
+            <span class="n">kwargs</span><span class="p">[</span><span class="s2">"tools"</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_format_tools_json_schemas</span><span class="p">(</span><span class="n">tools</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">tool_choice</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"Ollama does not support tool_choice yet, ignored."</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">structured_model</span><span class="p">:</span>
+            <span class="n">kwargs</span><span class="p">[</span><span class="s2">"format"</span><span class="p">]</span> <span class="o">=</span> <span class="n">structured_model</span><span class="o">.</span><span class="n">model_json_schema</span><span class="p">()</span>
+
+        <span class="n">start_datetime</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">stream</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_ollama_stream_completion_response</span><span class="p">(</span>
+                <span class="n">start_datetime</span><span class="p">,</span>
+                <span class="n">response</span><span class="p">,</span>
+                <span class="n">structured_model</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="n">parsed_response</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_ollama_completion_response</span><span class="p">(</span>
+            <span class="n">start_datetime</span><span class="p">,</span>
+            <span class="n">response</span><span class="p">,</span>
+            <span class="n">structured_model</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">parsed_response</span></div>
+
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_parse_ollama_stream_completion_response</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">start_datetime</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span>
+        <span class="n">response</span><span class="p">:</span> <span class="n">AsyncIterator</span><span class="p">[</span><span class="n">OllamaChatResponse</span><span class="p">],</span>
+        <span class="n">structured_model</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">BaseModel</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AsyncGenerator</span><span class="p">[</span><span class="n">ChatResponse</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Given an Ollama streaming completion response, extract the</span>
+<span class="sd">        content blocks and usages from it and yield ChatResponse objects.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            start_datetime (`datetime`):</span>
+<span class="sd">                The start datetime of the response generation.</span>
+<span class="sd">            response (`AsyncIterator[OllamaChatResponse]`):</span>
+<span class="sd">                Ollama streaming response async iterator to parse.</span>
+<span class="sd">            structured_model (`Type[BaseModel] | None`, default `None`):</span>
+<span class="sd">                A Pydantic BaseModel class that defines the expected structure</span>
+<span class="sd">                for the model's output.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            AsyncGenerator[ChatResponse, None]:</span>
+<span class="sd">                An async generator that yields ChatResponse objects containing</span>
+<span class="sd">                the content blocks and usage information for each chunk in the</span>
+<span class="sd">                streaming response.</span>
+
+<span class="sd">        .. note::</span>
+<span class="sd">            If `structured_model` is not `None`, the expected structured output</span>
+<span class="sd">            will be stored in the metadata of the `ChatResponse`.</span>
+
+<span class="sd">        """</span>
+        <span class="n">accumulated_text</span> <span class="o">=</span> <span class="s2">""</span>
+        <span class="n">acc_thinking_content</span> <span class="o">=</span> <span class="s2">""</span>
+        <span class="n">tool_calls</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>  <span class="c1"># Store tool calls</span>
+        <span class="n">metadata</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">async</span> <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">response</span><span class="p">:</span>
+            <span class="c1"># Handle text content</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="n">chunk</span><span class="o">.</span><span class="n">message</span>
+            <span class="n">acc_thinking_content</span> <span class="o">+=</span> <span class="n">msg</span><span class="o">.</span><span class="n">thinking</span> <span class="ow">or</span> <span class="s2">""</span>
+            <span class="n">accumulated_text</span> <span class="o">+=</span> <span class="n">msg</span><span class="o">.</span><span class="n">content</span> <span class="ow">or</span> <span class="s2">""</span>
+
+            <span class="c1"># Handle tool calls</span>
+            <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">tool_call</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">tool_calls</span> <span class="ow">or</span> <span class="p">[]):</span>
+                <span class="n">function</span> <span class="o">=</span> <span class="n">tool_call</span><span class="o">.</span><span class="n">function</span>
+                <span class="n">tool_id</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">idx</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">function</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span>
+                <span class="n">tool_calls</span><span class="p">[</span><span class="n">tool_id</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                    <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"tool_use"</span><span class="p">,</span>
+                    <span class="s2">"id"</span><span class="p">:</span> <span class="n">tool_id</span><span class="p">,</span>
+                    <span class="s2">"name"</span><span class="p">:</span> <span class="n">function</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                    <span class="s2">"input"</span><span class="p">:</span> <span class="n">function</span><span class="o">.</span><span class="n">arguments</span><span class="p">,</span>
+                <span class="p">}</span>
+            <span class="c1"># Calculate usage statistics</span>
+            <span class="n">current_time</span> <span class="o">=</span> <span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_datetime</span><span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span>
+            <span class="n">usage</span> <span class="o">=</span> <span class="n">ChatUsage</span><span class="p">(</span>
+                <span class="n">input_tokens</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">chunk</span><span class="p">,</span> <span class="s2">"prompt_eval_count"</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">,</span>
+                <span class="n">output_tokens</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">chunk</span><span class="p">,</span> <span class="s2">"eval_count"</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">,</span>
+                <span class="n">time</span><span class="o">=</span><span class="n">current_time</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="c1"># Create content blocks</span>
+            <span class="n">contents</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="p">[]</span>
+
+            <span class="k">if</span> <span class="n">acc_thinking_content</span><span class="p">:</span>
+                <span class="n">contents</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">ThinkingBlock</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"thinking"</span><span class="p">,</span>
+                        <span class="n">thinking</span><span class="o">=</span><span class="n">acc_thinking_content</span><span class="p">,</span>
+                    <span class="p">),</span>
+                <span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">accumulated_text</span><span class="p">:</span>
+                <span class="n">contents</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">TextBlock</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="n">accumulated_text</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">structured_model</span><span class="p">:</span>
+                    <span class="n">metadata</span> <span class="o">=</span> <span class="n">_json_loads_with_repair</span><span class="p">(</span><span class="n">accumulated_text</span><span class="p">)</span>
+
+            <span class="c1"># Add tool call blocks</span>
+            <span class="k">for</span> <span class="n">tool_call</span> <span class="ow">in</span> <span class="n">tool_calls</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">input_data</span> <span class="o">=</span> <span class="n">tool_call</span><span class="p">[</span><span class="s2">"input"</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">input_data</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                        <span class="n">input_data</span> <span class="o">=</span> <span class="n">_json_loads_with_repair</span><span class="p">(</span><span class="n">input_data</span><span class="p">)</span>
+                    <span class="n">contents</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="n">ToolUseBlock</span><span class="p">(</span>
+                            <span class="nb">type</span><span class="o">=</span><span class="n">tool_call</span><span class="p">[</span><span class="s2">"type"</span><span class="p">],</span>
+                            <span class="nb">id</span><span class="o">=</span><span class="n">tool_call</span><span class="p">[</span><span class="s2">"id"</span><span class="p">],</span>
+                            <span class="n">name</span><span class="o">=</span><span class="n">tool_call</span><span class="p">[</span><span class="s2">"name"</span><span class="p">],</span>
+                            <span class="nb">input</span><span class="o">=</span><span class="n">input_data</span><span class="p">,</span>
+                        <span class="p">),</span>
+                    <span class="p">)</span>
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Error parsing tool call input: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+            <span class="c1"># Generate response when there's new content or at final chunk</span>
+            <span class="k">if</span> <span class="n">chunk</span><span class="o">.</span><span class="n">done</span> <span class="ow">and</span> <span class="n">contents</span><span class="p">:</span>
+                <span class="n">res</span> <span class="o">=</span> <span class="n">ChatResponse</span><span class="p">(</span>
+                    <span class="n">content</span><span class="o">=</span><span class="n">contents</span><span class="p">,</span>
+                    <span class="n">usage</span><span class="o">=</span><span class="n">usage</span><span class="p">,</span>
+                    <span class="n">metadata</span><span class="o">=</span><span class="n">metadata</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="k">yield</span> <span class="n">res</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_parse_ollama_completion_response</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">start_datetime</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span>
+        <span class="n">response</span><span class="p">:</span> <span class="n">OllamaChatResponse</span><span class="p">,</span>
+        <span class="n">structured_model</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">BaseModel</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ChatResponse</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Given an Ollama chat completion response object, extract the content</span>
+<span class="sd">        blocks and usages from it.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            start_datetime (`datetime`):</span>
+<span class="sd">                The start datetime of the response generation.</span>
+<span class="sd">            response (`OllamaChatResponse`):</span>
+<span class="sd">                Ollama OllamaChatResponse object to parse.</span>
+<span class="sd">            structured_model (`Type[BaseModel] | None`, default `None`):</span>
+<span class="sd">                A Pydantic BaseModel class that defines the expected structure</span>
+<span class="sd">                for the model's output.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `ChatResponse`:</span>
+<span class="sd">                A ChatResponse object containing the content blocks and usage.</span>
+
+<span class="sd">        .. note::</span>
+<span class="sd">            If `structured_model` is not `None`, the expected structured output</span>
+<span class="sd">            will be stored in the metadata of the `ChatResponse`.</span>
+<span class="sd">        """</span>
+        <span class="n">content_blocks</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">TextBlock</span> <span class="o">|</span> <span class="n">ToolUseBlock</span> <span class="o">|</span> <span class="n">ThinkingBlock</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">metadata</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">thinking</span><span class="p">:</span>
+            <span class="n">content_blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">ThinkingBlock</span><span class="p">(</span>
+                    <span class="nb">type</span><span class="o">=</span><span class="s2">"thinking"</span><span class="p">,</span>
+                    <span class="n">thinking</span><span class="o">=</span><span class="n">response</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">thinking</span><span class="p">,</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">content</span><span class="p">:</span>
+            <span class="n">content_blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">TextBlock</span><span class="p">(</span>
+                    <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                    <span class="n">text</span><span class="o">=</span><span class="n">response</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">content</span><span class="p">,</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">structured_model</span><span class="p">:</span>
+                <span class="n">metadata</span> <span class="o">=</span> <span class="n">_json_loads_with_repair</span><span class="p">(</span>
+                    <span class="n">response</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">content</span><span class="p">,</span>
+                <span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">tool_call</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">tool_calls</span> <span class="ow">or</span> <span class="p">[]):</span>
+            <span class="n">content_blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">ToolUseBlock</span><span class="p">(</span>
+                    <span class="nb">type</span><span class="o">=</span><span class="s2">"tool_use"</span><span class="p">,</span>
+                    <span class="nb">id</span><span class="o">=</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">idx</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">tool_call</span><span class="o">.</span><span class="n">function</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                    <span class="n">name</span><span class="o">=</span><span class="n">tool_call</span><span class="o">.</span><span class="n">function</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                    <span class="nb">input</span><span class="o">=</span><span class="n">tool_call</span><span class="o">.</span><span class="n">function</span><span class="o">.</span><span class="n">arguments</span><span class="p">,</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
+
+        <span class="n">usage</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="s2">"prompt_eval_count"</span> <span class="ow">in</span> <span class="n">response</span> <span class="ow">and</span> <span class="s2">"eval_count"</span> <span class="ow">in</span> <span class="n">response</span><span class="p">:</span>
+            <span class="n">usage</span> <span class="o">=</span> <span class="n">ChatUsage</span><span class="p">(</span>
+                <span class="n">input_tokens</span><span class="o">=</span><span class="n">response</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"prompt_eval_count"</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+                <span class="n">output_tokens</span><span class="o">=</span><span class="n">response</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"eval_count"</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+                <span class="n">time</span><span class="o">=</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_datetime</span><span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">(),</span>
+            <span class="p">)</span>
+
+        <span class="n">parsed_response</span> <span class="o">=</span> <span class="n">ChatResponse</span><span class="p">(</span>
+            <span class="n">content</span><span class="o">=</span><span class="n">content_blocks</span><span class="p">,</span>
+            <span class="n">usage</span><span class="o">=</span><span class="n">usage</span><span class="p">,</span>
+            <span class="n">metadata</span><span class="o">=</span><span class="n">metadata</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">parsed_response</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_format_tools_json_schemas</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">schemas</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">"""Format the tools JSON schemas to the Ollama format."""</span>
+        <span class="k">return</span> <span class="n">schemas</span></div>
+
+</pre></div>
+        

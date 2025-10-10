@@ -1,0 +1,168 @@
+<!-- Title: Multi-Agent Debate - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/tutorial/workflow_multiagent_debate.html -->
+
+          <div class="sphx-glr-download-link-note admonition note">
+<p class="admonition-title">备注</p>
+<p><a class="reference internal" href="#sphx-glr-download-tutorial-workflow-multiagent-debate-py"><span class="std std-ref">Go to the end</span></a>
+to download the full example code.</p>
+</div>
+<section class="sphx-glr-example-title" id="multi-agent-debate">
+<span id="multiagent-debate"></span><span id="sphx-glr-tutorial-workflow-multiagent-debate-py"></span><h1>Multi-Agent Debate<a class="headerlink" href="#multi-agent-debate" title="Link to this heading">¶</a></h1>
+<p>Multi-Agent debate 模拟不同智能体之间的多轮讨论场景，通常包括几个 solver 和一个 aggregator。
+典型情况下，solver 生成并交换他们的答案，而 aggregator 收集并总结答案。</p>
+<p>我们实现了 <a class="reference internal" href="#emnlp-2024">EMNLP 2024</a> 中的示例，其中两个 solver 智能体将按固定顺序讨论一个话题，根据先前的辩论历史表达他们的论点。
+在每一轮中，主持人智能体将决定是否可以在当前轮获得最终的正确答案。</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">Field</span><span class="p">,</span> <span class="n">BaseModel</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.agent</span><span class="w"> </span><span class="kn">import</span> <span class="n">ReActAgent</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.formatter</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">DashScopeMultiAgentFormatter</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.message</span><span class="w"> </span><span class="kn">import</span> <span class="n">Msg</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.model</span><span class="w"> </span><span class="kn">import</span> <span class="n">DashScopeChatModel</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">MsgHub</span>
+
+<span class="c1"># 准备一个话题</span>
+<span class="n">topic</span> <span class="o">=</span> <span class="s2">"两个圆外切且没有相对滑动。圆A的半径是圆B半径的1/3。圆A绕圆B滚动一圈回到起点。圆A总共会旋转多少次？"</span>
+
+
+<span class="c1"># 创建两个辩论者智能体，Alice 和 Bob，他们将讨论这个话题。</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">create_solver_agent</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ReActAgent</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""获取一个解决者智能体。"""</span>
+    <span class="k">return</span> <span class="n">ReActAgent</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+        <span class="n">sys_prompt</span><span class="o">=</span><span class="sa">f</span><span class="s2">"你是一个名为 </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> 的辩论者。你好，欢迎来到"</span>
+        <span class="s2">"辩论比赛。我们的目标是找到正确答案，因此你没有必要完全同意对方"</span>
+        <span class="sa">f</span><span class="s2">"的观点。辩论话题如下所述：</span><span class="si">{</span><span class="n">topic</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+        <span class="n">model</span><span class="o">=</span><span class="n">DashScopeChatModel</span><span class="p">(</span>
+            <span class="n">model_name</span><span class="o">=</span><span class="s2">"qwen-max"</span><span class="p">,</span>
+            <span class="n">api_key</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"DASHSCOPE_API_KEY"</span><span class="p">],</span>
+            <span class="n">stream</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="n">formatter</span><span class="o">=</span><span class="n">DashScopeMultiAgentFormatter</span><span class="p">(),</span>
+    <span class="p">)</span>
+
+
+<span class="n">alice</span><span class="p">,</span> <span class="n">bob</span> <span class="o">=</span> <span class="p">[</span><span class="n">create_solver_agent</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"Alice"</span><span class="p">,</span> <span class="s2">"Bob"</span><span class="p">]]</span>
+
+<span class="c1"># 创建主持人智能体</span>
+<span class="n">moderator</span> <span class="o">=</span> <span class="n">ReActAgent</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"Aggregator"</span><span class="p">,</span>
+    <span class="n">sys_prompt</span><span class="o">=</span><span class="sa">f</span><span class="s2">"""你是一个主持人。将有两个辩论者参与辩论比赛。他们将就以下话题提出观点并进行讨论：</span>
+<span class="s2">``````</span>
+<span class="si">{</span><span class="n">topic</span><span class="si">}</span>
+<span class="s2">``````</span>
+<span class="s2">在每轮讨论结束时，你将评估辩论是否结束，以及话题正确的答案。"""</span><span class="p">,</span>
+    <span class="n">model</span><span class="o">=</span><span class="n">DashScopeChatModel</span><span class="p">(</span>
+        <span class="n">model_name</span><span class="o">=</span><span class="s2">"qwen-max"</span><span class="p">,</span>
+        <span class="n">api_key</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"DASHSCOPE_API_KEY"</span><span class="p">],</span>
+        <span class="n">stream</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="c1"># 使用多智能体格式化器，因为主持人将接收来自多于用户和助手的消息</span>
+    <span class="n">formatter</span><span class="o">=</span><span class="n">DashScopeMultiAgentFormatter</span><span class="p">(),</span>
+<span class="p">)</span>
+
+
+<span class="c1"># 主持人的结构化输出模型</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">JudgeModel</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""主持人的结构化输出模型。"""</span>
+
+    <span class="n">finished</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">description</span><span class="o">=</span><span class="s2">"辩论是否结束。"</span><span class="p">)</span>
+    <span class="n">correct_answer</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">"辩论话题的正确答案，仅当辩论结束时提供该字段。否则保留为 None。"</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span>
+
+
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">run_multiagent_debate</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""运行多智能体辩论工作流。"""</span>
+    <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+        <span class="c1"># MsgHub 中参与者的回复消息将广播给所有参与者。</span>
+        <span class="k">async</span> <span class="k">with</span> <span class="n">MsgHub</span><span class="p">(</span><span class="n">participants</span><span class="o">=</span><span class="p">[</span><span class="n">alice</span><span class="p">,</span> <span class="n">bob</span><span class="p">,</span> <span class="n">moderator</span><span class="p">]):</span>
+            <span class="k">await</span> <span class="n">alice</span><span class="p">(</span>
+                <span class="n">Msg</span><span class="p">(</span>
+                    <span class="s2">"user"</span><span class="p">,</span>
+                    <span class="s2">"你是正方，请表达你的观点。"</span><span class="p">,</span>
+                    <span class="s2">"user"</span><span class="p">,</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
+            <span class="k">await</span> <span class="n">bob</span><span class="p">(</span>
+                <span class="n">Msg</span><span class="p">(</span>
+                    <span class="s2">"user"</span><span class="p">,</span>
+                    <span class="s2">"你是反方。你不同意正方的观点。请表达你的观点和理由。"</span><span class="p">,</span>
+                    <span class="s2">"user"</span><span class="p">,</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Alice 和 Bob 不需要知道主持人的消息，所以主持人在 MsgHub 外部调用。</span>
+        <span class="n">msg_judge</span> <span class="o">=</span> <span class="k">await</span> <span class="n">moderator</span><span class="p">(</span>
+            <span class="n">Msg</span><span class="p">(</span>
+                <span class="s2">"user"</span><span class="p">,</span>
+                <span class="s2">"现在你已经听到了他们的辩论，现在判断辩论是否结束，以及你能得到正确答案吗？"</span><span class="p">,</span>
+                <span class="s2">"user"</span><span class="p">,</span>
+            <span class="p">),</span>
+            <span class="n">structured_model</span><span class="o">=</span><span class="n">JudgeModel</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">msg_judge</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"finished"</span><span class="p">):</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="s2">"</span><span class="se">\n</span><span class="s2">辩论结束，正确答案是："</span><span class="p">,</span>
+                <span class="n">msg_judge</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"correct_answer"</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="k">break</span>
+
+
+<span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">run_multiagent_debate</span><span class="p">())</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Alice: 正方观点是：当圆A绕着圆B滚动一圈回到起点时，圆A总共会旋转3次。
+
+这里有一个直观的解释：考虑两个圆的周长。设圆B的半径为R，则其周长为2πR。圆A的半径是圆B的1/3，即r = R/3，因此圆A的周长为2π(R/3) = 2πR/3。
+
+当圆A绕圆B外切滚动一周时，它沿着圆B的周长走过了距离2πR。由于圆A自身也在旋转，并且没有相对滑动，我们可以将这个过程看作是圆A在直线上滚动了同样的距离2πR。为了计算圆A完成这一距离所需的旋转次数，我们用总的滚动距离除以圆A的周长：
+
+\[ \text{旋转次数} = \frac{\text{总滚动距离}}{\text{圆A的周长}} = \frac{2\pi R}{2\pi R/3} = 3 \]
+
+因此，按照这个逻辑推理，圆A将会旋转3次。这就是正方的观点。
+Alice: 综上所述，当圆A绕着圆B外切滚动一周并且没有相对滑动的情况下，圆A将会自转3次。
+Bob: 我不同意正方的观点。让我们来仔细分析这个问题。当圆A绕着圆B滚动时，我们需要考虑的是两个圆的周长比。假设圆B的半径为 \(R\) ，那么圆A的半径就是 \(\frac{1}{3}R\) 。因此，圆B的周长是 \(2\pi R\) 而圆A的周长是 \(2\pi (\frac{1}{3}R) = \frac{2\pi R}{3}\) 。
+
+当圆A围绕圆B完整地滚动一圈回到起点，它实际上是在一个圆周上移动了圆B的周长的距离，即 \(2\pi R\) 。在此过程中，圆A自身的旋转次数可以通过计算它在这一段距离中旋转了多少个自己的周长来确定。因此，圆A自转的圈数等于圆B的周长除以圆A的周长，即
+
+\[ \text{旋转次数} = \frac{2\pi R}{\frac{2\pi R}{3}} = 3 \]
+
+但是，这里有一个关键点需要指出：当圆A绕圆B外切滚动时，除了它自身因为前进而产生的旋转之外，还有额外的一次旋转来自于圆A绕圆B中心公转一周。这类似于地球自转的同时也在绕太阳公转。因此，实际的旋转次数应该是上述计算结果加上这一次额外的旋转，总共是4次。
+
+所以，我的结论是，当圆A绕圆B滚动一圈回到起点时，圆A总共会旋转4次。
+Bob: 在进一步思考后，我认为之前关于圆A绕圆B滚动一圈回到起点时的总旋转次数的推断需要修正。当我们说圆A“绕”圆B滚动时，我们指的是圆A沿着圆B的边缘进行无滑动的滚动。根据这个定义，圆A的旋转完全是由其与圆B接触点的变化决定的，而不是由于圆心的公转。因此，圆A完成一次环绕圆B的过程，等同于它覆盖了圆B的周长距离。由于圆A的周长是圆B的三分之一，那么圆A必须旋转三次才能覆盖这段距离。这意味着，圆A在整个过程中只进行了三圈自转，而没有额外的旋转。综上所述，圆A绕圆B滚动一圈回到起点时，圆A总共会旋转3次。
+Aggregator: 两位辩论者已经达成了一致，都同意当圆A绕着圆B外切滚动一周并且没有相对滑动的情况下，圆A将会自转3次。因此，这个辩论可以结束了。
+
+辩论结束，正确答案是： 3次
+</pre></div>
+</div>
+<section id="id1">
+<h2>进一步阅读<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="task_pipeline.html#pipeline"><span class="std std-ref">管道 (Pipeline)</span></a></p></li>
+</ul>
+<p id="emnlp-2024">Encouraging Divergent Thinking in Large Language Models through Multi-Agent Debate. EMNLP 2024.</p>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 29.913 seconds)</p>
+<div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-tutorial-workflow-multiagent-debate-py">
+<div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/4ddcd353f1389c1b465adca14e7ea420/workflow_multiagent_debate.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">workflow_multiagent_debate.ipynb</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-python docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/218e85f1a714223a229a5e7b9a098eae/workflow_multiagent_debate.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">workflow_multiagent_debate.py</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-zip docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/c22ba8cb1ddbd7781daee737170548cb/workflow_multiagent_debate.zip"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">zipped:</span> <span class="pre">workflow_multiagent_debate.zip</span></code></a></p>
+</div>
+</div>
+<p class="sphx-glr-signature"><a class="reference external" href="https://sphinx-gallery.github.io">Gallery generated by Sphinx-Gallery</a></p>
+</section>
+</section>
+
+        

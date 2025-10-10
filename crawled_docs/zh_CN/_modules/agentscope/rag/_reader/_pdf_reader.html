@@ -1,0 +1,103 @@
+<!-- Title: agentscope.rag._reader._pdf_reader - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/rag/_reader/_pdf_reader.html -->
+
+          <h1>agentscope.rag._reader._pdf_reader 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The PDF reader to read and chunk PDF files."""</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">hashlib</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Literal</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">._reader_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">ReaderBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">._text_reader</span><span class="w"> </span><span class="kn">import</span> <span class="n">TextReader</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._document</span><span class="w"> </span><span class="kn">import</span> <span class="n">Document</span>
+
+
+<div class="viewcode-block" id="PDFReader">
+<a class="viewcode-back" href="../../../../api/agentscope.rag.html#agentscope.rag.PDFReader">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">PDFReader</span><span class="p">(</span><span class="n">ReaderBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The PDF reader that splits text into chunks by a fixed chunk size."""</span>
+
+<div class="viewcode-block" id="PDFReader.__init__">
+<a class="viewcode-back" href="../../../../api/agentscope.rag.html#agentscope.rag.PDFReader.__init__">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">chunk_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">512</span><span class="p">,</span>
+        <span class="n">split_by</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"char"</span><span class="p">,</span> <span class="s2">"sentence"</span><span class="p">,</span> <span class="s2">"paragraph"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"sentence"</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize the text reader.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            chunk_size (`int`, default to 512):</span>
+<span class="sd">                The size of each chunk, in number of characters.</span>
+<span class="sd">            split_by (`Literal["char", "sentence", "paragraph"]`, default to \</span>
+<span class="sd">            "sentence"):</span>
+<span class="sd">                The unit to split the text, can be "char", "sentence", or</span>
+<span class="sd">                "paragraph". The "sentence" option is implemented using the</span>
+<span class="sd">                "nltk" library, which only supports English text.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">chunk_size</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"The chunk_size must be positive, got </span><span class="si">{</span><span class="n">chunk_size</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">split_by</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"char"</span><span class="p">,</span> <span class="s2">"sentence"</span><span class="p">,</span> <span class="s2">"paragraph"</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"The split_by must be one of 'char', 'sentence' or "</span>
+                <span class="sa">f</span><span class="s2">"'paragraph', got </span><span class="si">{</span><span class="n">split_by</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">chunk_size</span> <span class="o">=</span> <span class="n">chunk_size</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">split_by</span> <span class="o">=</span> <span class="n">split_by</span>
+
+        <span class="c1"># To avoid code duplication, we use TextReader to do the chunking.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_text_reader</span> <span class="o">=</span> <span class="n">TextReader</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">chunk_size</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">split_by</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="PDFReader.__call__">
+<a class="viewcode-back" href="../../../../api/agentscope.rag.html#agentscope.rag.PDFReader.__call__">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">pdf_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Document</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Read a PDF file, split it into chunks, and return a list of</span>
+<span class="sd">        Document objects.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            pdf_path (`str`):</span>
+<span class="sd">                The input PDF file path.</span>
+<span class="sd">        """</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">pypdf</span><span class="w"> </span><span class="kn">import</span> <span class="n">PdfReader</span>
+        <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+                <span class="s2">"Please install pypdf to use the PDF reader. "</span>
+                <span class="s2">"You can install it by `pip install pypdf`."</span><span class="p">,</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+
+        <span class="n">reader</span> <span class="o">=</span> <span class="n">PdfReader</span><span class="p">(</span><span class="n">pdf_path</span><span class="p">)</span>
+
+        <span class="n">gather_texts</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">page</span> <span class="ow">in</span> <span class="n">reader</span><span class="o">.</span><span class="n">pages</span><span class="p">:</span>
+            <span class="n">gather_texts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">page</span><span class="o">.</span><span class="n">extract_text</span><span class="p">())</span>
+
+        <span class="n">doc_id</span> <span class="o">=</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">(</span><span class="n">pdf_path</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">"utf-8"</span><span class="p">))</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
+
+        <span class="n">docs</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_text_reader</span><span class="p">(</span><span class="s2">"</span><span class="se">\n\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">gather_texts</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">doc</span> <span class="ow">in</span> <span class="n">docs</span><span class="p">:</span>
+            <span class="n">doc</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">doc_id</span>
+
+        <span class="k">return</span> <span class="n">docs</span></div>
+
+
+<div class="viewcode-block" id="PDFReader.get_doc_id">
+<a class="viewcode-back" href="../../../../api/agentscope.rag.html#agentscope.rag.PDFReader.get_doc_id">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_doc_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pdf_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Get the document ID. This function can be used to check if the</span>
+<span class="sd">        doc_id already exists in the knowledge base."""</span>
+        <span class="k">return</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">(</span><span class="n">pdf_path</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">"utf-8"</span><span class="p">))</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span></div>
+</div>
+
+</pre></div>
+        

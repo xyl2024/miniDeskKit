@@ -1,0 +1,482 @@
+<!-- Title: 提示词格式化 - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/tutorial/task_prompt.html -->
+
+          <div class="sphx-glr-download-link-note admonition note">
+<p class="admonition-title">备注</p>
+<p><a class="reference internal" href="#sphx-glr-download-tutorial-task-prompt-py"><span class="std std-ref">Go to the end</span></a>
+to download the full example code.</p>
+</div>
+<section class="sphx-glr-example-title" id="prompt">
+<span id="sphx-glr-tutorial-task-prompt-py"></span><span id="id1"></span><h1>提示词格式化<a class="headerlink" href="#prompt" title="Link to this heading">¶</a></h1>
+<p>AgentScope 中的格式化器（formatter）模块负责</p>
+<ul class="simple">
+<li><p>将 Msg 对象转换为不同 LLM API 要求的格式，</p></li>
+<li><p>（可选）截断消息以适应 max_token 的限制，</p></li>
+<li><p>（可选）执行提示工程，例如对长对话进行总结。</p></li>
+</ul>
+<p>后两个功能是可选的，开发者也可以选择在记忆（memory）或智能体（agent）层面进行处理和实现。</p>
+<p>在 AgentScope 中，有两种类型的格式化器："ChatFormatter" 和 "MultiAgentFormatter"，它们根据输入消息中的“身份实体”进行区分。</p>
+<ul class="simple">
+<li><p><strong>ChatFormatter</strong>：专为标准的用户-助手场景（聊天机器人）设计，使用 <code class="docutils literal notranslate"><span class="pre">role</span></code> 字段来识别用户和助手。</p></li>
+<li><p><strong>MultiAgentFormatter</strong>：专为多智能体场景设计，使用 <code class="docutils literal notranslate"><span class="pre">name</span></code> 字段来识别不同的实体，在格式化的过程中会将多智能体的对话历史合并为单个消息。</p></li>
+</ul>
+<p>AgentScope 内置的格式化器如下所列</p>
+<div class="table-wrapper docutils container" id="id8">
+<table class="docutils align-default" id="id8">
+<caption><span class="caption-text">AgentScope 中的内置格式化器</span><a class="headerlink" href="#id8" title="Link to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>API 提供商</p></th>
+<th class="head"><p>用户-助手场景</p></th>
+<th class="head"><p>多智能体场景</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>OpenAI</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">OpenAIChatFormatter</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">OpenAIMultiAgentFormatter</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Anthropic</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">AnthropicChatFormatter</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">AnthropicMultiAgentFormatter</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>DashScope</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">DashScopeChatFormatter</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">DashScopeMultiAgentFormatter</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Gemini</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">GeminiChatFormatter</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">GeminiChatFormatter</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>Ollama</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">OllamaChatFormatter</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">OllamaMultiAgentFormatter</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>DeedSeek</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">DeepSeekChatFormatter</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">DeepSeekMultiAgentFormatter</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>vLLM</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">OpenAIFormatter</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">OpenAIFormatter</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">小技巧</p>
+<p>OpenAI API 支持 <cite>name</cite> 字段，因此 <cite>OpenAIFormatter</cite> 也可以用于多智能体场景。也可以使用 <cite>OpenAIMultiAgentFormatter</cite> 代替，它会将对话历史合并为单个用户消息。</p>
+</div>
+<p>此外，内置格式化器对于不同的消息块（message blocks）的支持情况如下表所示：</p>
+<div class="table-wrapper docutils container" id="id9">
+<table class="docutils align-default" id="id9">
+<caption><span class="caption-text">内置格式化器中支持的消息块</span><a class="headerlink" href="#id9" title="Link to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>格式化器</p></th>
+<th class="head"><p>tool_use/result</p></th>
+<th class="head"><p>image</p></th>
+<th class="head"><p>audio</p></th>
+<th class="head"><p>video</p></th>
+<th class="head"><p>thinking</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">OpenAIChatFormatter</span></code></p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>❌</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">DashScopeChatFormatter</span></code></p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>❌</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">DashScopeMultiAgentFormatter</span></code></p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>❌</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">AnthropicChatFormatter</span></code></p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>❌</p></td>
+<td><p>❌</p></td>
+<td><p>✅</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">AnthropicMultiAgentFormatter</span></code></p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>❌</p></td>
+<td><p>❌</p></td>
+<td><p>✅</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">GeminiChatFormatter</span></code></p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">GeminiMultiAgentFormatter</span></code></p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">OllamaChatFormatter</span></code></p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>❌</p></td>
+<td><p>❌</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">OllamaMultiAgentFormatter</span></code></p></td>
+<td><p>✅</p></td>
+<td><p>✅</p></td>
+<td><p>❌</p></td>
+<td><p>❌</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">DeepSeekChatFormatter</span></code></p></td>
+<td><p>✅</p></td>
+<td><p>❌</p></td>
+<td><p>❌</p></td>
+<td><p>❌</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">DeepSeekMultiAgentFormatter</span></code></p></td>
+<td><p>✅</p></td>
+<td><p>❌</p></td>
+<td><p>❌</p></td>
+<td><p>❌</p></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>如 <a class="reference external" href="https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking#preserving-thinking-blocks">官方文档</a> 所述，只有 Anthropic 建议在输入的提示词中保留推理的部分（thinking blocks）。对于其它格式化器，我们忽略输入消息中包含的 <code class="docutils literal notranslate"><span class="pre">ThinkingBlock</span></code>。</p>
+</div>
+<section id="react">
+<h2>面向 ReAct 的格式化<a class="headerlink" href="#react" title="Link to this heading">¶</a></h2>
+<p>内置的 formatter 均面向 ReAct 智能体进行设计，其中输入消息由交替的 <strong>对话历史</strong> 和 <strong>工具调用序列</strong> 组成。</p>
+<p>在用户-助手场景中，对话历史是用户和助手的消息，我们直接将它们转换为所期望的格式。
+然而，在多智能体场景中，对话历史是来自不同智能体的消息列表，如下所示：</p>
+<figure class="align-center" id="id10">
+<a class="reference internal image-reference" href="../_images/multiagent_msgs.png"><img alt="多智能体消息示例" src="../_images/multiagent_msgs.png" style="width: 85%;">
+</a>
+<figcaption>
+<p><span class="caption-text"><em>多智能体消息示例</em></span><a class="headerlink" href="#id10" title="Link to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>因此，我们必须将对话历史合并为带有标签 "&lt;history&gt;" 和 "&lt;/history&gt;" 的单个用户消息。
+以 DashScope 为例，格式化后的消息将如下所示：</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.token</span><span class="w"> </span><span class="kn">import</span> <span class="n">HuggingFaceTokenCounter</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.formatter</span><span class="w"> </span><span class="kn">import</span> <span class="n">DashScopeMultiAgentFormatter</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.message</span><span class="w"> </span><span class="kn">import</span> <span class="n">Msg</span><span class="p">,</span> <span class="n">ToolResultBlock</span><span class="p">,</span> <span class="n">ToolUseBlock</span><span class="p">,</span> <span class="n">TextBlock</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span><span class="o">,</span><span class="w"> </span><span class="nn">json</span>
+
+
+<span class="n">input_msgs</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="c1"># 系统提示</span>
+    <span class="n">Msg</span><span class="p">(</span><span class="s2">"system"</span><span class="p">,</span> <span class="s2">"你是一个名为 Friday 的有用助手"</span><span class="p">,</span> <span class="s2">"system"</span><span class="p">),</span>
+    <span class="c1"># 对话历史</span>
+    <span class="n">Msg</span><span class="p">(</span><span class="s2">"Bob"</span><span class="p">,</span> <span class="s2">"你好，Alice，你知道最近的图书馆在哪里吗？"</span><span class="p">,</span> <span class="s2">"assistant"</span><span class="p">),</span>
+    <span class="n">Msg</span><span class="p">(</span>
+        <span class="s2">"Alice"</span><span class="p">,</span>
+        <span class="s2">"抱歉，我不知道。Charlie，你有什么想法吗？"</span><span class="p">,</span>
+        <span class="s2">"assistant"</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="n">Msg</span><span class="p">(</span>
+        <span class="s2">"Charlie"</span><span class="p">,</span>
+        <span class="s2">"没有，我们问问 Friday 吧。Friday，帮我找到最近的图书馆。"</span><span class="p">,</span>
+        <span class="s2">"assistant"</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="c1"># 工具序列</span>
+    <span class="n">Msg</span><span class="p">(</span>
+        <span class="s2">"Friday"</span><span class="p">,</span>
+        <span class="p">[</span>
+            <span class="n">ToolUseBlock</span><span class="p">(</span>
+                <span class="nb">type</span><span class="o">=</span><span class="s2">"tool_use"</span><span class="p">,</span>
+                <span class="n">name</span><span class="o">=</span><span class="s2">"get_current_location"</span><span class="p">,</span>
+                <span class="nb">id</span><span class="o">=</span><span class="s2">"1"</span><span class="p">,</span>
+                <span class="nb">input</span><span class="o">=</span><span class="p">{},</span>
+            <span class="p">),</span>
+        <span class="p">],</span>
+        <span class="s2">"assistant"</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="n">Msg</span><span class="p">(</span>
+        <span class="s2">"system"</span><span class="p">,</span>
+        <span class="p">[</span>
+            <span class="n">ToolResultBlock</span><span class="p">(</span>
+                <span class="nb">type</span><span class="o">=</span><span class="s2">"tool_result"</span><span class="p">,</span>
+                <span class="n">name</span><span class="o">=</span><span class="s2">"get_current_location"</span><span class="p">,</span>
+                <span class="nb">id</span><span class="o">=</span><span class="s2">"1"</span><span class="p">,</span>
+                <span class="n">output</span><span class="o">=</span><span class="p">[</span><span class="n">TextBlock</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="s2">"104.48, 36.30"</span><span class="p">)],</span>
+            <span class="p">),</span>
+        <span class="p">],</span>
+        <span class="s2">"system"</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="n">Msg</span><span class="p">(</span>
+        <span class="s2">"Friday"</span><span class="p">,</span>
+        <span class="p">[</span>
+            <span class="n">ToolUseBlock</span><span class="p">(</span>
+                <span class="nb">type</span><span class="o">=</span><span class="s2">"tool_use"</span><span class="p">,</span>
+                <span class="n">name</span><span class="o">=</span><span class="s2">"search_around"</span><span class="p">,</span>
+                <span class="nb">id</span><span class="o">=</span><span class="s2">"2"</span><span class="p">,</span>
+                <span class="nb">input</span><span class="o">=</span><span class="p">{</span><span class="s2">"location"</span><span class="p">:</span> <span class="p">[</span><span class="mf">104.48</span><span class="p">,</span> <span class="mf">36.30</span><span class="p">],</span> <span class="s2">"keyword"</span><span class="p">:</span> <span class="s2">"library"</span><span class="p">},</span>
+            <span class="p">),</span>
+        <span class="p">],</span>
+        <span class="s2">"assistant"</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="n">Msg</span><span class="p">(</span>
+        <span class="s2">"system"</span><span class="p">,</span>
+        <span class="p">[</span>
+            <span class="n">ToolResultBlock</span><span class="p">(</span>
+                <span class="nb">type</span><span class="o">=</span><span class="s2">"tool_result"</span><span class="p">,</span>
+                <span class="n">name</span><span class="o">=</span><span class="s2">"search_around"</span><span class="p">,</span>
+                <span class="nb">id</span><span class="o">=</span><span class="s2">"2"</span><span class="p">,</span>
+                <span class="n">output</span><span class="o">=</span><span class="p">[</span><span class="n">TextBlock</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="s2">"[...]"</span><span class="p">)],</span>
+            <span class="p">),</span>
+        <span class="p">],</span>
+        <span class="s2">"system"</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="c1"># 对话历史继续</span>
+    <span class="n">Msg</span><span class="p">(</span><span class="s2">"Friday"</span><span class="p">,</span> <span class="s2">"最近的图书馆是..."</span><span class="p">,</span> <span class="s2">"assistant"</span><span class="p">),</span>
+    <span class="n">Msg</span><span class="p">(</span><span class="s2">"Bob"</span><span class="p">,</span> <span class="s2">"谢谢，Friday！"</span><span class="p">,</span> <span class="s2">"user"</span><span class="p">),</span>
+    <span class="n">Msg</span><span class="p">(</span><span class="s2">"Alice"</span><span class="p">,</span> <span class="s2">"我们一起去吧。"</span><span class="p">,</span> <span class="s2">"user"</span><span class="p">),</span>
+<span class="p">]</span>
+
+
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">run_formatter_example</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""多智能体消息格式化示例。"""</span>
+    <span class="n">formatter</span> <span class="o">=</span> <span class="n">DashScopeMultiAgentFormatter</span><span class="p">()</span>
+    <span class="n">formatted_message</span> <span class="o">=</span> <span class="k">await</span> <span class="n">formatter</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">input_msgs</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"格式化后的消息："</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">formatted_message</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">ensure_ascii</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">formatted_message</span>
+
+
+<span class="n">formatted_message</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">run_formatter_example</span><span class="p">())</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>格式化后的消息：
+[
+    {
+        "role": "system",
+        "content": "你是一个名为 Friday 的有用助手"
+    },
+    {
+        "role": "user",
+        "content": "# Conversation History\nThe content between &lt;history&gt;&lt;/history&gt; tags contains your conversation history\n&lt;history&gt;\nBob: 你好，Alice，你知道最近的图书馆在哪里吗？\nAlice: 抱歉，我不知道。Charlie，你有什么想法吗？\nCharlie: 没有，我们问问 Friday 吧。Friday，帮我找到最近的图书馆。\n&lt;/history&gt;"
+    },
+    {
+        "role": "assistant",
+        "content": [
+            {
+                "text": null
+            }
+        ],
+        "tool_calls": [
+            {
+                "id": "1",
+                "type": "function",
+                "function": {
+                    "name": "get_current_location",
+                    "arguments": "{}"
+                }
+            }
+        ]
+    },
+    {
+        "role": "tool",
+        "tool_call_id": "1",
+        "content": "104.48, 36.30",
+        "name": "get_current_location"
+    },
+    {
+        "role": "assistant",
+        "content": [
+            {
+                "text": null
+            }
+        ],
+        "tool_calls": [
+            {
+                "id": "2",
+                "type": "function",
+                "function": {
+                    "name": "search_around",
+                    "arguments": "{\"location\": [104.48, 36.3], \"keyword\": \"library\"}"
+                }
+            }
+        ]
+    },
+    {
+        "role": "tool",
+        "tool_call_id": "2",
+        "content": "[...]",
+        "name": "search_around"
+    },
+    {
+        "role": "user",
+        "content": "&lt;history&gt;\nFriday: 最近的图书馆是...\nBob: 谢谢，Friday！\nAlice: 我们一起去吧。\n&lt;/history&gt;"
+    }
+]
+</pre></div>
+</div>
+<p>具体来说，对话历史被格式化为：</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="s2">"第一段对话历史："</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">formatted_message</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="s2">"content"</span><span class="p">])</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">第二段对话历史："</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">formatted_message</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="s2">"content"</span><span class="p">])</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>第一段对话历史：
+# Conversation History
+The content between &lt;history&gt;&lt;/history&gt; tags contains your conversation history
+&lt;history&gt;
+Bob: 你好，Alice，你知道最近的图书馆在哪里吗？
+Alice: 抱歉，我不知道。Charlie，你有什么想法吗？
+Charlie: 没有，我们问问 Friday 吧。Friday，帮我找到最近的图书馆。
+&lt;/history&gt;
+
+第二段对话历史：
+&lt;history&gt;
+Friday: 最近的图书馆是...
+Bob: 谢谢，Friday！
+Alice: 我们一起去吧。
+&lt;/history&gt;
+</pre></div>
+</div>
+</section>
+<section id="id3">
+<h2>基于截断的格式化<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h2>
+<p>通过 AgentScope 中的 token 模块，内置格式化器支持通过 <a href="#id4"><span class="problematic" id="id5">**</span></a>删除最旧的消息**（除了系统提示消息）在 token 超过限制时截断输入消息。</p>
+<p>以 OpenAIFormatter 为例，我们首先计算输入消息的总 token 数。</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">run_token_counter</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""计算输入消息的 token 数量。"""</span>
+    <span class="c1"># 我们使用 huggingface token 计数器用于 dashscope 模型。</span>
+    <span class="n">token_counter</span> <span class="o">=</span> <span class="n">HuggingFaceTokenCounter</span><span class="p">(</span>
+        <span class="s2">"Qwen/Qwen2.5-VL-3B-Instruct"</span><span class="p">,</span>
+        <span class="n">use_mirror</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="k">await</span> <span class="n">token_counter</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">formatted_message</span><span class="p">)</span>
+
+
+<span class="n">n_tokens</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">run_token_counter</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"格式化消息中的 token 数量为："</span><span class="p">,</span> <span class="n">n_tokens</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>None of PyTorch, TensorFlow &gt;= 2.0, or Flax have been found. Models won't be available and only tokenizers, configuration and file/data utilities can be used.
+格式化消息中的 token 数量为： 165
+</pre></div>
+</div>
+<p>然后我们将最大 token 限制设置为比总 token 数少 20 个，并运行格式化器。</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">run_truncated_formatter</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""带截断的消息格式化示例。"""</span>
+    <span class="n">token_counter</span> <span class="o">=</span> <span class="n">HuggingFaceTokenCounter</span><span class="p">(</span>
+        <span class="n">pretrained_model_name_or_path</span><span class="o">=</span><span class="s2">"Qwen/Qwen2.5-VL-3B-Instruct"</span><span class="p">,</span>
+        <span class="n">use_mirror</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">formatter</span> <span class="o">=</span> <span class="n">DashScopeMultiAgentFormatter</span><span class="p">(</span>
+        <span class="n">token_counter</span><span class="o">=</span><span class="n">token_counter</span><span class="p">,</span>
+        <span class="n">max_tokens</span><span class="o">=</span><span class="n">n_tokens</span> <span class="o">-</span> <span class="mi">20</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">truncated_formatted_message</span> <span class="o">=</span> <span class="k">await</span> <span class="n">formatter</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">input_msgs</span><span class="p">)</span>
+    <span class="n">n_truncated_tokens</span> <span class="o">=</span> <span class="k">await</span> <span class="n">token_counter</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="n">truncated_formatted_message</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"截断后的 token 数量："</span><span class="p">,</span> <span class="n">n_truncated_tokens</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">截断后的对话历史："</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">truncated_formatted_message</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="s2">"content"</span><span class="p">])</span>
+
+
+<span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">run_truncated_formatter</span><span class="p">())</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>截断后的 token 数量： 136
+
+截断后的对话历史：
+# Conversation History
+The content between &lt;history&gt;&lt;/history&gt; tags contains your conversation history
+&lt;history&gt;
+Charlie: 没有，我们问问 Friday 吧。Friday，帮我找到最近的图书馆。
+&lt;/history&gt;
+</pre></div>
+</div>
+<p>我们可以看到来自 Bob 和 Alice 的前两条消息被删除以适应 <code class="docutils literal notranslate"><span class="pre">max_tokens</span></code> 的限制。</p>
+</section>
+<section id="id6">
+<h2>自定义格式化器<a class="headerlink" href="#id6" title="Link to this heading">¶</a></h2>
+<p>AgentScope 提供了两个基类 <code class="docutils literal notranslate"><span class="pre">FormatterBase</span></code> 和其子类 <code class="docutils literal notranslate"><span class="pre">TruncatedFormatterBase</span></code>。
+其中 <code class="docutils literal notranslate"><span class="pre">TruncatedFormatterBase</span></code> 类提供了 FIFO（First In First Out）截断策略，所有内置格式化器都继承自它。</p>
+<div class="table-wrapper docutils container" id="id11">
+<table class="docutils align-default" id="id11">
+<caption><span class="caption-text">AgentScope 中格式化器的基类</span><a class="headerlink" href="#id11" title="Link to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>类</p></th>
+<th class="head"><p>抽象方法</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">FormatterBase</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">format</span></code></p></td>
+<td><p>将输入的 <code class="docutils literal notranslate"><span class="pre">Msg</span></code> 对象格式化为目标 API 所期望的格式</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">TruncatedFormatterBase</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">_format_agent_message</span></code></p></td>
+<td><p>格式化智能体消息，在多智能体场景中可能包含多个身份</p></td>
+</tr>
+<tr class="row-even"><td></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">_format_tool_sequence</span></code></p></td>
+<td><p>将工具使用和结果序列格式化为所期望的格式</p></td>
+</tr>
+<tr class="row-odd"><td></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">_format</span></code> (可选)</p></td>
+<td><p>将输入的 <code class="docutils literal notranslate"><span class="pre">Msg</span></code> 对象格式化为目标 API 所期望的格式</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">小技巧</p>
+<p><code class="docutils literal notranslate"><span class="pre">TruncatedFormatterBase</span></code> 中的 <code class="docutils literal notranslate"><span class="pre">_format</span></code> 将输入消息分组为智能体消息和工具序列，然后分别通过调用 <code class="docutils literal notranslate"><span class="pre">_format_agent_message</span></code> 和 <code class="docutils literal notranslate"><span class="pre">_format_tool_sequence</span></code> 来格式化它们。开发者可以重写两个函数来实现自己的格式化策略。</p>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">小技巧</p>
+<p>可选地，开发者可以重写 <code class="docutils literal notranslate"><span class="pre">TruncatedFormatterBase</span></code> 中的 <code class="docutils literal notranslate"><span class="pre">_truncate</span></code> 方法来实现自己的截断策略。</p>
+</div>
+</section>
+<section id="id7">
+<h2>进一步阅读<a class="headerlink" href="#id7" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="task_token.html#token"><span class="std std-ref">Token 计数</span></a></p></li>
+<li><p><a class="reference internal" href="task_model.html#model"><span class="std std-ref">模型</span></a></p></li>
+</ul>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 2.290 seconds)</p>
+<div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-tutorial-task-prompt-py">
+<div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/dfe7448b311839d65e0e1c6dc9aeb195/task_prompt.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">task_prompt.ipynb</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-python docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/d85a2481fb39e9bdba753ec061776531/task_prompt.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">task_prompt.py</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-zip docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/9c08dfbbc748f3e6e62ab0d2ae4ee229/task_prompt.zip"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">zipped:</span> <span class="pre">task_prompt.zip</span></code></a></p>
+</div>
+</div>
+<p class="sphx-glr-signature"><a class="reference external" href="https://sphinx-gallery.github.io">Gallery generated by Sphinx-Gallery</a></p>
+</section>
+</section>
+
+        

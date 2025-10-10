@@ -1,0 +1,94 @@
+<!-- Title: agentscope.tool._coding._python - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/tool/_coding/_python.html -->
+
+          <h1>agentscope.tool._coding._python 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="c1"># pylint: disable=unused-argument</span>
+<span class="sd">"""The Python code execution tool in agentscope."""</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">shortuuid</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">...message</span><span class="w"> </span><span class="kn">import</span> <span class="n">TextBlock</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._response</span><span class="w"> </span><span class="kn">import</span> <span class="n">ToolResponse</span>
+
+
+<div class="viewcode-block" id="execute_python_code">
+<a class="viewcode-back" href="../../../../api/agentscope.tool.html#agentscope.tool.execute_python_code">[文档]</a>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">execute_python_code</span><span class="p">(</span>
+    <span class="n">code</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">300</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ToolResponse</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Execute the given python code in a temp file and capture the return</span>
+<span class="sd">    code, standard output and error. Note you must `print` the output to get</span>
+<span class="sd">    the result, and the tmp file will be removed right after the execution.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        code (`str`):</span>
+<span class="sd">            The Python code to be executed.</span>
+<span class="sd">        timeout (`float`, defaults to `300`):</span>
+<span class="sd">            The maximum time (in seconds) allowed for the code to run.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        `ToolResponse`:</span>
+<span class="sd">            The response containing the return code, standard output, and</span>
+<span class="sd">            standard error of the executed code.</span>
+<span class="sd">    """</span>
+
+    <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">temp_dir</span><span class="p">:</span>
+        <span class="n">temp_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">temp_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"tmp_</span><span class="si">{</span><span class="n">shortuuid</span><span class="o">.</span><span class="n">uuid</span><span class="p">()</span><span class="si">}</span><span class="s2">.py"</span><span class="p">)</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">temp_file</span><span class="p">,</span> <span class="s2">"w"</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+
+        <span class="n">proc</span> <span class="o">=</span> <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">create_subprocess_exec</span><span class="p">(</span>
+            <span class="n">sys</span><span class="o">.</span><span class="n">executable</span><span class="p">,</span>
+            <span class="s2">"-u"</span><span class="p">,</span>
+            <span class="n">temp_file</span><span class="p">,</span>
+            <span class="n">stdout</span><span class="o">=</span><span class="n">asyncio</span><span class="o">.</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">,</span>
+            <span class="n">stderr</span><span class="o">=</span><span class="n">asyncio</span><span class="o">.</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">wait_for</span><span class="p">(</span><span class="n">proc</span><span class="o">.</span><span class="n">wait</span><span class="p">(),</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">)</span>
+            <span class="n">stdout</span><span class="p">,</span> <span class="n">stderr</span> <span class="o">=</span> <span class="k">await</span> <span class="n">proc</span><span class="o">.</span><span class="n">communicate</span><span class="p">()</span>
+            <span class="n">stdout_str</span> <span class="o">=</span> <span class="n">stdout</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">"utf-8"</span><span class="p">)</span>
+            <span class="n">stderr_str</span> <span class="o">=</span> <span class="n">stderr</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">"utf-8"</span><span class="p">)</span>
+            <span class="n">returncode</span> <span class="o">=</span> <span class="n">proc</span><span class="o">.</span><span class="n">returncode</span>
+
+        <span class="k">except</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">TimeoutError</span><span class="p">:</span>
+            <span class="n">stderr_suffix</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"TimeoutError: The code execution exceeded "</span>
+                <span class="sa">f</span><span class="s2">"the timeout of </span><span class="si">{</span><span class="n">timeout</span><span class="si">}</span><span class="s2"> seconds."</span>
+            <span class="p">)</span>
+            <span class="n">returncode</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">proc</span><span class="o">.</span><span class="n">terminate</span><span class="p">()</span>
+                <span class="n">stdout</span><span class="p">,</span> <span class="n">stderr</span> <span class="o">=</span> <span class="k">await</span> <span class="n">proc</span><span class="o">.</span><span class="n">communicate</span><span class="p">()</span>
+                <span class="n">stdout_str</span> <span class="o">=</span> <span class="n">stdout</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">"utf-8"</span><span class="p">)</span>
+                <span class="n">stderr_str</span> <span class="o">=</span> <span class="n">stderr</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">"utf-8"</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">stderr_str</span><span class="p">:</span>
+                    <span class="n">stderr_str</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="si">{</span><span class="n">stderr_suffix</span><span class="si">}</span><span class="s2">"</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">stderr_str</span> <span class="o">=</span> <span class="n">stderr_suffix</span>
+            <span class="k">except</span> <span class="ne">ProcessLookupError</span><span class="p">:</span>
+                <span class="n">stdout_str</span> <span class="o">=</span> <span class="s2">""</span>
+                <span class="n">stderr_str</span> <span class="o">=</span> <span class="n">stderr_suffix</span>
+
+        <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+            <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+                <span class="n">TextBlock</span><span class="p">(</span>
+                    <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                    <span class="n">text</span><span class="o">=</span><span class="sa">f</span><span class="s2">"&lt;returncode&gt;</span><span class="si">{</span><span class="n">returncode</span><span class="si">}</span><span class="s2">&lt;/returncode&gt;"</span>
+                    <span class="sa">f</span><span class="s2">"&lt;stdout&gt;</span><span class="si">{</span><span class="n">stdout_str</span><span class="si">}</span><span class="s2">&lt;/stdout&gt;"</span>
+                    <span class="sa">f</span><span class="s2">"&lt;stderr&gt;</span><span class="si">{</span><span class="n">stderr_str</span><span class="si">}</span><span class="s2">&lt;/stderr&gt;"</span><span class="p">,</span>
+                <span class="p">),</span>
+            <span class="p">],</span>
+        <span class="p">)</span></div>
+
+</pre></div>
+        

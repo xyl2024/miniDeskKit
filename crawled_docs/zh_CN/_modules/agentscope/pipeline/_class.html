@@ -1,0 +1,113 @@
+<!-- Title: agentscope.pipeline._class - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/pipeline/_class.html -->
+
+          <h1>agentscope.pipeline._class 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""Pipeline classes."""</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">._functional</span><span class="w"> </span><span class="kn">import</span> <span class="n">sequential_pipeline</span><span class="p">,</span> <span class="n">fanout_pipeline</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..agent</span><span class="w"> </span><span class="kn">import</span> <span class="n">AgentBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..message</span><span class="w"> </span><span class="kn">import</span> <span class="n">Msg</span>
+
+
+<div class="viewcode-block" id="SequentialPipeline">
+<a class="viewcode-back" href="../../../api/agentscope.pipeline.html#agentscope.pipeline.SequentialPipeline">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SequentialPipeline</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""An async sequential pipeline class, which executes a sequence of</span>
+<span class="sd">    agents sequentially. Compared with functional pipeline, this class</span>
+<span class="sd">    can be re-used."""</span>
+
+<div class="viewcode-block" id="SequentialPipeline.__init__">
+<a class="viewcode-back" href="../../../api/agentscope.pipeline.html#agentscope.pipeline.SequentialPipeline.__init__">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">agents</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">AgentBase</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize a sequential pipeline class</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            agents (`list[AgentBase]`):</span>
+<span class="sd">                A list of agents.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">agents</span> <span class="o">=</span> <span class="n">agents</span></div>
+
+
+<div class="viewcode-block" id="SequentialPipeline.__call__">
+<a class="viewcode-back" href="../../../api/agentscope.pipeline.html#agentscope.pipeline.SequentialPipeline.__call__">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">msg</span><span class="p">:</span> <span class="n">Msg</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">Msg</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Msg</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">Msg</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Execute the sequential pipeline</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            msg (`Msg | list[Msg] | None`, defaults to `None`):</span>
+<span class="sd">                The initial input that will be passed to the first agent.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="n">sequential_pipeline</span><span class="p">(</span>
+            <span class="n">agents</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">agents</span><span class="p">,</span>
+            <span class="n">msg</span><span class="o">=</span><span class="n">msg</span><span class="p">,</span>
+        <span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="FanoutPipeline">
+<a class="viewcode-back" href="../../../api/agentscope.pipeline.html#agentscope.pipeline.FanoutPipeline">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">FanoutPipeline</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""An async fanout pipeline class, which distributes the same input to</span>
+<span class="sd">    multiple agents. Compared with functional pipeline, this class can be</span>
+<span class="sd">    re-used and configured with default parameters."""</span>
+
+<div class="viewcode-block" id="FanoutPipeline.__init__">
+<a class="viewcode-back" href="../../../api/agentscope.pipeline.html#agentscope.pipeline.FanoutPipeline.__init__">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">agents</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">AgentBase</span><span class="p">],</span>
+        <span class="n">enable_gather</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize a fanout pipeline class</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            agents (`list[AgentBase]`):</span>
+<span class="sd">                A list of agents to execute.</span>
+<span class="sd">            enable_gather (`bool`, defaults to `True`):</span>
+<span class="sd">                Whether to execute agents concurrently</span>
+<span class="sd">                using `asyncio.gather()`. If False, agents are executed</span>
+<span class="sd">                sequentially.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">agents</span> <span class="o">=</span> <span class="n">agents</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">enable_gather</span> <span class="o">=</span> <span class="n">enable_gather</span></div>
+
+
+<div class="viewcode-block" id="FanoutPipeline.__call__">
+<a class="viewcode-back" href="../../../api/agentscope.pipeline.html#agentscope.pipeline.FanoutPipeline.__call__">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">msg</span><span class="p">:</span> <span class="n">Msg</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">Msg</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Msg</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Execute the fanout pipeline</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            msg (`Msg | list[Msg] | None`, defaults to `None`):</span>
+<span class="sd">                The input message that will be distributed to all agents.</span>
+<span class="sd">            **kwargs (`Any`):</span>
+<span class="sd">                Additional keyword arguments passed to each agent during</span>
+<span class="sd">                execution.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `list[Msg]`:</span>
+<span class="sd">                A list of output messages from all agents.</span>
+<span class="sd">        """</span>
+
+        <span class="k">return</span> <span class="k">await</span> <span class="n">fanout_pipeline</span><span class="p">(</span>
+            <span class="n">agents</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">agents</span><span class="p">,</span>
+            <span class="n">msg</span><span class="o">=</span><span class="n">msg</span><span class="p">,</span>
+            <span class="n">enable_gather</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">enable_gather</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+        <span class="p">)</span></div>
+</div>
+
+</pre></div>
+        

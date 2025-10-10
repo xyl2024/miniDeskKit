@@ -1,0 +1,628 @@
+<!-- Title: agentscope.embedding - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/api/agentscope.embedding.html -->
+
+          <section id="module-agentscope.embedding">
+<span id="agentscope-embedding"></span><h1>agentscope.embedding<a class="headerlink" href="#module-agentscope.embedding" title="Link to this heading">¶</a></h1>
+<p>The embedding module in agentscope.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.embedding.EmbeddingModelBase">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">EmbeddingModelBase</span></span><a class="reference internal" href="../_modules/agentscope/embedding/_embedding_base.html#EmbeddingModelBase"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.embedding.EmbeddingModelBase" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Base class for embedding models.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.embedding.EmbeddingModelBase.supported_modalities">
+<span class="sig-name descname"><span class="pre">supported_modalities</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#agentscope.embedding.EmbeddingModelBase.supported_modalities" title="Link to this definition">¶</a></dt>
+<dd><p>The supported data modalities, e.g. "text", "image", "video".</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.embedding.EmbeddingModelBase.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dimensions</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/embedding/_embedding_base.html#EmbeddingModelBase.__init__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.embedding.EmbeddingModelBase.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize the embedding model base class.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>model_name</strong> (<cite>str</cite>) -- The name of the embedding model.</p></li>
+<li><p><strong>dimensions</strong> (<cite>int</cite>) -- The dimension of the embedding vector.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.embedding.EmbeddingModelBase.model_name">
+<span class="sig-name descname"><span class="pre">model_name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#agentscope.embedding.EmbeddingModelBase.model_name" title="Link to this definition">¶</a></dt>
+<dd><p>The embedding model name</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.embedding.EmbeddingModelBase.dimensions">
+<span class="sig-name descname"><span class="pre">dimensions</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><a class="headerlink" href="#agentscope.embedding.EmbeddingModelBase.dimensions" title="Link to this definition">¶</a></dt>
+<dd><p>The dimensions of the embedding vector.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.embedding.EmbeddingModelBase.__call__">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/embedding/_embedding_base.html#EmbeddingModelBase.__call__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.embedding.EmbeddingModelBase.__call__" title="Link to this definition">¶</a></dt>
+<dd><p>Call the embedding API with the given arguments.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>args</strong> (<em>Any</em>)</p></li>
+<li><p><strong>kwargs</strong> (<em>Any</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#agentscope.embedding.EmbeddingResponse" title="agentscope.embedding._embedding_response.EmbeddingResponse"><em>EmbeddingResponse</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.embedding.EmbeddingUsage">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">EmbeddingUsage</span></span><a class="reference internal" href="../_modules/agentscope/embedding/_embedding_usage.html#EmbeddingUsage"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.embedding.EmbeddingUsage" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<code class="xref py py-class docutils literal notranslate"><span class="pre">DictMixin</span></code></p>
+<p>The usage of an embedding model API invocation.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.embedding.EmbeddingUsage.time">
+<span class="sig-name descname"><span class="pre">time</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><a class="headerlink" href="#agentscope.embedding.EmbeddingUsage.time" title="Link to this definition">¶</a></dt>
+<dd><p>The time used in seconds.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.embedding.EmbeddingUsage.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">time</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tokens=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">type=&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#agentscope.embedding.EmbeddingUsage.__init__" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>time</strong> (<em>float</em>)</p></li>
+<li><p><strong>tokens</strong> (<em>int</em><em> | </em><em>None</em>)</p></li>
+<li><p><strong>type</strong> (<em>Literal</em><em>[</em><em>'embedding'</em><em>]</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.embedding.EmbeddingUsage.tokens">
+<span class="sig-name descname"><span class="pre">tokens</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#agentscope.embedding.EmbeddingUsage.tokens" title="Link to this definition">¶</a></dt>
+<dd><p>The number of tokens used, if available.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.embedding.EmbeddingUsage.type">
+<span class="sig-name descname"><span class="pre">type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'embedding'</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#agentscope.embedding.EmbeddingUsage.type" title="Link to this definition">¶</a></dt>
+<dd><p>The type of the usage, must be <cite>embedding</cite>.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.embedding.EmbeddingResponse">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">EmbeddingResponse</span></span><a class="reference internal" href="../_modules/agentscope/embedding/_embedding_response.html#EmbeddingResponse"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.embedding.EmbeddingResponse" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<code class="xref py py-class docutils literal notranslate"><span class="pre">DictMixin</span></code></p>
+<p>The embedding response class.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.embedding.EmbeddingResponse.embeddings">
+<span class="sig-name descname"><span class="pre">embeddings</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#agentscope.embedding.EmbeddingResponse.embeddings" title="Link to this definition">¶</a></dt>
+<dd><p>The embedding data</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.embedding.EmbeddingResponse.id">
+<span class="sig-name descname"><span class="pre">id</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#agentscope.embedding.EmbeddingResponse.id" title="Link to this definition">¶</a></dt>
+<dd><p>The identity of the embedding response</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.embedding.EmbeddingResponse.created_at">
+<span class="sig-name descname"><span class="pre">created_at</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#agentscope.embedding.EmbeddingResponse.created_at" title="Link to this definition">¶</a></dt>
+<dd><p>The timestamp of the embedding response creation</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.embedding.EmbeddingResponse.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">embeddings</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">id=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">created_at=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">type=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">usage=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">source=&lt;factory&gt;</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#agentscope.embedding.EmbeddingResponse.__init__" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>embeddings</strong> (<em>List</em><em>[</em><em>List</em><em>[</em><em>float</em><em>]</em><em>]</em>)</p></li>
+<li><p><strong>id</strong> (<em>str</em>)</p></li>
+<li><p><strong>created_at</strong> (<em>str</em>)</p></li>
+<li><p><strong>type</strong> (<em>Literal</em><em>[</em><em>'embedding'</em><em>]</em>)</p></li>
+<li><p><strong>usage</strong> (<a class="reference internal" href="#agentscope.embedding.EmbeddingUsage" title="agentscope.embedding._embedding_usage.EmbeddingUsage"><em>EmbeddingUsage</em></a><em> | </em><em>None</em>)</p></li>
+<li><p><strong>source</strong> (<em>Literal</em><em>[</em><em>'cache'</em><em>, </em><em>'api'</em><em>]</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.embedding.EmbeddingResponse.type">
+<span class="sig-name descname"><span class="pre">type</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'embedding'</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#agentscope.embedding.EmbeddingResponse.type" title="Link to this definition">¶</a></dt>
+<dd><p>The type of the response, must be <cite>embedding</cite>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.embedding.EmbeddingResponse.usage">
+<span class="sig-name descname"><span class="pre">usage</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#agentscope.embedding.EmbeddingUsage" title="agentscope.embedding._embedding_usage.EmbeddingUsage"><span class="pre">EmbeddingUsage</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#agentscope.embedding.EmbeddingResponse.usage" title="Link to this definition">¶</a></dt>
+<dd><p>The usage of the embedding model API invocation, if available.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.embedding.EmbeddingResponse.source">
+<span class="sig-name descname"><span class="pre">source</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">Literal</span><span class="p"><span class="pre">[</span></span><span class="s"><span class="pre">'cache'</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="s"><span class="pre">'api'</span></span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#agentscope.embedding.EmbeddingResponse.source" title="Link to this definition">¶</a></dt>
+<dd><p>If the response comes from the cache or the API.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.embedding.DashScopeTextEmbedding">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">DashScopeTextEmbedding</span></span><a class="reference internal" href="../_modules/agentscope/embedding/_dashscope_embedding.html#DashScopeTextEmbedding"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.embedding.DashScopeTextEmbedding" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<a class="reference internal" href="#agentscope.embedding.EmbeddingModelBase" title="agentscope.embedding._embedding_base.EmbeddingModelBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">EmbeddingModelBase</span></code></a></p>
+<p>DashScope text embedding API class.</p>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>From the <a href="#id1"><span class="problematic" id="id2">`</span></a>official documentation</p>
+</div>
+<p>&lt;<a class="reference external" href="https://bailian.console.aliyun.com/?tab=api#/api/">https://bailian.console.aliyun.com/?tab=api#/api/</a>?type=model&amp;url=2712515&gt;`_:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>The max batch size that DashScope text embedding API</p></li>
+</ul>
+<p>supports is 10 for <cite>text-embedding-v4</cite> and <cite>text-embedding-v3</cite> models, and
+25 for <cite>text-embedding-v2</cite> and <cite>text-embedding-v1</cite> models.
+- The max token limit for a single input is 8192 tokens for <cite>v4</cite> and <cite>v3</cite>
+models, and 2048 tokens for <cite>v2</cite> and <cite>v1</cite> models.</p>
+</div></blockquote>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.embedding.DashScopeTextEmbedding.supported_modalities">
+<span class="sig-name descname"><span class="pre">supported_modalities</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">['text']</span></em><a class="headerlink" href="#agentscope.embedding.DashScopeTextEmbedding.supported_modalities" title="Link to this definition">¶</a></dt>
+<dd><p>This class only supports text input.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.embedding.DashScopeTextEmbedding.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">api_key</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dimensions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1024</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">embedding_cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/embedding/_dashscope_embedding.html#DashScopeTextEmbedding.__init__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.embedding.DashScopeTextEmbedding.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize the DashScope text embedding model class.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>api_key</strong> (<cite>str</cite>) -- The dashscope API key.</p></li>
+<li><p><strong>model_name</strong> (<cite>str</cite>) -- The name of the embedding model.</p></li>
+<li><p><strong>dimensions</strong> (<cite>int</cite>, defaults to 1024) -- The dimension of the embedding vector, refer to the
+<a class="reference external" href="https://bailian.console.aliyun.com/?tab=api#/api/?type=model&amp;url=2712515">official documentation</a>
+for more details.</p></li>
+<li><p><strong>embedding_cache</strong> (<cite>EmbeddingCacheBase</cite>) -- The embedding cache class instance, used to cache the
+embedding results to avoid repeated API calls.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.embedding.DashScopeTextEmbedding.__call__">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/embedding/_dashscope_embedding.html#DashScopeTextEmbedding.__call__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.embedding.DashScopeTextEmbedding.__call__" title="Link to this definition">¶</a></dt>
+<dd><p>Call the DashScope embedding API.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>text</strong> (<cite>List[str | TextBlock]</cite>) -- The input text to be embedded. It can be a list of strings.</p></li>
+<li><p><strong>kwargs</strong> (<em>Any</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#agentscope.embedding.EmbeddingResponse" title="agentscope.embedding._embedding_response.EmbeddingResponse"><em>EmbeddingResponse</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.embedding.DashScopeMultiModalEmbedding">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">DashScopeMultiModalEmbedding</span></span><a class="reference internal" href="../_modules/agentscope/embedding/_dashscope_multimodal_embedding.html#DashScopeMultiModalEmbedding"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.embedding.DashScopeMultiModalEmbedding" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<a class="reference internal" href="#agentscope.embedding.EmbeddingModelBase" title="agentscope.embedding._embedding_base.EmbeddingModelBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">EmbeddingModelBase</span></code></a></p>
+<p>The DashScope multimodal embedding API, supporting text, image and
+video embedding.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.embedding.DashScopeMultiModalEmbedding.supported_modalities">
+<span class="sig-name descname"><span class="pre">supported_modalities</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">['text',</span> <span class="pre">'image',</span> <span class="pre">'video']</span></em><a class="headerlink" href="#agentscope.embedding.DashScopeMultiModalEmbedding.supported_modalities" title="Link to this definition">¶</a></dt>
+<dd><p>This class supports text, image and video input.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.embedding.DashScopeMultiModalEmbedding.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">api_key</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dimensions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">embedding_cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/embedding/_dashscope_multimodal_embedding.html#DashScopeMultiModalEmbedding.__init__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.embedding.DashScopeMultiModalEmbedding.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize the DashScope multimodal embedding model class.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>api_key</strong> (<cite>str</cite>) -- The dashscope API key.</p></li>
+<li><p><strong>model_name</strong> (<cite>str</cite>) -- The name of the embedding model, e.g. "multimodal-embedding-
+v1", "tongyi-embedding-vision-plus".</p></li>
+<li><p><strong>dimensions</strong> (<cite>int</cite>, defaults to 1024) -- </p><p>The dimension of the embedding vector, refer to the
+<a class="reference external" href="https://bailian.console.aliyun.com/?tab=api#/api/?type=model&amp;url=2712517">official documentation</a>
+for more details.</p>
+<p></p></li>
+<li><p><strong>embedding_cache</strong> (<cite>EmbeddingCacheBase</cite>) -- The embedding cache class instance, used to cache the
+embedding results to avoid repeated API calls.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.embedding.DashScopeMultiModalEmbedding.__call__">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">inputs</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/embedding/_dashscope_multimodal_embedding.html#DashScopeMultiModalEmbedding.__call__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.embedding.DashScopeMultiModalEmbedding.__call__" title="Link to this definition">¶</a></dt>
+<dd><p>Call the DashScope multimodal embedding API, which accepts text,
+image, and video data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>inputs</strong> (<cite>list[TextBlock | ImageBlock | VideoBlock]</cite>) -- The input data to be embedded. It can be a list of text,
+image, and video blocks.</p></li>
+<li><p><strong>kwargs</strong> (<em>Any</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回<span class="colon">:</span></dt>
+<dd class="field-even"><p>The embedding response object, which contains the embeddings
+and usage information.</p>
+</dd>
+<dt class="field-odd">返回类型<span class="colon">:</span></dt>
+<dd class="field-odd"><p><cite>EmbeddingResponse</cite></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.embedding.OpenAITextEmbedding">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">OpenAITextEmbedding</span></span><a class="reference internal" href="../_modules/agentscope/embedding/_openai_embedding.html#OpenAITextEmbedding"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.embedding.OpenAITextEmbedding" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<a class="reference internal" href="#agentscope.embedding.EmbeddingModelBase" title="agentscope.embedding._embedding_base.EmbeddingModelBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">EmbeddingModelBase</span></code></a></p>
+<p>OpenAI text embedding model class.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.embedding.OpenAITextEmbedding.supported_modalities">
+<span class="sig-name descname"><span class="pre">supported_modalities</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">['text']</span></em><a class="headerlink" href="#agentscope.embedding.OpenAITextEmbedding.supported_modalities" title="Link to this definition">¶</a></dt>
+<dd><p>This class only supports text input.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.embedding.OpenAITextEmbedding.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">api_key</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dimensions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1024</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">embedding_cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/embedding/_openai_embedding.html#OpenAITextEmbedding.__init__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.embedding.OpenAITextEmbedding.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize the OpenAI text embedding model class.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>api_key</strong> (<cite>str</cite>) -- The OpenAI API key.</p></li>
+<li><p><strong>model_name</strong> (<cite>str</cite>) -- The name of the embedding model.</p></li>
+<li><p><strong>dimensions</strong> (<cite>int</cite>, defaults to 1024) -- The dimension of the embedding vector.</p></li>
+<li><p><strong>embedding_cache</strong> (<cite>EmbeddingCacheBase | None</cite>, defaults to <cite>None</cite>) -- The embedding cache class instance, used to cache the
+embedding results to avoid repeated API calls.</p></li>
+<li><p><strong>kwargs</strong> (<em>Any</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+<p># TODO: handle batch size limit and token limit</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.embedding.OpenAITextEmbedding.__call__">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/embedding/_openai_embedding.html#OpenAITextEmbedding.__call__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.embedding.OpenAITextEmbedding.__call__" title="Link to this definition">¶</a></dt>
+<dd><p>Call the OpenAI embedding API.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>text</strong> (<cite>List[str | TextBlock]</cite>) -- The input text to be embedded. It can be a list of strings.</p></li>
+<li><p><strong>kwargs</strong> (<em>Any</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#agentscope.embedding.EmbeddingResponse" title="agentscope.embedding._embedding_response.EmbeddingResponse"><em>EmbeddingResponse</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.embedding.GeminiTextEmbedding">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">GeminiTextEmbedding</span></span><a class="reference internal" href="../_modules/agentscope/embedding/_gemini_embedding.html#GeminiTextEmbedding"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.embedding.GeminiTextEmbedding" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<a class="reference internal" href="#agentscope.embedding.EmbeddingModelBase" title="agentscope.embedding._embedding_base.EmbeddingModelBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">EmbeddingModelBase</span></code></a></p>
+<p>The Gemini text embedding model.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.embedding.GeminiTextEmbedding.supported_modalities">
+<span class="sig-name descname"><span class="pre">supported_modalities</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">['text']</span></em><a class="headerlink" href="#agentscope.embedding.GeminiTextEmbedding.supported_modalities" title="Link to this definition">¶</a></dt>
+<dd><p>This class only supports text input.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.embedding.GeminiTextEmbedding.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">api_key</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dimensions</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3072</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">embedding_cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/embedding/_gemini_embedding.html#GeminiTextEmbedding.__init__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.embedding.GeminiTextEmbedding.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize the Gemini text embedding model class.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>api_key</strong> (<cite>str</cite>) -- The Gemini API key.</p></li>
+<li><p><strong>model_name</strong> (<cite>str</cite>) -- The name of the embedding model.</p></li>
+<li><p><strong>dimensions</strong> (<cite>int</cite>, defaults to 3072) -- </p><p>The dimension of the embedding vector, refer to the
+<a class="reference external" href="https://ai.google.dev/gemini-api/docs/embeddings?hl=zh-cn#control-embedding-size">official documentation</a>
+for more details.</p>
+<p></p></li>
+<li><p><strong>embedding_cache</strong> (<cite>EmbeddingCacheBase | None</cite>, defaults to <cite>None</cite>) -- The embedding cache class instance, used to cache the
+embedding results to avoid repeated API calls.</p></li>
+<li><p><strong>kwargs</strong> (<em>Any</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.embedding.GeminiTextEmbedding.__call__">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/embedding/_gemini_embedding.html#GeminiTextEmbedding.__call__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.embedding.GeminiTextEmbedding.__call__" title="Link to this definition">¶</a></dt>
+<dd><p>The Gemini embedding API call.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>text</strong> (<cite>List[str | TextBlock]</cite>) -- The input text to be embedded. It can be a list of strings.</p></li>
+<li><p><strong>kwargs</strong> (<em>Any</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#agentscope.embedding.EmbeddingResponse" title="agentscope.embedding._embedding_response.EmbeddingResponse"><em>EmbeddingResponse</em></a></p>
+</dd>
+</dl>
+<p># TODO: handle the batch size limit</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.embedding.OllamaTextEmbedding">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">OllamaTextEmbedding</span></span><a class="reference internal" href="../_modules/agentscope/embedding/_ollama_embedding.html#OllamaTextEmbedding"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.embedding.OllamaTextEmbedding" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<a class="reference internal" href="#agentscope.embedding.EmbeddingModelBase" title="agentscope.embedding._embedding_base.EmbeddingModelBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">EmbeddingModelBase</span></code></a></p>
+<p>The Ollama embedding model.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.embedding.OllamaTextEmbedding.supported_modalities">
+<span class="sig-name descname"><span class="pre">supported_modalities</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">['text']</span></em><a class="headerlink" href="#agentscope.embedding.OllamaTextEmbedding.supported_modalities" title="Link to this definition">¶</a></dt>
+<dd><p>This class only supports text input.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.embedding.OllamaTextEmbedding.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dimensions</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">host</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">embedding_cache</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/embedding/_ollama_embedding.html#OllamaTextEmbedding.__init__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.embedding.OllamaTextEmbedding.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize the Ollama text embedding model class.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>model_name</strong> (<cite>str</cite>) -- The name of the embedding model.</p></li>
+<li><p><strong>dimensions</strong> (<cite>int</cite>) -- The dimension of the embedding vector, the parameter should be
+provided according to the model used.</p></li>
+<li><p><strong>host</strong> (<cite>str | None</cite>, defaults to <cite>None</cite>) -- The host URL for the Ollama API.</p></li>
+<li><p><strong>embedding_cache</strong> (<cite>EmbeddingCacheBase | None</cite>, defaults to <cite>None</cite>) -- The embedding cache class instance, used to cache the
+embedding results to avoid repeated API calls.</p></li>
+<li><p><strong>kwargs</strong> (<em>Any</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.embedding.OllamaTextEmbedding.__call__">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/embedding/_ollama_embedding.html#OllamaTextEmbedding.__call__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.embedding.OllamaTextEmbedding.__call__" title="Link to this definition">¶</a></dt>
+<dd><p>Call the Ollama embedding API.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>text</strong> (<cite>List[str | TextBlock]</cite>) -- The input text to be embedded. It can be a list of strings.</p></li>
+<li><p><strong>kwargs</strong> (<em>Any</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="#agentscope.embedding.EmbeddingResponse" title="agentscope.embedding._embedding_response.EmbeddingResponse"><em>EmbeddingResponse</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.embedding.EmbeddingCacheBase">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">EmbeddingCacheBase</span></span><a class="reference internal" href="../_modules/agentscope/embedding/_cache_base.html#EmbeddingCacheBase"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.embedding.EmbeddingCacheBase" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Base class for embedding caches, which is responsible for storing and
+retrieving embeddings.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.embedding.EmbeddingCacheBase.store">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">store</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">embeddings</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">identifier</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overwrite</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/embedding/_cache_base.html#EmbeddingCacheBase.store"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.embedding.EmbeddingCacheBase.store" title="Link to this definition">¶</a></dt>
+<dd><p>Store the embeddings with the given identifier.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>embeddings</strong> (<cite>List[Embedding]</cite>) -- The embeddings to store.</p></li>
+<li><p><strong>identifier</strong> (<cite>JSONSerializableObject</cite>) -- The identifier to distinguish the embeddings.</p></li>
+<li><p><strong>overwrite</strong> (<cite>bool</cite>, defaults to <cite>False</cite>) -- Whether to overwrite existing embeddings with the same
+identifier. If <cite>True</cite>, existing embeddings will be replaced.</p></li>
+<li><p><strong>kwargs</strong> (<em>Any</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.embedding.EmbeddingCacheBase.retrieve">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">retrieve</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">identifier</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/embedding/_cache_base.html#EmbeddingCacheBase.retrieve"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.embedding.EmbeddingCacheBase.retrieve" title="Link to this definition">¶</a></dt>
+<dd><p>Retrieve the embeddings with the given identifier. If not
+found, return <cite>None</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>identifier</strong> (<cite>JSONSerializableObject</cite>) -- The identifier to retrieve the embeddings.</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>List</em>[<em>List</em>[float]] | None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.embedding.EmbeddingCacheBase.remove">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">remove</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">identifier</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/embedding/_cache_base.html#EmbeddingCacheBase.remove"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.embedding.EmbeddingCacheBase.remove" title="Link to this definition">¶</a></dt>
+<dd><p>Remove the embeddings with the given identifier.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>identifier</strong> (<cite>JSONSerializableObject</cite>) -- The identifier to remove the embeddings.</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.embedding.EmbeddingCacheBase.clear">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">clear</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/embedding/_cache_base.html#EmbeddingCacheBase.clear"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.embedding.EmbeddingCacheBase.clear" title="Link to this definition">¶</a></dt>
+<dd><p>Clear all cached embeddings.</p>
+<dl class="field-list simple">
+<dt class="field-odd">返回类型<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.embedding.FileEmbeddingCache">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">FileEmbeddingCache</span></span><a class="reference internal" href="../_modules/agentscope/embedding/_file_cache.html#FileEmbeddingCache"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.embedding.FileEmbeddingCache" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<a class="reference internal" href="#agentscope.embedding.EmbeddingCacheBase" title="agentscope.embedding._cache_base.EmbeddingCacheBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">EmbeddingCacheBase</span></code></a></p>
+<p>The embedding cache class that stores each embeddings vector in
+binary files.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.embedding.FileEmbeddingCache.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cache_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'./.cache/embeddings'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_file_number</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_cache_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/embedding/_file_cache.html#FileEmbeddingCache.__init__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.embedding.FileEmbeddingCache.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize the file embedding cache class.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>cache_dir</strong> (<cite>str</cite>, defaults to <cite>"./.cache/embeddings"</cite>) -- The directory to store the embedding files.</p></li>
+<li><p><strong>max_file_number</strong> (<cite>int | None</cite>, defaults to <cite>None</cite>) -- The maximum number of files to keep in the cache directory. If
+exceeded, the oldest files will be removed.</p></li>
+<li><p><strong>max_cache_size</strong> (<cite>int | None</cite>, defaults to <cite>None</cite>) -- The maximum size of the cache directory in MB. If exceeded,
+the oldest files will be removed until the size is within the
+limit.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="agentscope.embedding.FileEmbeddingCache.cache_dir">
+<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">cache_dir</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#agentscope.embedding.FileEmbeddingCache.cache_dir" title="Link to this definition">¶</a></dt>
+<dd><p>The cache directory where the embedding files are stored.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.embedding.FileEmbeddingCache.store">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">store</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">embeddings</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">identifier</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overwrite</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/embedding/_file_cache.html#FileEmbeddingCache.store"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.embedding.FileEmbeddingCache.store" title="Link to this definition">¶</a></dt>
+<dd><p>Store the embeddings with the given identifier.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>embeddings</strong> (<cite>List[Embedding]</cite>) -- The embeddings to store.</p></li>
+<li><p><strong>identifier</strong> (<cite>JSONSerializableObject</cite>) -- The identifier to distinguish the embeddings, which will be
+used to generate a hashable filename, so it should be
+JSON serializable (e.g. a string, number, list, dict).</p></li>
+<li><p><strong>overwrite</strong> (<cite>bool</cite>, defaults to <cite>False</cite>) -- Whether to overwrite existing embeddings with the same
+identifier. If <cite>True</cite>, existing embeddings will be replaced.</p></li>
+<li><p><strong>kwargs</strong> (<em>Any</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.embedding.FileEmbeddingCache.retrieve">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">retrieve</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">identifier</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/embedding/_file_cache.html#FileEmbeddingCache.retrieve"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.embedding.FileEmbeddingCache.retrieve" title="Link to this definition">¶</a></dt>
+<dd><p>Retrieve the embeddings with the given identifier. If not found,
+return <cite>None</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>identifier</strong> (<cite>JSONSerializableObject</cite>) -- The identifier to retrieve the embeddings, which will be
+used to generate a hashable filename, so it should be
+JSON serializable (e.g. a string, number, list, dict).</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>List</em>[<em>List</em>[float]] | None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.embedding.FileEmbeddingCache.remove">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">remove</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">identifier</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/embedding/_file_cache.html#FileEmbeddingCache.remove"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.embedding.FileEmbeddingCache.remove" title="Link to this definition">¶</a></dt>
+<dd><p>Remove the embeddings with the given identifier.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>identifier</strong> (<cite>JSONSerializableObject</cite>) -- The identifiers to remove the embeddings, which will be
+used to generate a hashable filename, so it should be
+JSON serializable (e.g. a string, number, list, dict).</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.embedding.FileEmbeddingCache.clear">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">clear</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/embedding/_file_cache.html#FileEmbeddingCache.clear"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.embedding.FileEmbeddingCache.clear" title="Link to this definition">¶</a></dt>
+<dd><p>Clear the cache directory by removing all files.</p>
+<dl class="field-list simple">
+<dt class="field-odd">返回类型<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+        

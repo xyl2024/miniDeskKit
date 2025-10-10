@@ -1,0 +1,515 @@
+<!-- Title: agentscope.memory._mem0_long_term_memory - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/memory/_mem0_long_term_memory.html -->
+
+          <h1>agentscope.memory._mem0_long_term_memory 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""Long-term memory implementation using mem0 library.</span>
+
+<span class="sd">This module provides a long-term memory implementation that integrates</span>
+<span class="sd">with the mem0 library to provide persistent memory storage and retrieval</span>
+<span class="sd">capabilities for AgentScope agents.</span>
+<span class="sd">"""</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">TYPE_CHECKING</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">importlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">metadata</span>
+
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">field_validator</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">..embedding</span><span class="w"> </span><span class="kn">import</span> <span class="n">EmbeddingModelBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">._long_term_memory_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">LongTermMemoryBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..message</span><span class="w"> </span><span class="kn">import</span> <span class="n">Msg</span><span class="p">,</span> <span class="n">TextBlock</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..model</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChatModelBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..tool</span><span class="w"> </span><span class="kn">import</span> <span class="n">ToolResponse</span>
+
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">mem0.configs.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">MemoryConfig</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">mem0.vector_stores.configs</span><span class="w"> </span><span class="kn">import</span> <span class="n">VectorStoreConfig</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">MemoryConfig</span> <span class="o">=</span> <span class="n">Any</span>
+    <span class="n">VectorStoreConfig</span> <span class="o">=</span> <span class="n">Any</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_create_agentscope_config_classes</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Create custom config classes for agentscope providers."""</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">mem0.embeddings.configs</span><span class="w"> </span><span class="kn">import</span> <span class="n">EmbedderConfig</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">mem0.llms.configs</span><span class="w"> </span><span class="kn">import</span> <span class="n">LlmConfig</span>
+
+    <span class="k">class</span><span class="w"> </span><span class="nc">_ASLlmConfig</span><span class="p">(</span><span class="n">LlmConfig</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Custom LLM config class that updates the validate_config method.</span>
+
+<span class="sd">        Attention: in mem0, the validate_config hardcodes the provider, so we</span>
+<span class="sd">        need to override the validate_config method to support the agentscope</span>
+<span class="sd">        providers. We will follow up with the mem0 to improve this.</span>
+<span class="sd">        """</span>
+
+        <span class="nd">@field_validator</span><span class="p">(</span><span class="s2">"config"</span><span class="p">)</span>
+        <span class="nd">@classmethod</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">validate_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">values</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">            </span><span class="sd">"""Validate the LLM configuration."""</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">mem0.utils.factory</span><span class="w"> </span><span class="kn">import</span> <span class="n">LlmFactory</span>
+
+            <span class="n">provider</span> <span class="o">=</span> <span class="n">values</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"provider"</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">provider</span> <span class="ow">in</span> <span class="n">LlmFactory</span><span class="o">.</span><span class="n">provider_to_class</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">v</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unsupported LLM provider: </span><span class="si">{</span><span class="n">provider</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+    <span class="k">class</span><span class="w"> </span><span class="nc">_ASEmbedderConfig</span><span class="p">(</span><span class="n">EmbedderConfig</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Custom embedder config class that updates the validate_config</span>
+<span class="sd">        method."""</span>
+
+        <span class="nd">@field_validator</span><span class="p">(</span><span class="s2">"config"</span><span class="p">)</span>
+        <span class="nd">@classmethod</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">validate_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">values</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">            </span><span class="sd">"""Validate the embedder configuration."""</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">mem0.utils.factory</span><span class="w"> </span><span class="kn">import</span> <span class="n">EmbedderFactory</span>
+
+            <span class="n">provider</span> <span class="o">=</span> <span class="n">values</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"provider"</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">provider</span> <span class="ow">in</span> <span class="n">EmbedderFactory</span><span class="o">.</span><span class="n">provider_to_class</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">v</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unsupported Embedder provider: </span><span class="si">{</span><span class="n">provider</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">_ASLlmConfig</span><span class="p">,</span> <span class="n">_ASEmbedderConfig</span>
+
+
+<div class="viewcode-block" id="Mem0LongTermMemory">
+<a class="viewcode-back" href="../../../api/agentscope.memory.html#agentscope.memory.Mem0LongTermMemory">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Mem0LongTermMemory</span><span class="p">(</span><span class="n">LongTermMemoryBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""A class that implements the LongTermMemoryBase interface using mem0."""</span>
+
+<div class="viewcode-block" id="Mem0LongTermMemory.__init__">
+<a class="viewcode-back" href="../../../api/agentscope.memory.html#agentscope.memory.Mem0LongTermMemory.__init__">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">agent_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">user_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">run_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="n">ChatModelBase</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">embedding_model</span><span class="p">:</span> <span class="n">EmbeddingModelBase</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">vector_store_config</span><span class="p">:</span> <span class="n">VectorStoreConfig</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">mem0_config</span><span class="p">:</span> <span class="n">MemoryConfig</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">default_memory_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize the Mem0LongTermMemory instance</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            agent_name (`str | None`, optional):</span>
+<span class="sd">                The name of the agent. Default is None.</span>
+<span class="sd">            user_name (`str | None`, optional):</span>
+<span class="sd">                The name of the user. Default is None.</span>
+<span class="sd">            run_name (`str | None`, optional):</span>
+<span class="sd">                The name of the run/session. Default is None.</span>
+
+<span class="sd">        .. note::</span>
+<span class="sd">            1. At least one of `agent_name`, `user_name`, or `run_name` is</span>
+<span class="sd">               required.</span>
+<span class="sd">            2. During memory recording, these parameters become metadata</span>
+<span class="sd">               for the stored memories.</span>
+<span class="sd">            3. During memory retrieval, only memories with matching</span>
+<span class="sd">               metadata values will be returned.</span>
+
+<span class="sd">            model (`ChatModelBase | None`, optional):</span>
+<span class="sd">                The chat model to use for the long-term memory. If</span>
+<span class="sd">                mem0_config is provided, this will override the LLM</span>
+<span class="sd">                configuration. If mem0_config is None, this is required.</span>
+<span class="sd">            embedding_model (`EmbeddingModelBase | None`, optional):</span>
+<span class="sd">                The embedding model to use for the long-term memory. If</span>
+<span class="sd">                mem0_config is provided, this will override the embedder</span>
+<span class="sd">                configuration. If mem0_config is None, this is required.</span>
+<span class="sd">            vector_store_config (`VectorStoreConfig | None`, optional):</span>
+<span class="sd">                The vector store config to use for the long-term memory.</span>
+<span class="sd">                If mem0_config is provided, this will override the vector store</span>
+<span class="sd">                configuration. If mem0_config is None and this is not</span>
+<span class="sd">                provided, defaults to Qdrant with on_disk=True.</span>
+<span class="sd">            mem0_config (`MemoryConfig | None`, optional):</span>
+<span class="sd">                The mem0 config to use for the long-term memory.</span>
+<span class="sd">                If provided, individual</span>
+<span class="sd">                model/embedding_model/vector_store_config parameters will</span>
+<span class="sd">                override the corresponding configurations in mem0_config. If</span>
+<span class="sd">                None, a new MemoryConfig will be created using the provided</span>
+<span class="sd">                parameters.</span>
+<span class="sd">            default_memory_type (`str | None`, optional):</span>
+<span class="sd">                The type of memory to use. Default is None, to create a</span>
+<span class="sd">                semantic memory.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            `ValueError`:</span>
+<span class="sd">                If `mem0_config` is None and either `model` or</span>
+<span class="sd">                `embedding_model` is None.</span>
+<span class="sd">        """</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">mem0</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">mem0.configs.llms.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseLlmConfig</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">mem0.utils.factory</span><span class="w"> </span><span class="kn">import</span> <span class="n">LlmFactory</span><span class="p">,</span> <span class="n">EmbedderFactory</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">packaging</span><span class="w"> </span><span class="kn">import</span> <span class="n">version</span>
+
+            <span class="c1"># Check mem0 version</span>
+            <span class="n">current_version</span> <span class="o">=</span> <span class="n">metadata</span><span class="o">.</span><span class="n">version</span><span class="p">(</span><span class="s2">"mem0ai"</span><span class="p">)</span>
+            <span class="n">is_mem0_version_low</span> <span class="o">=</span> <span class="n">version</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span>
+                <span class="n">current_version</span><span class="p">,</span>
+            <span class="p">)</span> <span class="o">&lt;=</span> <span class="n">version</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="s2">"0.1.115"</span><span class="p">)</span>
+
+            <span class="c1"># Register the agentscope providers with mem0</span>
+
+            <span class="n">EmbedderFactory</span><span class="o">.</span><span class="n">provider_to_class</span><span class="p">[</span>
+                <span class="s2">"agentscope"</span>
+            <span class="p">]</span> <span class="o">=</span> <span class="s2">"agentscope.memory._mem0_utils.AgentScopeEmbedding"</span>
+            <span class="k">if</span> <span class="n">is_mem0_version_low</span><span class="p">:</span>
+                <span class="c1"># For mem0 version &lt;= 0.1.115, use the old style</span>
+                <span class="n">LlmFactory</span><span class="o">.</span><span class="n">provider_to_class</span><span class="p">[</span>
+                    <span class="s2">"agentscope"</span>
+                <span class="p">]</span> <span class="o">=</span> <span class="s2">"agentscope.memory._mem0_utils.AgentScopeLLM"</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># For mem0 version &gt; 0.1.115, use the new style</span>
+                <span class="n">LlmFactory</span><span class="o">.</span><span class="n">provider_to_class</span><span class="p">[</span><span class="s2">"agentscope"</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="s2">"agentscope.memory._mem0_utils.AgentScopeLLM"</span><span class="p">,</span>
+                    <span class="n">BaseLlmConfig</span><span class="p">,</span>
+                <span class="p">)</span>
+
+        <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+                <span class="s2">"Please install the mem0 library by `pip install mem0ai`"</span><span class="p">,</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+
+        <span class="c1"># Create the custom config classes for agentscope providers dynamically</span>
+        <span class="n">_ASLlmConfig</span><span class="p">,</span> <span class="n">_ASEmbedderConfig</span> <span class="o">=</span> <span class="n">_create_agentscope_config_classes</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">agent_name</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">user_name</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">run_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"at least one of agent_name, user_name, and run_name is "</span>
+                <span class="s2">"required"</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Store agent and user identifiers for memory management</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">agent_id</span> <span class="o">=</span> <span class="n">agent_name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">user_id</span> <span class="o">=</span> <span class="n">user_name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">run_id</span> <span class="o">=</span> <span class="n">run_name</span>
+
+        <span class="c1"># Configuration logic: Handle mem0_config parameter</span>
+        <span class="k">if</span> <span class="n">mem0_config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Case 1: mem0_config is provided - override specific</span>
+            <span class="c1"># configurations if individual params are given</span>
+
+            <span class="c1"># Override LLM configuration if model is provided</span>
+            <span class="k">if</span> <span class="n">model</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">mem0_config</span><span class="o">.</span><span class="n">llm</span> <span class="o">=</span> <span class="n">_ASLlmConfig</span><span class="p">(</span>
+                    <span class="n">provider</span><span class="o">=</span><span class="s2">"agentscope"</span><span class="p">,</span>
+                    <span class="n">config</span><span class="o">=</span><span class="p">{</span><span class="s2">"model"</span><span class="p">:</span> <span class="n">model</span><span class="p">},</span>
+                <span class="p">)</span>
+
+            <span class="c1"># Override embedder configuration if embedding_model is provided</span>
+            <span class="k">if</span> <span class="n">embedding_model</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">mem0_config</span><span class="o">.</span><span class="n">embedder</span> <span class="o">=</span> <span class="n">_ASEmbedderConfig</span><span class="p">(</span>
+                    <span class="n">provider</span><span class="o">=</span><span class="s2">"agentscope"</span><span class="p">,</span>
+                    <span class="n">config</span><span class="o">=</span><span class="p">{</span><span class="s2">"model"</span><span class="p">:</span> <span class="n">embedding_model</span><span class="p">},</span>
+                <span class="p">)</span>
+
+            <span class="c1"># Override vector store configuration if vector_store_config is</span>
+            <span class="c1"># provided</span>
+            <span class="k">if</span> <span class="n">vector_store_config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">mem0_config</span><span class="o">.</span><span class="n">vector_store</span> <span class="o">=</span> <span class="n">vector_store_config</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Case 2: mem0_config is not provided - create new configuration</span>
+            <span class="c1"># from individual parameters</span>
+
+            <span class="c1"># Validate that required parameters are provided</span>
+            <span class="k">if</span> <span class="n">model</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">embedding_model</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">"model and embedding_model are required if mem0_config "</span>
+                    <span class="s2">"is not provided"</span><span class="p">,</span>
+                <span class="p">)</span>
+
+            <span class="c1"># Create new MemoryConfig with provided LLM and embedder</span>
+            <span class="n">mem0_config</span> <span class="o">=</span> <span class="n">mem0</span><span class="o">.</span><span class="n">configs</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">MemoryConfig</span><span class="p">(</span>
+                <span class="n">llm</span><span class="o">=</span><span class="n">_ASLlmConfig</span><span class="p">(</span>
+                    <span class="n">provider</span><span class="o">=</span><span class="s2">"agentscope"</span><span class="p">,</span>
+                    <span class="n">config</span><span class="o">=</span><span class="p">{</span><span class="s2">"model"</span><span class="p">:</span> <span class="n">model</span><span class="p">},</span>
+                <span class="p">),</span>
+                <span class="n">embedder</span><span class="o">=</span><span class="n">_ASEmbedderConfig</span><span class="p">(</span>
+                    <span class="n">provider</span><span class="o">=</span><span class="s2">"agentscope"</span><span class="p">,</span>
+                    <span class="n">config</span><span class="o">=</span><span class="p">{</span><span class="s2">"model"</span><span class="p">:</span> <span class="n">embedding_model</span><span class="p">},</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
+
+            <span class="c1"># Set vector store configuration</span>
+            <span class="k">if</span> <span class="n">vector_store_config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="c1"># Use provided vector store configuration</span>
+                <span class="n">mem0_config</span><span class="o">.</span><span class="n">vector_store</span> <span class="o">=</span> <span class="n">vector_store_config</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Use default Qdrant configuration with on-disk storage for</span>
+                <span class="c1"># persistence set on_disk to True to enable persistence,</span>
+                <span class="c1"># otherwise it will be in memory only</span>
+                <span class="n">on_disk</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"on_disk"</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+                <span class="n">mem0_config</span><span class="o">.</span><span class="n">vector_store</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">mem0</span><span class="o">.</span><span class="n">vector_stores</span><span class="o">.</span><span class="n">configs</span><span class="o">.</span><span class="n">VectorStoreConfig</span><span class="p">(</span>
+                        <span class="n">config</span><span class="o">=</span><span class="p">{</span><span class="s2">"on_disk"</span><span class="p">:</span> <span class="n">on_disk</span><span class="p">},</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+
+        <span class="c1"># Initialize the async memory instance with the configured settings</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">long_term_working_memory</span> <span class="o">=</span> <span class="n">mem0</span><span class="o">.</span><span class="n">AsyncMemory</span><span class="p">(</span><span class="n">mem0_config</span><span class="p">)</span>
+
+        <span class="c1"># Store the default memory type for future use</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">default_memory_type</span> <span class="o">=</span> <span class="n">default_memory_type</span></div>
+
+
+<div class="viewcode-block" id="Mem0LongTermMemory.record_to_memory">
+<a class="viewcode-back" href="../../../api/agentscope.memory.html#agentscope.memory.Mem0LongTermMemory.record_to_memory">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">record_to_memory</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">thinking</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">content</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ToolResponse</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Use this function to record important information that you may</span>
+<span class="sd">        need later. The target content should be specific and concise, e.g.</span>
+<span class="sd">        who, when, where, do what, why, how, etc.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            thinking (`str`):</span>
+<span class="sd">                Your thinking and reasoning about what to record.</span>
+<span class="sd">            content (`list[str]`):</span>
+<span class="sd">                The content to remember, which is a list of strings.</span>
+<span class="sd">        """</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">thinking</span><span class="p">:</span>
+                <span class="n">content</span> <span class="o">=</span> <span class="p">[</span><span class="n">thinking</span><span class="p">]</span> <span class="o">+</span> <span class="n">content</span>
+
+            <span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mem0_record</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="p">{</span>
+                        <span class="s2">"role"</span><span class="p">:</span> <span class="s2">"assistant"</span><span class="p">,</span>
+                        <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">content</span><span class="p">),</span>
+                        <span class="s2">"name"</span><span class="p">:</span> <span class="s2">"assistant"</span><span class="p">,</span>
+                    <span class="p">},</span>
+                <span class="p">],</span>
+                <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+                <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+                    <span class="n">TextBlock</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                        <span class="n">text</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Successfully recorded content to memory "</span>
+                        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">results</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                    <span class="p">),</span>
+                <span class="p">],</span>
+            <span class="p">)</span>
+
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+                <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+                    <span class="n">TextBlock</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                        <span class="n">text</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Error recording memory: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                    <span class="p">),</span>
+                <span class="p">],</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Mem0LongTermMemory.retrieve_from_memory">
+<a class="viewcode-back" href="../../../api/agentscope.memory.html#agentscope.memory.Mem0LongTermMemory.retrieve_from_memory">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">retrieve_from_memory</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">keywords</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">limit</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ToolResponse</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Retrieve the memory based on the given keywords.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            keywords (`list[str]`):</span>
+<span class="sd">                The keywords to search for in the memory, which should be</span>
+<span class="sd">                specific and concise, e.g. the person's name, the date, the</span>
+<span class="sd">                location, etc.</span>
+<span class="sd">            limit (`int`, optional):</span>
+<span class="sd">                The maximum number of memories to retrieve per search.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `ToolResponse`:</span>
+<span class="sd">                A ToolResponse containing the retrieved memories as JSON text.</span>
+<span class="sd">        """</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">keyword</span> <span class="ow">in</span> <span class="n">keywords</span><span class="p">:</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">long_term_working_memory</span><span class="o">.</span><span class="n">search</span><span class="p">(</span>
+                    <span class="n">query</span><span class="o">=</span><span class="n">keyword</span><span class="p">,</span>
+                    <span class="n">agent_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">agent_id</span><span class="p">,</span>
+                    <span class="n">user_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">user_id</span><span class="p">,</span>
+                    <span class="n">run_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">run_id</span><span class="p">,</span>
+                    <span class="n">limit</span><span class="o">=</span><span class="n">limit</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="n">result</span><span class="p">:</span>
+                    <span class="n">results</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+                        <span class="p">[</span><span class="n">item</span><span class="p">[</span><span class="s2">"memory"</span><span class="p">]</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">result</span><span class="p">[</span><span class="s2">"results"</span><span class="p">]],</span>
+                    <span class="p">)</span>
+
+            <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+                <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+                    <span class="n">TextBlock</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                        <span class="n">text</span><span class="o">=</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">results</span><span class="p">),</span>
+                    <span class="p">),</span>
+                <span class="p">],</span>
+            <span class="p">)</span>
+
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+                <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+                    <span class="n">TextBlock</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                        <span class="n">text</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Error retrieving memory: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                    <span class="p">),</span>
+                <span class="p">],</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Mem0LongTermMemory.record">
+<a class="viewcode-back" href="../../../api/agentscope.memory.html#agentscope.memory.Mem0LongTermMemory.record">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">record</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">msgs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Msg</span> <span class="o">|</span> <span class="kc">None</span><span class="p">],</span>
+        <span class="n">memory_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">infer</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Record the content to the long-term memory.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            msgs (`list[Msg | None]`):</span>
+<span class="sd">                The messages to record to memory.</span>
+<span class="sd">            memory_type (`str | None`, optional):</span>
+<span class="sd">                The type of memory to use. Default is None, to create a</span>
+<span class="sd">                semantic memory. "procedural_memory" is explicitly used for</span>
+<span class="sd">                procedural memories.</span>
+<span class="sd">            infer (`bool`, optional):</span>
+<span class="sd">                Whether to infer memory from the content. Default is True.</span>
+<span class="sd">            **kwargs (`Any`):</span>
+<span class="sd">                Additional keyword arguments for the mem0 recording.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">msgs</span><span class="p">,</span> <span class="n">Msg</span><span class="p">):</span>
+            <span class="n">msgs</span> <span class="o">=</span> <span class="p">[</span><span class="n">msgs</span><span class="p">]</span>
+
+        <span class="c1"># Filter out None</span>
+        <span class="n">msg_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">_</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">msgs</span> <span class="k">if</span> <span class="n">_</span><span class="p">]</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="n">Msg</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">msg_list</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="s2">"The input messages must be a list of Msg objects."</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="n">messages</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="p">{</span>
+                <span class="s2">"role"</span><span class="p">:</span> <span class="s2">"assistant"</span><span class="p">,</span>
+                <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">_</span><span class="o">.</span><span class="n">content</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">msg_list</span><span class="p">]),</span>
+                <span class="s2">"name"</span><span class="p">:</span> <span class="s2">"assistant"</span><span class="p">,</span>
+            <span class="p">},</span>
+        <span class="p">]</span>
+
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_mem0_record</span><span class="p">(</span>
+            <span class="n">messages</span><span class="p">,</span>
+            <span class="n">memory_type</span><span class="o">=</span><span class="n">memory_type</span><span class="p">,</span>
+            <span class="n">infer</span><span class="o">=</span><span class="n">infer</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_mem0_record</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">messages</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">],</span>
+        <span class="n">memory_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">infer</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Record the content to the long-term memory.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            messages (`str`):</span>
+<span class="sd">                The content to remember, which is a string or a list of</span>
+<span class="sd">                dictionaries representing messages.</span>
+<span class="sd">            memory_type (`str | None`, optional):</span>
+<span class="sd">                The type of memory to use. Default is None, to create a</span>
+<span class="sd">                semantic memory. "procedural_memory" is explicitly used for</span>
+<span class="sd">                procedural memories.</span>
+<span class="sd">            infer (`bool`, optional):</span>
+<span class="sd">                Whether to infer memory from the content. Default is True.</span>
+<span class="sd">            **kwargs (`Any`):</span>
+<span class="sd">                Additional keyword arguments.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `dict`:</span>
+<span class="sd">                The result from the memory recording operation.</span>
+<span class="sd">        """</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">long_term_working_memory</span><span class="o">.</span><span class="n">add</span><span class="p">(</span>
+            <span class="n">messages</span><span class="o">=</span><span class="n">messages</span><span class="p">,</span>
+            <span class="n">agent_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">agent_id</span><span class="p">,</span>
+            <span class="n">user_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">user_id</span><span class="p">,</span>
+            <span class="n">run_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">run_id</span><span class="p">,</span>
+            <span class="n">memory_type</span><span class="o">=</span><span class="p">(</span>
+                <span class="n">memory_type</span>
+                <span class="k">if</span> <span class="n">memory_type</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_memory_type</span>
+            <span class="p">),</span>
+            <span class="n">infer</span><span class="o">=</span><span class="n">infer</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">results</span>
+
+<div class="viewcode-block" id="Mem0LongTermMemory.retrieve">
+<a class="viewcode-back" href="../../../api/agentscope.memory.html#agentscope.memory.Mem0LongTermMemory.retrieve">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">retrieve</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">msg</span><span class="p">:</span> <span class="n">Msg</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">Msg</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">limit</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Retrieve the content from the long-term memory.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            msg (`Msg | list[Msg] | None`):</span>
+<span class="sd">                The message to search for in the memory, which should be</span>
+<span class="sd">                specific and concise, e.g. the person's name, the date, the</span>
+<span class="sd">                location, etc.</span>
+<span class="sd">            limit (`int`, optional):</span>
+<span class="sd">                The maximum number of memories to retrieve per search.</span>
+<span class="sd">            **kwargs (`Any`):</span>
+<span class="sd">                Additional keyword arguments.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `str`:</span>
+<span class="sd">                The retrieved memory</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">Msg</span><span class="p">):</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="p">[</span><span class="n">msg</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span>
+            <span class="nb">isinstance</span><span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="n">Msg</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">msg</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="s2">"The input message must be a Msg or a list of Msg objects."</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="n">msg_strs</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">_</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()[</span><span class="s2">"content"</span><span class="p">],</span> <span class="n">ensure_ascii</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">msg</span>
+        <span class="p">]</span>
+
+        <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">msg_strs</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">long_term_working_memory</span><span class="o">.</span><span class="n">search</span><span class="p">(</span>
+                <span class="n">query</span><span class="o">=</span><span class="n">item</span><span class="p">,</span>
+                <span class="n">agent_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">agent_id</span><span class="p">,</span>
+                <span class="n">user_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">user_id</span><span class="p">,</span>
+                <span class="n">run_id</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">run_id</span><span class="p">,</span>
+                <span class="n">limit</span><span class="o">=</span><span class="n">limit</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">result</span><span class="p">:</span>
+                <span class="n">results</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="n">item</span><span class="p">[</span><span class="s2">"memory"</span><span class="p">]</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">result</span><span class="p">[</span><span class="s2">"results"</span><span class="p">]])</span>
+
+        <span class="k">return</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">results</span><span class="p">)</span></div>
+</div>
+
+</pre></div>
+        

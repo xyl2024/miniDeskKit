@@ -1,0 +1,381 @@
+<!-- Title: 智能体 - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/tutorial/task_agent.html -->
+
+          <div class="sphx-glr-download-link-note admonition note">
+<p class="admonition-title">备注</p>
+<p><a class="reference internal" href="#sphx-glr-download-tutorial-task-agent-py"><span class="std std-ref">Go to the end</span></a>
+to download the full example code.</p>
+</div>
+<section class="sphx-glr-example-title" id="agent">
+<span id="sphx-glr-tutorial-task-agent-py"></span><span id="id1"></span><h1>智能体<a class="headerlink" href="#agent" title="Link to this heading">¶</a></h1>
+<p>在章我们首先重点介绍 AgentScope 中的 ReAct 智能体，然后简要介绍如何从零开始自定义智能体。</p>
+<section id="react">
+<h2>ReAct 智能体<a class="headerlink" href="#react" title="Link to this heading">¶</a></h2>
+<p>在 AgentScope 中，<code class="docutils literal notranslate"><span class="pre">ReActAgent</span></code> 类将各种功能集成到最终实现中，具体包括</p>
+<div class="table-wrapper docutils container" id="id7">
+<table class="docutils align-default" id="id7">
+<caption><span class="caption-text"><code class="docutils literal notranslate"><span class="pre">ReActAgent</span></code> 的功能特性</span><a class="headerlink" href="#id7" title="Link to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>功能特性</p></th>
+<th class="head"><p>参考文档</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>支持实时介入（Realtime Steering）</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>支持并行工具调用</p></td>
+<td></td>
+</tr>
+<tr class="row-even"><td><p>支持结构化输出</p></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>支持智能体自主管理工具（Meta tool）</p></td>
+<td><p><a class="reference internal" href="task_tool.html#tool"><span class="std std-ref">工具</span></a></p></td>
+</tr>
+<tr class="row-even"><td><p>支持函数粒度的 MCP 控制</p></td>
+<td><p><a class="reference internal" href="task_mcp.html#mcp"><span class="std std-ref">MCP</span></a></p></td>
+</tr>
+<tr class="row-odd"><td><p>支持智能体自主控制长期记忆</p></td>
+<td><p><a class="reference internal" href="task_long_term_memory.html#long-term-memory"><span class="std std-ref">长期记忆</span></a></p></td>
+</tr>
+<tr class="row-even"><td><p>支持自动状态管理</p></td>
+<td><p><a class="reference internal" href="task_state.html#state"><span class="std std-ref">状态/会话管理</span></a></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>由于篇幅限制，本章我们仅演示 <code class="docutils literal notranslate"><span class="pre">ReActAgent</span></code> 类的前三个功能特性，其它功能我们在对应的章节进行介绍。</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span><span class="p">,</span> <span class="n">Field</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.agent</span><span class="w"> </span><span class="kn">import</span> <span class="n">ReActAgent</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.formatter</span><span class="w"> </span><span class="kn">import</span> <span class="n">DashScopeChatFormatter</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.memory</span><span class="w"> </span><span class="kn">import</span> <span class="n">InMemoryMemory</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.message</span><span class="w"> </span><span class="kn">import</span> <span class="n">TextBlock</span><span class="p">,</span> <span class="n">Msg</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.model</span><span class="w"> </span><span class="kn">import</span> <span class="n">DashScopeChatModel</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.tool</span><span class="w"> </span><span class="kn">import</span> <span class="n">Toolkit</span><span class="p">,</span> <span class="n">ToolResponse</span>
+</pre></div>
+</div>
+<section id="id2">
+<h3>实时控制<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h3>
+<p>实时控制指 <strong>允许用户随时中断智能体的回复，介入智能体的执行过程</strong>，AgentScope 基于 asyncio 取消机制实现了该功能。</p>
+<p>具体来说，AgentScope 中智能体提供了 <code class="docutils literal notranslate"><span class="pre">interrupt</span></code> 方法，当该函数被调用时，它将取消当前正在执行的 <cite>reply</cite> 函数，并执行 <code class="docutils literal notranslate"><span class="pre">handle_interrupt</span></code> 方法进行后处理。</p>
+<div class="admonition hint">
+<p class="admonition-title">提示</p>
+<p>结合 <a class="reference internal" href="task_tool.html#tool"><span class="std std-ref">工具</span></a> 中提到的 AgentScope 支持工具函数流式返回结果的功能，工具执行过程中如果执行时间过长或偏离用户期望，用户可以通过在终端中按 Ctrl+C 或在代码中调用智能体的
+<code class="docutils literal notranslate"><span class="pre">interrupt</span></code> 方法来中断工具执行。</p>
+</div>
+<div class="admonition hint">
+<p class="admonition-title">提示</p>
+<p><code class="docutils literal notranslate"><span class="pre">ReActAgent</span></code> 中提供了完善的中断逻辑，智能体的记忆和状态会在中断发生时被正确的保存。</p>
+</div>
+<p>中断逻辑已在 <code class="docutils literal notranslate"><span class="pre">AgentBase</span></code> 类中作为基本功能实现，并提供 <code class="docutils literal notranslate"><span class="pre">handle_interrupt</span></code> 抽象方法供用户自定义
+中断的后处理，如下所示：</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># AgentBase 的代码片段</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">AgentBase</span><span class="p">:</span>
+    <span class="o">...</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Msg</span><span class="p">:</span>
+        <span class="o">...</span>
+        <span class="n">reply_msg</span><span class="p">:</span> <span class="n">Msg</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_reply_task</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">current_task</span><span class="p">()</span>
+            <span class="n">reply_msg</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">reply</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="k">except</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">CancelledError</span><span class="p">:</span>
+            <span class="c1"># 捕获中断并通过 handle_interrupt 方法处理</span>
+            <span class="n">reply_msg</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">handle_interrupt</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="o">...</span>
+
+    <span class="nd">@abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">handle_interrupt</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Msg</span><span class="p">:</span>
+        <span class="k">pass</span>
+</pre></div>
+</div>
+<p>在 <code class="docutils literal notranslate"><span class="pre">ReActAgent</span></code> 类的实现中，我们返回一个固定消息"I noticed that you have interrupted me. What can I do for you?"，如下所示：</p>
+<figure class="align-center" id="id8">
+<a class="bordered-image reference internal image-reference" href="../_images/interruption_zh.gif"><img alt="中断示例" class="bordered-image" src="../_images/interruption_zh.gif" style="width: 100%;">
+</a>
+<figcaption>
+<p><span class="caption-text">中断智能体 <code class="docutils literal notranslate"><span class="pre">reply</span></code> 的执行过程</span><a class="headerlink" href="#id8" title="Link to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>开发者可以通过覆盖 <code class="docutils literal notranslate"><span class="pre">handle_interrupt</span></code> 函数实现自定义的中断后处理逻辑，例如，调用 LLM 生成对中断的简单响应。</p>
+</section>
+<section id="id3">
+<h3>并行工具调用<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">ReActAgent</span></code> 通过在其构造函数中提供 <code class="docutils literal notranslate"><span class="pre">parallel_tool_calls</span></code> 参数来支持并行工具调用。
+当 LLM 生成多个工具调用且 <code class="docutils literal notranslate"><span class="pre">parallel_tool_calls</span></code> 设置为 <code class="docutils literal notranslate"><span class="pre">True</span></code> 时，
+它们将通过 <code class="docutils literal notranslate"><span class="pre">asyncio.gather</span></code> 函数并行执行。</p>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p><code class="docutils literal notranslate"><span class="pre">ReActAgent</span></code> 中的工具并行调用是基于异步 <code class="docutils literal notranslate"><span class="pre">asyncio.gather</span></code> 实现的，因此，只有当工具函数是异步函数，同时工具函数内也为异步逻辑时，才能最大程度发挥工具并行执行的效果</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>运行时请确保模型层面支持工具并行调用，并且相应参数设置正确（可以通过 <code class="docutils literal notranslate"><span class="pre">generate_kwargs</span></code> 传入），例如对于DashScope API，需要设置 <code class="docutils literal notranslate"><span class="pre">parallel_tool_calls</span></code> 为 <code class="docutils literal notranslate"><span class="pre">True</span></code>，否则将无法进行并行工具调用。</p>
+</div>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="c1"># 准备一个工具函数</span>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">example_tool_function</span><span class="p">(</span><span class="n">tag</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ToolResponse</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""一个示例工具函数"""</span>
+    <span class="n">start_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">"%H:%M:%S.</span><span class="si">%f</span><span class="s2">"</span><span class="p">)</span>
+
+    <span class="c1"># 休眠 3 秒以模拟长时间运行的任务</span>
+    <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+
+    <span class="n">end_time</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">"%H:%M:%S.</span><span class="si">%f</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+        <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+            <span class="n">TextBlock</span><span class="p">(</span>
+                <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                <span class="n">text</span><span class="o">=</span><span class="sa">f</span><span class="s2">"标签 </span><span class="si">{</span><span class="n">tag</span><span class="si">}</span><span class="s2"> 开始于 </span><span class="si">{</span><span class="n">start_time</span><span class="si">}</span><span class="s2">，结束于 </span><span class="si">{</span><span class="n">end_time</span><span class="si">}</span><span class="s2">。"</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">],</span>
+    <span class="p">)</span>
+
+
+<span class="n">toolkit</span> <span class="o">=</span> <span class="n">Toolkit</span><span class="p">()</span>
+<span class="n">toolkit</span><span class="o">.</span><span class="n">register_tool_function</span><span class="p">(</span><span class="n">example_tool_function</span><span class="p">)</span>
+
+<span class="c1"># 创建一个 ReAct 智能体</span>
+<span class="n">agent</span> <span class="o">=</span> <span class="n">ReActAgent</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"Jarvis"</span><span class="p">,</span>
+    <span class="n">sys_prompt</span><span class="o">=</span><span class="s2">"你是一个名为 Jarvis 的有用助手。"</span><span class="p">,</span>
+    <span class="n">model</span><span class="o">=</span><span class="n">DashScopeChatModel</span><span class="p">(</span>
+        <span class="n">model_name</span><span class="o">=</span><span class="s2">"qwen-max"</span><span class="p">,</span>
+        <span class="n">api_key</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"DASHSCOPE_API_KEY"</span><span class="p">],</span>
+        <span class="c1"># 启用并行工具调用</span>
+        <span class="n">generate_kwargs</span><span class="o">=</span><span class="p">{</span>
+            <span class="s2">"parallel_tool_calls"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">),</span>
+    <span class="n">memory</span><span class="o">=</span><span class="n">InMemoryMemory</span><span class="p">(),</span>
+    <span class="n">formatter</span><span class="o">=</span><span class="n">DashScopeChatFormatter</span><span class="p">(),</span>
+    <span class="n">toolkit</span><span class="o">=</span><span class="n">toolkit</span><span class="p">,</span>
+    <span class="n">parallel_tool_calls</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">example_parallel_tool_calls</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""并行工具调用示例"""</span>
+    <span class="c1"># 提示智能体同时生成两个工具调用</span>
+    <span class="k">await</span> <span class="n">agent</span><span class="p">(</span>
+        <span class="n">Msg</span><span class="p">(</span>
+            <span class="s2">"user"</span><span class="p">,</span>
+            <span class="s2">"同时生成两个 'example_tool_function' 函数的工具调用，标签分别为 'tag1' 和 'tag2'，以便它们可以并行执行。"</span><span class="p">,</span>
+            <span class="s2">"user"</span><span class="p">,</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+
+
+<span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">example_parallel_tool_calls</span><span class="p">())</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Jarvis: {
+    "type": "tool_use",
+    "id": "call_3c4b4c0107094e98827669",
+    "name": "example_tool_function",
+    "input": {
+        "tag": "tag1"
+    }
+}
+Jarvis: {
+    "type": "tool_use",
+    "id": "call_51f5754ac782473ea90c1f",
+    "name": "example_tool_function",
+    "input": {
+        "tag": "tag2"
+    }
+}
+system: {
+    "type": "tool_result",
+    "id": "call_3c4b4c0107094e98827669",
+    "name": "example_tool_function",
+    "output": [
+        {
+            "type": "text",
+            "text": "标签 tag1 开始于 14:51:07.225859，结束于 14:51:10.229137。"
+        }
+    ]
+}
+system: {
+    "type": "tool_result",
+    "id": "call_51f5754ac782473ea90c1f",
+    "name": "example_tool_function",
+    "output": [
+        {
+            "type": "text",
+            "text": "标签 tag2 开始于 14:51:07.225966，结束于 14:51:10.229805。"
+        }
+    ]
+}
+Jarvis: 两个 `example_tool_function` 函数已并行执行完成。下面是它们各自的运行时间：
+
+- 标签为 'tag1' 的函数从 14:51:07.225859 开始，在 14:51:10.229137 结束。
+- 标签为 'tag2' 的函数从 14:51:07.225966 开始，在 14:51:10.229805 结束。
+</pre></div>
+</div>
+</section>
+<section id="id4">
+<h3>结构化输出<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h3>
+<p>AgentScope 中的结构化输出是与工具调用紧密结合的。具体来说，<code class="docutils literal notranslate"><span class="pre">ReActAgent</span></code> 类在其 <code class="docutils literal notranslate"><span class="pre">__call__</span></code> 函数中接收 <code class="docutils literal notranslate"><span class="pre">pydantic.BaseModel</span></code> 的子类作为 <code class="docutils literal notranslate"><span class="pre">structured_model</span></code> 参数。
+从而提供复杂的结构化输出限制。
+然后我们可以从 返回消息的 <code class="docutils literal notranslate"><span class="pre">metadata</span></code> 字段获取结构化输出。</p>
+<p>以介绍爱因斯坦为例：</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="c1"># 创建一个 ReAct 智能体</span>
+<span class="n">agent</span> <span class="o">=</span> <span class="n">ReActAgent</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"Jarvis"</span><span class="p">,</span>
+    <span class="n">sys_prompt</span><span class="o">=</span><span class="s2">"你是一个名为 Jarvis 的有用助手。"</span><span class="p">,</span>
+    <span class="n">model</span><span class="o">=</span><span class="n">DashScopeChatModel</span><span class="p">(</span>
+        <span class="n">model_name</span><span class="o">=</span><span class="s2">"qwen-max"</span><span class="p">,</span>
+        <span class="n">api_key</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"DASHSCOPE_API_KEY"</span><span class="p">],</span>
+    <span class="p">),</span>
+    <span class="n">formatter</span><span class="o">=</span><span class="n">DashScopeChatFormatter</span><span class="p">(),</span>
+<span class="p">)</span>
+
+
+<span class="c1"># 结构化模型</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Model</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">description</span><span class="o">=</span><span class="s2">"人物的姓名"</span><span class="p">)</span>
+    <span class="n">description</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">description</span><span class="o">=</span><span class="s2">"人物的一句话描述"</span><span class="p">)</span>
+    <span class="n">age</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">description</span><span class="o">=</span><span class="s2">"年龄"</span><span class="p">)</span>
+    <span class="n">honor</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span><span class="n">description</span><span class="o">=</span><span class="s2">"人物荣誉列表"</span><span class="p">)</span>
+
+
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">example_structured_output</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""结构化输出示例"""</span>
+    <span class="n">res</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="p">(</span>
+        <span class="n">Msg</span><span class="p">(</span>
+            <span class="s2">"user"</span><span class="p">,</span>
+            <span class="s2">"介绍爱因斯坦"</span><span class="p">,</span>
+            <span class="s2">"user"</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="n">structured_model</span><span class="o">=</span><span class="n">Model</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">结构化输出："</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">res</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">ensure_ascii</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+
+
+<span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">example_structured_output</span><span class="p">())</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Jarvis: 阿尔伯特·爱因斯坦（Albert Einstein）是一位理论物理学家，最出名的是他提出的相对论，并因此获得了1921年的诺贝尔物理学奖。
+
+结构化输出：
+{
+    "name": "Albert Einstein",
+    "description": "著名的理论物理学家，相对论的创始人。",
+    "age": 76,
+    "honor": [
+        "1921年诺贝尔物理学奖",
+        "Copley 奖章 (1925)",
+        "Max Planck奖章 (1929)"
+    ]
+}
+</pre></div>
+</div>
+</section>
+</section>
+<section id="id5">
+<h2>自定义智能体<a class="headerlink" href="#id5" title="Link to this heading">¶</a></h2>
+<p>AgentScope 提供了两个基类：<code class="docutils literal notranslate"><span class="pre">AgentBase</span></code> 和 <code class="docutils literal notranslate"><span class="pre">ReActAgentBase</span></code>，它们在抽象方法和支持的钩子函数方面有所不同。
+具体来说，<code class="docutils literal notranslate"><span class="pre">ReActAgentBase</span></code> 扩展了 <code class="docutils literal notranslate"><span class="pre">AgentBase</span></code>，增加了额外的 <code class="docutils literal notranslate"><span class="pre">_reasoning</span></code> 和 <code class="docutils literal notranslate"><span class="pre">_acting</span></code> 抽象方法，以及它们的前置和后置钩子函数。</p>
+<p>开发者可以根据需要选择继承这两个基类中的任一个。
+我们总结了 <code class="docutils literal notranslate"><span class="pre">agentscope.agent</span></code> 模块下的智能体如下：</p>
+<div class="table-wrapper docutils container" id="id9">
+<table class="docutils align-default" id="id9">
+<caption><span class="caption-text">AgentScope 中的智能体类</span><a class="headerlink" href="#id9" title="Link to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>类</p></th>
+<th class="head"><p>抽象方法</p></th>
+<th class="head"><p>支持的钩子函数</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">AgentBase</span></code></p></td>
+<td><div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">reply</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">observe</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">print</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">handle_interrupt</span></code></div>
+</div>
+</td>
+<td><div class="line-block">
+<div class="line">pre_/post_reply</div>
+<div class="line">pre_/post_observe</div>
+<div class="line">pre_/post_print</div>
+</div>
+</td>
+<td><p>所有智能体的基类，提供基本接口和钩子。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ReActAgentBase</span></code></p></td>
+<td><div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">reply</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">observe</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">print</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">handle_interrupt</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">_reasoning</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">_acting</span></code></div>
+</div>
+</td>
+<td><div class="line-block">
+<div class="line">pre_/post_reply</div>
+<div class="line">pre_/post_observe</div>
+<div class="line">pre_/post_print</div>
+<div class="line">pre_/post_reasoning</div>
+<div class="line">pre_/post_acting</div>
+</div>
+</td>
+<td><p>ReAct 类智能体的抽象类，扩展了 <code class="docutils literal notranslate"><span class="pre">AgentBase</span></code>，增加了 <code class="docutils literal notranslate"><span class="pre">_reasoning</span></code> 和 <code class="docutils literal notranslate"><span class="pre">_acting</span></code> 抽象方法及其钩子。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ReActAgent</span></code></p></td>
+<td><p>-</p></td>
+<td><div class="line-block">
+<div class="line">pre_/post_reply</div>
+<div class="line">pre_/post_observe</div>
+<div class="line">pre_/post_print</div>
+<div class="line">pre_/post_reasoning</div>
+<div class="line">pre_/post_acting</div>
+</div>
+</td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ReActAgentBase</span></code> 的实现</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">UserAgent</span></code></p></td>
+<td></td>
+<td></td>
+<td><p>代表用户的特殊智能体，用于与智能体交互</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="id6">
+<h2>进一步阅读<a class="headerlink" href="#id6" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="task_tool.html#tool"><span class="std std-ref">工具</span></a></p></li>
+<li><p><a class="reference internal" href="task_hook.html#hook"><span class="std std-ref">智能体钩子函数</span></a></p></li>
+</ul>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 20.413 seconds)</p>
+<div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-tutorial-task-agent-py">
+<div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/7dec07e2c813e72e1dad091b3ac4913a/task_agent.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">task_agent.ipynb</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-python docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/d8d1fedea1b8b09d6fb03b04f16ebeb6/task_agent.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">task_agent.py</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-zip docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/0e5d1b2dc3c7795b4fee0ed467ff7b1f/task_agent.zip"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">zipped:</span> <span class="pre">task_agent.zip</span></code></a></p>
+</div>
+</div>
+<p class="sphx-glr-signature"><a class="reference external" href="https://sphinx-gallery.github.io">Gallery generated by Sphinx-Gallery</a></p>
+</section>
+</section>
+
+        

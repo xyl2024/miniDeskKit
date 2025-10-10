@@ -1,0 +1,650 @@
+<!-- Title: agentscope.rag - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/api/agentscope.rag.html -->
+
+          <section id="module-agentscope.rag">
+<span id="agentscope-rag"></span><h1>agentscope.rag<a class="headerlink" href="#module-agentscope.rag" title="Link to this heading">¶</a></h1>
+<p>The retrieval-augmented generation (RAG) module in AgentScope.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.rag.ReaderBase">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ReaderBase</span></span><a class="reference internal" href="../_modules/agentscope/rag/_reader/_reader_base.html#ReaderBase"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.rag.ReaderBase" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>The reader base class, which is responsible for reading the original
+data, splitting it into chunks, and converting each chunk into a <cite>Document</cite>
+object.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.rag.ReaderBase.__call__">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/rag/_reader/_reader_base.html#ReaderBase.__call__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.rag.ReaderBase.__call__" title="Link to this definition">¶</a></dt>
+<dd><p>The async call function that takes the input files and returns the
+vector records</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>args</strong> (<em>Any</em>)</p></li>
+<li><p><strong>kwargs</strong> (<em>Any</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>list[<a class="reference internal" href="#agentscope.rag.Document" title="agentscope.rag._document.Document"><em>Document</em></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.rag.ReaderBase.get_doc_id">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_doc_id</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/rag/_reader/_reader_base.html#ReaderBase.get_doc_id"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.rag.ReaderBase.get_doc_id" title="Link to this definition">¶</a></dt>
+<dd><p>Get a unique document ID for the input data. This method is to
+expose the document ID generation logic to the developers</p>
+<dl class="field-list simple">
+<dt class="field-odd">返回<span class="colon">:</span></dt>
+<dd class="field-odd"><p>A unique document ID for the input data.</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p><cite>str</cite></p>
+</dd>
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>args</strong> (<em>Any</em>)</p></li>
+<li><p><strong>kwargs</strong> (<em>Any</em>)</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.rag.TextReader">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">TextReader</span></span><a class="reference internal" href="../_modules/agentscope/rag/_reader/_text_reader.html#TextReader"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.rag.TextReader" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<a class="reference internal" href="#agentscope.rag.ReaderBase" title="agentscope.rag._reader._reader_base.ReaderBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">ReaderBase</span></code></a></p>
+<p>The text reader that splits text into chunks by a fixed chunk size
+and chunk overlap.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.rag.TextReader.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">chunk_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">512</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">split_by</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'sentence'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/rag/_reader/_text_reader.html#TextReader.__init__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.rag.TextReader.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize the text reader.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>chunk_size</strong> (<cite>int</cite>, default to 512) -- The size of each chunk, in number of characters.</p></li>
+<li><p><strong>split_by</strong> (<cite>Literal["char", "paragraph"]</cite>, default to             "sentence") -- The unit to split the text, can be "char", "sentence", or
+"paragraph". Note that "sentence" is implemented by "nltk"
+library, which only supports English text.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.rag.TextReader.__call__">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/rag/_reader/_text_reader.html#TextReader.__call__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.rag.TextReader.__call__" title="Link to this definition">¶</a></dt>
+<dd><p>Read a text string, split it into chunks, and return a list of
+Document objects.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>text</strong> (<cite>str</cite>) -- The input text string, or a path to the local text file.</p>
+</dd>
+<dt class="field-even">返回<span class="colon">:</span></dt>
+<dd class="field-even"><p>A list of Document objects, where the metadata contains the
+chunked text, doc id and chunk id.</p>
+</dd>
+<dt class="field-odd">返回类型<span class="colon">:</span></dt>
+<dd class="field-odd"><p><cite>list[Document]</cite></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.rag.TextReader.get_doc_id">
+<span class="sig-name descname"><span class="pre">get_doc_id</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">text</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/rag/_reader/_text_reader.html#TextReader.get_doc_id"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.rag.TextReader.get_doc_id" title="Link to this definition">¶</a></dt>
+<dd><p>Get the document ID. This function can be used to check if the
+doc_id already exists in the knowledge base.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>text</strong> (<em>str</em>)</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.rag.PDFReader">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">PDFReader</span></span><a class="reference internal" href="../_modules/agentscope/rag/_reader/_pdf_reader.html#PDFReader"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.rag.PDFReader" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<a class="reference internal" href="#agentscope.rag.ReaderBase" title="agentscope.rag._reader._reader_base.ReaderBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">ReaderBase</span></code></a></p>
+<p>The PDF reader that splits text into chunks by a fixed chunk size.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.rag.PDFReader.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">chunk_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">512</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">split_by</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'sentence'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/rag/_reader/_pdf_reader.html#PDFReader.__init__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.rag.PDFReader.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize the text reader.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>chunk_size</strong> (<cite>int</cite>, default to 512) -- The size of each chunk, in number of characters.</p></li>
+<li><p><strong>split_by</strong> (<cite>Literal["char", "sentence", "paragraph"]</cite>, default to             "sentence") -- The unit to split the text, can be "char", "sentence", or
+"paragraph". The "sentence" option is implemented using the
+"nltk" library, which only supports English text.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.rag.PDFReader.__call__">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pdf_path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/rag/_reader/_pdf_reader.html#PDFReader.__call__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.rag.PDFReader.__call__" title="Link to this definition">¶</a></dt>
+<dd><p>Read a PDF file, split it into chunks, and return a list of
+Document objects.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>pdf_path</strong> (<cite>str</cite>) -- The input PDF file path.</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>list[<a class="reference internal" href="#agentscope.rag.Document" title="agentscope.rag._document.Document"><em>Document</em></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.rag.PDFReader.get_doc_id">
+<span class="sig-name descname"><span class="pre">get_doc_id</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pdf_path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/rag/_reader/_pdf_reader.html#PDFReader.get_doc_id"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.rag.PDFReader.get_doc_id" title="Link to this definition">¶</a></dt>
+<dd><p>Get the document ID. This function can be used to check if the
+doc_id already exists in the knowledge base.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>pdf_path</strong> (<em>str</em>)</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.rag.ImageReader">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ImageReader</span></span><a class="reference internal" href="../_modules/agentscope/rag/_reader/_image_reader.html#ImageReader"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.rag.ImageReader" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<a class="reference internal" href="#agentscope.rag.ReaderBase" title="agentscope.rag._reader._reader_base.ReaderBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">ReaderBase</span></code></a></p>
+<p>A simple image reader that wraps the image into a Document object.</p>
+<p>This class is only a simple implementation to support multimodal RAG.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.rag.ImageReader.__call__">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image_url</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/rag/_reader/_image_reader.html#ImageReader.__call__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.rag.ImageReader.__call__" title="Link to this definition">¶</a></dt>
+<dd><p>Read an image and return the wrapped Document object.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>image_url</strong> (<cite>str | list[str]</cite>) -- The image URL(s) or path(s).</p>
+</dd>
+<dt class="field-even">返回<span class="colon">:</span></dt>
+<dd class="field-even"><p>A list of Document objects containing the image data.</p>
+</dd>
+<dt class="field-odd">返回类型<span class="colon">:</span></dt>
+<dd class="field-odd"><p><cite>list[Document]</cite></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.rag.ImageReader.get_doc_id">
+<span class="sig-name descname"><span class="pre">get_doc_id</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">image_path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/rag/_reader/_image_reader.html#ImageReader.get_doc_id"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.rag.ImageReader.get_doc_id" title="Link to this definition">¶</a></dt>
+<dd><p>Generate a document ID based on the image path.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>image_path</strong> (<cite>str</cite>) -- The image path or URL.</p>
+</dd>
+<dt class="field-even">返回<span class="colon">:</span></dt>
+<dd class="field-even"><p>The generated document ID.</p>
+</dd>
+<dt class="field-odd">返回类型<span class="colon">:</span></dt>
+<dd class="field-odd"><p><cite>str</cite></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.rag.DocMetadata">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">DocMetadata</span></span><a class="reference internal" href="../_modules/agentscope/rag/_document.html#DocMetadata"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.rag.DocMetadata" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<code class="xref py py-class docutils literal notranslate"><span class="pre">DictMixin</span></code></p>
+<p>The metadata of the document.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.rag.DocMetadata.content">
+<span class="sig-name descname"><span class="pre">content</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="agentscope.message.html#agentscope.message.TextBlock" title="agentscope.message._message_block.TextBlock"><span class="pre">TextBlock</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="agentscope.message.html#agentscope.message.ImageBlock" title="agentscope.message._message_block.ImageBlock"><span class="pre">ImageBlock</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="agentscope.message.html#agentscope.message.VideoBlock" title="agentscope.message._message_block.VideoBlock"><span class="pre">VideoBlock</span></a></em><a class="headerlink" href="#agentscope.rag.DocMetadata.content" title="Link to this definition">¶</a></dt>
+<dd><p>The data content, e.g., text, image, video.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.rag.DocMetadata.doc_id">
+<span class="sig-name descname"><span class="pre">doc_id</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#agentscope.rag.DocMetadata.doc_id" title="Link to this definition">¶</a></dt>
+<dd><p>The document ID.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.rag.DocMetadata.chunk_id">
+<span class="sig-name descname"><span class="pre">chunk_id</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><a class="headerlink" href="#agentscope.rag.DocMetadata.chunk_id" title="Link to this definition">¶</a></dt>
+<dd><p>The chunk ID.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.rag.DocMetadata.total_chunks">
+<span class="sig-name descname"><span class="pre">total_chunks</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">int</span></em><a class="headerlink" href="#agentscope.rag.DocMetadata.total_chunks" title="Link to this definition">¶</a></dt>
+<dd><p>The total number of chunks.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.rag.DocMetadata.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">content</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">doc_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunk_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">total_chunks</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#agentscope.rag.DocMetadata.__init__" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>content</strong> (<a class="reference internal" href="agentscope.message.html#agentscope.message.TextBlock" title="agentscope.message._message_block.TextBlock"><em>TextBlock</em></a><em> | </em><a class="reference internal" href="agentscope.message.html#agentscope.message.ImageBlock" title="agentscope.message._message_block.ImageBlock"><em>ImageBlock</em></a><em> | </em><a class="reference internal" href="agentscope.message.html#agentscope.message.VideoBlock" title="agentscope.message._message_block.VideoBlock"><em>VideoBlock</em></a>)</p></li>
+<li><p><strong>doc_id</strong> (<em>str</em>)</p></li>
+<li><p><strong>chunk_id</strong> (<em>int</em>)</p></li>
+<li><p><strong>total_chunks</strong> (<em>int</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.rag.Document">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Document</span></span><a class="reference internal" href="../_modules/agentscope/rag/_document.html#Document"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.rag.Document" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>The data chunk.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.rag.Document.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">metadata</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">id=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">embedding=&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">score=None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#agentscope.rag.Document.__init__" title="Link to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>metadata</strong> (<a class="reference internal" href="#agentscope.rag.DocMetadata" title="agentscope.rag._document.DocMetadata"><em>DocMetadata</em></a>)</p></li>
+<li><p><strong>id</strong> (<em>str</em>)</p></li>
+<li><p><strong>embedding</strong> (<em>List</em><em>[</em><em>float</em><em>] </em><em>| </em><em>None</em>)</p></li>
+<li><p><strong>score</strong> (<em>float</em><em> | </em><em>None</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.rag.Document.metadata">
+<span class="sig-name descname"><span class="pre">metadata</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#agentscope.rag.DocMetadata" title="agentscope.rag._document.DocMetadata"><span class="pre">DocMetadata</span></a></em><a class="headerlink" href="#agentscope.rag.Document.metadata" title="Link to this definition">¶</a></dt>
+<dd><p>The metadata of the data chunk.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.rag.Document.id">
+<span class="sig-name descname"><span class="pre">id</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#agentscope.rag.Document.id" title="Link to this definition">¶</a></dt>
+<dd><p>The unique ID of the data chunk.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.rag.Document.embedding">
+<span class="sig-name descname"><span class="pre">embedding</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#agentscope.rag.Document.embedding" title="Link to this definition">¶</a></dt>
+<dd><p>The embedding of the data chunk.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.rag.Document.score">
+<span class="sig-name descname"><span class="pre">score</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></em><a class="headerlink" href="#agentscope.rag.Document.score" title="Link to this definition">¶</a></dt>
+<dd><p>The relevance score of the data chunk.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.rag.VDBStoreBase">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">VDBStoreBase</span></span><a class="reference internal" href="../_modules/agentscope/rag/_store/_store_base.html#VDBStoreBase"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.rag.VDBStoreBase" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>The vector database store base class, serving as a middle layer between
+the knowledge base and the actual vector database implementation.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.rag.VDBStoreBase.add">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">documents</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/rag/_store/_store_base.html#VDBStoreBase.add"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.rag.VDBStoreBase.add" title="Link to this definition">¶</a></dt>
+<dd><p>Record the documents into the vector database.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>documents</strong> (<em>list</em><em>[</em><a class="reference internal" href="#agentscope.rag.Document" title="agentscope.rag._document.Document"><em>Document</em></a><em>]</em>)</p></li>
+<li><p><strong>kwargs</strong> (<em>Any</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.rag.VDBStoreBase.delete">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">delete</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/rag/_store/_store_base.html#VDBStoreBase.delete"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.rag.VDBStoreBase.delete" title="Link to this definition">¶</a></dt>
+<dd><p>Delete texts from the embedding store.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>args</strong> (<em>Any</em>)</p></li>
+<li><p><strong>kwargs</strong> (<em>Any</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.rag.VDBStoreBase.search">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">search</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">query_embedding</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limit</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">score_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/rag/_store/_store_base.html#VDBStoreBase.search"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.rag.VDBStoreBase.search" title="Link to this definition">¶</a></dt>
+<dd><p>Retrieve relevant texts for the given queries.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>query_embedding</strong> (<cite>Embedding</cite>) -- The embedding of the query text.</p></li>
+<li><p><strong>limit</strong> (<cite>int</cite>) -- The number of relevant documents to retrieve.</p></li>
+<li><p><strong>score_threshold</strong> (<cite>float | None</cite>, optional) -- The threshold of the score to filter the results.</p></li>
+<li><p><strong>**kwargs</strong> (<cite>Any</cite>) -- Other keyword arguments for the vector database search API.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>list[<a class="reference internal" href="#agentscope.rag.Document" title="agentscope.rag._document.Document"><em>Document</em></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.rag.VDBStoreBase.get_client">
+<span class="sig-name descname"><span class="pre">get_client</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/rag/_store/_store_base.html#VDBStoreBase.get_client"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.rag.VDBStoreBase.get_client" title="Link to this definition">¶</a></dt>
+<dd><p>Get the underlying vector database client, so that developers can
+access the full functionality of the vector database.</p>
+<dl class="field-list simple">
+<dt class="field-odd">返回类型<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>Any</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.rag.QdrantStore">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">QdrantStore</span></span><a class="reference internal" href="../_modules/agentscope/rag/_store/_qdrant_store.html#QdrantStore"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.rag.QdrantStore" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<a class="reference internal" href="#agentscope.rag.VDBStoreBase" title="agentscope.rag._store._store_base.VDBStoreBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">VDBStoreBase</span></code></a></p>
+<p>The Qdrant vector store implementation, supporting both local and
+remote Qdrant instances.</p>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>In Qdrant, we use the <code class="docutils literal notranslate"><span class="pre">payload</span></code> field to store the metadata,</p>
+</div>
+<p>including the document ID, chunk ID, and original content.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.rag.QdrantStore.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">location</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">collection_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dimensions</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">distance</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Cosine'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">client_kwargs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">collection_kwargs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/rag/_store/_qdrant_store.html#QdrantStore.__init__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.rag.QdrantStore.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize the local Qdrant vector store.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>(</strong><strong>`Literal</strong><strong>[</strong><strong>"</strong> (<em>location</em>) -- </p><p>memory:"] | str`):
+The location of the Qdrant instance. Use ":memory:" for
+in-memory Qdrant instance, or url for remote Qdrant instance,
+e.g. "<a class="reference external" href="http://localhost:6333">http://localhost:6333</a>" or a path to a directory.</p>
+<p></p></li>
+<li><p><strong>collection_name</strong> (<cite>str</cite>) -- The name of the collection to store the embeddings.</p></li>
+<li><p><strong>dimensions</strong> (<cite>int</cite>) -- The dimension of the embeddings.</p></li>
+<li><p><strong>distance</strong> (<cite>Literal["Cosine", "Euclid", "Dot", "Manhattan"]</cite>,             default to "Cosine") -- The distance metric to use for the collection. Can be one of
+"Cosine", "Euclid", "Dot", or "Manhattan". Defaults to
+"Cosine".</p></li>
+<li><p><strong>client_kwargs</strong> (<cite>dict[str, Any] | None</cite>, optional) -- Other keyword arguments for the Qdrant client.</p></li>
+<li><p><strong>collection_kwargs</strong> (<cite>dict[str, Any] | None</cite>, optional) -- Other keyword arguments for creating the collection.</p></li>
+<li><p><strong>location</strong> (<em>Literal</em><em>[</em><em>':memory:'</em><em>] </em><em>| </em><em>str</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.rag.QdrantStore.add">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">documents</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/rag/_store/_qdrant_store.html#QdrantStore.add"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.rag.QdrantStore.add" title="Link to this definition">¶</a></dt>
+<dd><p>Add embeddings to the Qdrant vector store.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>documents</strong> (<cite>list[Document]</cite>) -- A list of embedding records to be recorded in the Qdrant store.</p></li>
+<li><p><strong>kwargs</strong> (<em>Any</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.rag.QdrantStore.search">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">search</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">query_embedding</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limit</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">score_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/rag/_store/_qdrant_store.html#QdrantStore.search"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.rag.QdrantStore.search" title="Link to this definition">¶</a></dt>
+<dd><p>Search relevant documents from the Qdrant vector store.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>query_embedding</strong> (<cite>Embedding</cite>) -- The embedding of the query text.</p></li>
+<li><p><strong>limit</strong> (<cite>int</cite>) -- The number of relevant documents to retrieve.</p></li>
+<li><p><strong>score_threshold</strong> (<cite>float | None</cite>, optional) -- The threshold of the score to filter the results.</p></li>
+<li><p><strong>**kwargs</strong> (<cite>Any</cite>) -- Other keyword arguments for the Qdrant client search API.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>list[<a class="reference internal" href="#agentscope.rag.Document" title="agentscope.rag._document.Document"><em>Document</em></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.rag.QdrantStore.delete">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">delete</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/rag/_store/_qdrant_store.html#QdrantStore.delete"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.rag.QdrantStore.delete" title="Link to this definition">¶</a></dt>
+<dd><p>Delete is not implemented for QdrantStore.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>args</strong> (<em>Any</em>)</p></li>
+<li><p><strong>kwargs</strong> (<em>Any</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.rag.QdrantStore.get_client">
+<span class="sig-name descname"><span class="pre">get_client</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/rag/_store/_qdrant_store.html#QdrantStore.get_client"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.rag.QdrantStore.get_client" title="Link to this definition">¶</a></dt>
+<dd><p>Get the underlying Qdrant client, so that developers can access
+the full functionality of Qdrant.</p>
+<dl class="field-list simple">
+<dt class="field-odd">返回<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The underlying Qdrant client.</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p><cite>AsyncQdrantClient</cite></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.rag.KnowledgeBase">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">KnowledgeBase</span></span><a class="reference internal" href="../_modules/agentscope/rag/_knowledge_base.html#KnowledgeBase"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.rag.KnowledgeBase" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>The knowledge base abstraction for retrieval-augmented generation
+(RAG).</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">retrieve</span></code> and <code class="docutils literal notranslate"><span class="pre">add_documents</span></code> methods need to be implemented
+in the subclasses. We also provide a quick method <code class="docutils literal notranslate"><span class="pre">retrieve_knowledge</span></code>
+that enables the agent to retrieve knowledge easily.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.rag.KnowledgeBase.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">embedding_store</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">embedding_model</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/rag/_knowledge_base.html#KnowledgeBase.__init__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.rag.KnowledgeBase.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize the knowledge base.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>embedding_store</strong> (<a class="reference internal" href="#agentscope.rag.VDBStoreBase" title="agentscope.rag._store._store_base.VDBStoreBase"><em>VDBStoreBase</em></a>)</p></li>
+<li><p><strong>embedding_model</strong> (<a class="reference internal" href="agentscope.embedding.html#agentscope.embedding.EmbeddingModelBase" title="agentscope.embedding._embedding_base.EmbeddingModelBase"><em>EmbeddingModelBase</em></a>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.rag.KnowledgeBase.embedding_store">
+<span class="sig-name descname"><span class="pre">embedding_store</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#agentscope.rag.VDBStoreBase" title="agentscope.rag._store._store_base.VDBStoreBase"><span class="pre">VDBStoreBase</span></a></em><a class="headerlink" href="#agentscope.rag.KnowledgeBase.embedding_store" title="Link to this definition">¶</a></dt>
+<dd><p>The embedding store for the knowledge base.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.rag.KnowledgeBase.embedding_model">
+<span class="sig-name descname"><span class="pre">embedding_model</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="agentscope.embedding.html#agentscope.embedding.EmbeddingModelBase" title="agentscope.embedding._embedding_base.EmbeddingModelBase"><span class="pre">EmbeddingModelBase</span></a></em><a class="headerlink" href="#agentscope.rag.KnowledgeBase.embedding_model" title="Link to this definition">¶</a></dt>
+<dd><p>The embedding model for the knowledge base.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.rag.KnowledgeBase.retrieve">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">retrieve</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">query</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">score_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/rag/_knowledge_base.html#KnowledgeBase.retrieve"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.rag.KnowledgeBase.retrieve" title="Link to this definition">¶</a></dt>
+<dd><p>Retrieve relevant documents by the given query.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>query</strong> (<cite>str</cite>) -- The query string to retrieve relevant documents.</p></li>
+<li><p><strong>limit</strong> (<cite>int</cite>, defaults to 5) -- The number of relevant documents to retrieve.</p></li>
+<li><p><strong>score_threshold</strong> (<cite>float | None</cite>, defaults to <cite>None</cite>) -- The score threshold to filter the retrieved documents. If
+provided, only documents with a score higher than the
+threshold will be returned.</p></li>
+<li><p><strong>**kwargs</strong> (<cite>Any</cite>) -- Other keyword arguments for the vector database search API.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>list[<a class="reference internal" href="#agentscope.rag.Document" title="agentscope.rag._document.Document"><em>Document</em></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.rag.KnowledgeBase.add_documents">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">add_documents</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">documents</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/rag/_knowledge_base.html#KnowledgeBase.add_documents"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.rag.KnowledgeBase.add_documents" title="Link to this definition">¶</a></dt>
+<dd><p>Add documents to the knowledge base, which will embed the documents
+and store them in the embedding store.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>documents</strong> (<cite>list[Document]</cite>) -- A list of documents to add.</p></li>
+<li><p><strong>kwargs</strong> (<em>Any</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.rag.KnowledgeBase.retrieve_knowledge">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">retrieve_knowledge</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">query</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">score_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/rag/_knowledge_base.html#KnowledgeBase.retrieve_knowledge"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.rag.KnowledgeBase.retrieve_knowledge" title="Link to this definition">¶</a></dt>
+<dd><p>Retrieve relevant documents from the knowledge base. Note the
+<cite>query</cite> parameter is directly related to the retrieval quality, and
+for the same question, you can try many different queries to get the
+best results. Adjust the <cite>limit</cite> and <cite>score_threshold</cite> parameters
+to get more or fewer results.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>query</strong> (<cite>str</cite>) -- The query string, which should be specific and concise. For
+example, you should provide the specific name instead of
+"you", "my", "he", "she", etc.</p></li>
+<li><p><strong>limit</strong> (<cite>int</cite>, defaults to 3) -- The number of relevant documents to retrieve.</p></li>
+<li><p><strong>score_threshold</strong> (<cite>float</cite>, defaults to 0.8) -- A threshold in [0, 1] and only the relevance score above this
+threshold will be returned. Reduce this value to get more
+results.</p></li>
+<li><p><strong>kwargs</strong> (<em>Any</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="agentscope.tool.html#agentscope.tool.ToolResponse" title="agentscope.tool._response.ToolResponse"><em>ToolResponse</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.rag.SimpleKnowledge">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">SimpleKnowledge</span></span><a class="reference internal" href="../_modules/agentscope/rag/_simple_knowledge.html#SimpleKnowledge"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.rag.SimpleKnowledge" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<a class="reference internal" href="#agentscope.rag.KnowledgeBase" title="agentscope.rag._knowledge_base.KnowledgeBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">KnowledgeBase</span></code></a></p>
+<p>A simple knowledge base implementation.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.rag.SimpleKnowledge.retrieve">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">retrieve</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">query</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">limit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">score_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/rag/_simple_knowledge.html#SimpleKnowledge.retrieve"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.rag.SimpleKnowledge.retrieve" title="Link to this definition">¶</a></dt>
+<dd><p>Retrieve relevant documents by the given queries.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>query</strong> (<cite>str</cite>) -- The query string to retrieve relevant documents.</p></li>
+<li><p><strong>limit</strong> (<cite>int</cite>, defaults to 5) -- The number of relevant documents to retrieve.</p></li>
+<li><p><strong>score_threshold</strong> (<em>float</em><em> | </em><em>None</em>) -- float | None = None,
+The threshold of the score to filter the results.</p></li>
+<li><p><strong>**kwargs</strong> (<em>Any</em>) -- Other keyword arguments for the vector database search API.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回<span class="colon">:</span></dt>
+<dd class="field-even"><p>A list of relevant documents.</p>
+</dd>
+<dt class="field-odd">返回类型<span class="colon">:</span></dt>
+<dd class="field-odd"><p><cite>list[Document]</cite></p>
+</dd>
+</dl>
+<p>TODO: handle the case when the query is too long.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.rag.SimpleKnowledge.add_documents">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">add_documents</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">documents</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/rag/_simple_knowledge.html#SimpleKnowledge.add_documents"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.rag.SimpleKnowledge.add_documents" title="Link to this definition">¶</a></dt>
+<dd><p>Add documents to the knowledge</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>documents</strong> (<cite>list[Document]</cite>) -- The list of documents to add.</p></li>
+<li><p><strong>kwargs</strong> (<em>Any</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+        

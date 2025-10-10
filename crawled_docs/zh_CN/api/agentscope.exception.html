@@ -1,0 +1,50 @@
+<!-- Title: agentscope.exception - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/api/agentscope.exception.html -->
+
+          <section id="module-agentscope.exception">
+<span id="agentscope-exception"></span><h1>agentscope.exception<a class="headerlink" href="#module-agentscope.exception" title="Link to this heading">¶</a></h1>
+<p>The exception module in agentscope.</p>
+<dl class="py exception">
+<dt class="sig sig-object py" id="agentscope.exception.AgentOrientedExceptionBase">
+<em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">AgentOrientedExceptionBase</span></span><a class="reference internal" href="../_modules/agentscope/exception/_exception_base.html#AgentOrientedExceptionBase"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.exception.AgentOrientedExceptionBase" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></p>
+<p>The base class for all agent-oriented exceptions. These exceptions are
+expect to the captured and exposed to the agent during runtime, so that
+agents can handle the error appropriately during the runtime.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.exception.AgentOrientedExceptionBase.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/exception/_exception_base.html#AgentOrientedExceptionBase.__init__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.exception.AgentOrientedExceptionBase.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize the exception with a message.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>message</strong> (<em>str</em>)</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py exception">
+<dt class="sig sig-object py" id="agentscope.exception.ToolInterruptedError">
+<em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ToolInterruptedError</span></span><a class="reference internal" href="../_modules/agentscope/exception/_tool.html#ToolInterruptedError"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.exception.ToolInterruptedError" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<a class="reference internal" href="#agentscope.exception.AgentOrientedExceptionBase" title="agentscope.exception._exception_base.AgentOrientedExceptionBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">AgentOrientedExceptionBase</span></code></a></p>
+<p>Exception raised when a tool calling was interrupted by the user.</p>
+</dd></dl>
+
+<dl class="py exception">
+<dt class="sig sig-object py" id="agentscope.exception.ToolNotFoundError">
+<em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ToolNotFoundError</span></span><a class="reference internal" href="../_modules/agentscope/exception/_tool.html#ToolNotFoundError"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.exception.ToolNotFoundError" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<a class="reference internal" href="#agentscope.exception.AgentOrientedExceptionBase" title="agentscope.exception._exception_base.AgentOrientedExceptionBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">AgentOrientedExceptionBase</span></code></a></p>
+<p>Exception raised when a tool was not found.</p>
+</dd></dl>
+
+<dl class="py exception">
+<dt class="sig sig-object py" id="agentscope.exception.ToolInvalidArgumentsError">
+<em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ToolInvalidArgumentsError</span></span><a class="reference internal" href="../_modules/agentscope/exception/_tool.html#ToolInvalidArgumentsError"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.exception.ToolInvalidArgumentsError" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<a class="reference internal" href="#agentscope.exception.AgentOrientedExceptionBase" title="agentscope.exception._exception_base.AgentOrientedExceptionBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">AgentOrientedExceptionBase</span></code></a></p>
+<p>Exception raised when the arguments passed to a tool are invalid.</p>
+</dd></dl>
+
+</section>
+
+        

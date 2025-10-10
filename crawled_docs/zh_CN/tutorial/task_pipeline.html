@@ -1,0 +1,303 @@
+<!-- Title: 管道 (Pipeline) - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/tutorial/task_pipeline.html -->
+
+          <div class="sphx-glr-download-link-note admonition note">
+<p class="admonition-title">备注</p>
+<p><a class="reference internal" href="#sphx-glr-download-tutorial-task-pipeline-py"><span class="std std-ref">Go to the end</span></a>
+to download the full example code.</p>
+</div>
+<section class="sphx-glr-example-title" id="pipeline">
+<span id="sphx-glr-tutorial-task-pipeline-py"></span><span id="id1"></span><h1>管道 (Pipeline)<a class="headerlink" href="#pipeline" title="Link to this heading">¶</a></h1>
+<p>对于多智能体编排，AgentScope 提供了 <code class="docutils literal notranslate"><span class="pre">agentscope.pipeline</span></code> 模块
+作为将智能体链接在一起的语法糖，具体包括</p>
+<ul class="simple">
+<li><p><strong>MsgHub</strong>: 用于多个智能体之间消息的广播</p></li>
+<li><p><strong>sequential_pipeline</strong> 和 <strong>SequentialPipeline</strong>: 以顺序方式执行多个智能体的函数式和类式实现</p></li>
+<li><p><strong>fanout_pipeline</strong> 和 <strong>FanoutPipeline</strong>: 将相同输入分发给多个智能体的函数式和类式实现</p></li>
+<li><p><strong>stream_printing_messages</strong>: 将智能体在回复过程中，调用 <code class="docutils literal notranslate"><span class="pre">self.print</span></code> 打印的消息转换为一个异步生成器</p></li>
+</ul>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span><span class="o">,</span><span class="w"> </span><span class="nn">asyncio</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.formatter</span><span class="w"> </span><span class="kn">import</span> <span class="n">DashScopeMultiAgentFormatter</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.message</span><span class="w"> </span><span class="kn">import</span> <span class="n">Msg</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.model</span><span class="w"> </span><span class="kn">import</span> <span class="n">DashScopeChatModel</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.agent</span><span class="w"> </span><span class="kn">import</span> <span class="n">ReActAgent</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">MsgHub</span><span class="p">,</span> <span class="n">stream_printing_messages</span>
+</pre></div>
+</div>
+<section id="msghub">
+<h2>使用 MsgHub 进行广播<a class="headerlink" href="#msghub" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">MsgHub</span></code> 类是一个 <strong>异步上下文管理器</strong>，它接收一个智能体列表作为其参与者。
+当一个参与者生成回复消息时，将通过调用所有其他参与者的 <code class="docutils literal notranslate"><span class="pre">observe</span></code> 方法广播该消息。
+这意味着在 <code class="docutils literal notranslate"><span class="pre">MsgHub</span></code> 上下文中，开发者无需手动将回复消息从一个智能体发送到另一个智能体。</p>
+<p>这里我们创建四个智能体：Alice、Bob、Charlie 和 David。
+然后我们让 Alice、Bob 和 Charlie 通过自我介绍开始一个会议。需要注意的是 David 没有包含在这个会议中。</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">create_agent</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">age</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">career</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ReActAgent</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""根据给定信息创建智能体对象。"""</span>
+    <span class="k">return</span> <span class="n">ReActAgent</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+        <span class="n">sys_prompt</span><span class="o">=</span><span class="sa">f</span><span class="s2">"你是</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">，一个</span><span class="si">{</span><span class="n">age</span><span class="si">}</span><span class="s2">岁的</span><span class="si">{</span><span class="n">career</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+        <span class="n">model</span><span class="o">=</span><span class="n">DashScopeChatModel</span><span class="p">(</span>
+            <span class="n">model_name</span><span class="o">=</span><span class="s2">"qwen-max"</span><span class="p">,</span>
+            <span class="n">api_key</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"DASHSCOPE_API_KEY"</span><span class="p">],</span>
+        <span class="p">),</span>
+        <span class="n">formatter</span><span class="o">=</span><span class="n">DashScopeMultiAgentFormatter</span><span class="p">(),</span>
+    <span class="p">)</span>
+
+
+<span class="n">alice</span> <span class="o">=</span> <span class="n">create_agent</span><span class="p">(</span><span class="s2">"Alice"</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="s2">"老师"</span><span class="p">)</span>
+<span class="n">bob</span> <span class="o">=</span> <span class="n">create_agent</span><span class="p">(</span><span class="s2">"Bob"</span><span class="p">,</span> <span class="mi">35</span><span class="p">,</span> <span class="s2">"工程师"</span><span class="p">)</span>
+<span class="n">charlie</span> <span class="o">=</span> <span class="n">create_agent</span><span class="p">(</span><span class="s2">"Charlie"</span><span class="p">,</span> <span class="mi">28</span><span class="p">,</span> <span class="s2">"设计师"</span><span class="p">)</span>
+<span class="n">david</span> <span class="o">=</span> <span class="n">create_agent</span><span class="p">(</span><span class="s2">"David"</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="s2">"开发者"</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>然后我们创建一个 <code class="docutils literal notranslate"><span class="pre">MsgHub</span></code> 上下文，并让他们自我介绍:</p>
+<div class="admonition hint">
+<p class="admonition-title">提示</p>
+<p><code class="docutils literal notranslate"><span class="pre">announcement</span></code> 中的消息将在进入 <code class="docutils literal notranslate"><span class="pre">MsgHub</span></code> 上下文时广播给所有参与者。</p>
+</div>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">example_broadcast_message</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">"""使用 MsgHub 广播消息的示例。"""</span>
+
+    <span class="c1"># 创建消息中心</span>
+    <span class="k">async</span> <span class="k">with</span> <span class="n">MsgHub</span><span class="p">(</span>
+        <span class="n">participants</span><span class="o">=</span><span class="p">[</span><span class="n">alice</span><span class="p">,</span> <span class="n">bob</span><span class="p">,</span> <span class="n">charlie</span><span class="p">],</span>
+        <span class="n">announcement</span><span class="o">=</span><span class="n">Msg</span><span class="p">(</span>
+            <span class="s2">"user"</span><span class="p">,</span>
+            <span class="s2">"现在请简要介绍一下自己，包括你的姓名、年龄和职业。"</span><span class="p">,</span>
+            <span class="s2">"user"</span><span class="p">,</span>
+        <span class="p">),</span>
+    <span class="p">)</span> <span class="k">as</span> <span class="n">hub</span><span class="p">:</span>
+        <span class="c1"># 无需手动消息传递的群聊</span>
+        <span class="k">await</span> <span class="n">alice</span><span class="p">()</span>
+        <span class="k">await</span> <span class="n">bob</span><span class="p">()</span>
+        <span class="k">await</span> <span class="n">charlie</span><span class="p">()</span>
+
+
+<span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">example_broadcast_message</span><span class="p">())</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Alice: 您好，我叫Alice，今年50岁，是一名教师。很高兴认识您！如果您有任何问题想要了解或讨论，都欢迎随时和我交流。
+Bob: 您好，我叫Bob，今年35岁，是一名工程师。很高兴认识您，Alice！如果有什么技术方面的问题或者需要帮助的地方，请随时告诉我。
+Charlie: 大家好，我叫Charlie，今年28岁，是一名设计师。很高兴认识你们两位！如果你们有任何设计方面的需求或者想要了解一些创意想法，请随时找我聊聊。
+</pre></div>
+</div>
+<p>现在让我们检查 Bob、Charlie 和 David 是否收到了 Alice 的消息。</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">check_broadcast_message</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">"""检查消息是否正确广播。"""</span>
+    <span class="n">user_msg</span> <span class="o">=</span> <span class="n">Msg</span><span class="p">(</span>
+        <span class="s2">"user"</span><span class="p">,</span>
+        <span class="s2">"你知道 Alice 是谁吗，她是做什么的？"</span><span class="p">,</span>
+        <span class="s2">"user"</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="k">await</span> <span class="n">bob</span><span class="p">(</span><span class="n">user_msg</span><span class="p">)</span>
+    <span class="k">await</span> <span class="n">charlie</span><span class="p">(</span><span class="n">user_msg</span><span class="p">)</span>
+    <span class="k">await</span> <span class="n">david</span><span class="p">(</span><span class="n">user_msg</span><span class="p">)</span>
+
+
+<span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">check_broadcast_message</span><span class="p">())</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Bob: Alice是一位50岁的教师。她之前提到过，如果您有任何问题想要了解或讨论，都欢迎随时和她交流。
+Charlie: Alice 是一名教师，今年50岁。如果您对教育或者教学方面有任何问题，她会是一个很好的交流对象。
+David: 你提到的 Alice 可能指很多人，因为这是一个常见的名字。如果你能提供更多的信息，比如她的全名、职业或者她所处的领域，我就能帮助你找到更准确的信息。请问你能给我更多关于这个 Alice 的细节吗？
+</pre></div>
+</div>
+<p>现在我们观察到 Bob 和 Charlie 知道 Alice 和她的职业，而 David 对
+Alice 一无所知，因为他没有包含在 <code class="docutils literal notranslate"><span class="pre">MsgHub</span></code> 上下文中。</p>
+<section id="id2">
+<h3>动态管理<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h3>
+<p>此外，<code class="docutils literal notranslate"><span class="pre">MsgHub</span></code> 支持通过以下方法动态管理参与者：</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">add</span></code>: 添加一个或多个智能体作为新参与者</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">delete</span></code>: 从参与者中移除一个或多个智能体，他们将不再接收广播消息</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">broadcast</span></code>: 向所有当前参与者广播消息</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>新添加的参与者不会接收到之前的消息。</p>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">async</span> <span class="k">with</span> <span class="n">MsgHub</span><span class="p">(</span><span class="n">participants</span><span class="o">=</span><span class="p">[</span><span class="n">alice</span><span class="p">])</span> <span class="k">as</span> <span class="n">hub</span><span class="p">:</span>
+    <span class="c1"># 添加新参与者</span>
+    <span class="n">hub</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">david</span><span class="p">)</span>
+
+    <span class="c1"># 移除参与者</span>
+    <span class="n">hub</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">alice</span><span class="p">)</span>
+
+    <span class="c1"># 向所有当前参与者广播</span>
+    <span class="k">await</span> <span class="n">hub</span><span class="o">.</span><span class="n">broadcast</span><span class="p">(</span>
+        <span class="n">Msg</span><span class="p">(</span><span class="s2">"system"</span><span class="p">,</span> <span class="s2">"现在我们开始..."</span><span class="p">,</span> <span class="s2">"system"</span><span class="p">),</span>
+    <span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="id3">
+<h2>管道<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h2>
+<p>管道是 AgentScope 中多智能体编排的一种语法糖。</p>
+<p>目前，AgentScope 提供三种管道，用于减轻开发者的负担：</p>
+<ol class="arabic simple">
+<li><p><strong>顺序管道 (Sequential Pipeline)</strong>: 按预定义顺序逐个执行智能体</p></li>
+<li><p><strong>扇出管道 (Fanout Pipeline)</strong>: 将相同输入分发给多个智能体并收集它们的响应</p></li>
+<li><p><strong>流式获取打印消息 (stream printing messages)</strong>: 将智能体在回复过程中，调用 <code class="docutils literal notranslate"><span class="pre">self.print</span></code> 打印的消息转换为一个异步生成器</p></li>
+</ol>
+<section id="id4">
+<h3>顺序管道<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h3>
+<p>顺序管道逐个执行智能体，前一个智能体的输出成为下一个智能体的输入。</p>
+<p>例如，以下两个代码片段是等价的：</p>
+<div class="literal-block-wrapper docutils container" id="id8">
+<div class="code-block-caption"><span class="caption-text">代码片段 1: 手动消息传递</span><a class="headerlink" href="#id8" title="Link to this code">¶</a></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">msg</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="n">msg</span> <span class="o">=</span> <span class="k">await</span> <span class="n">alice</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+<span class="n">msg</span> <span class="o">=</span> <span class="k">await</span> <span class="n">bob</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+<span class="n">msg</span> <span class="o">=</span> <span class="k">await</span> <span class="n">charlie</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+<span class="n">msg</span> <span class="o">=</span> <span class="k">await</span> <span class="n">david</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="literal-block-wrapper docutils container" id="id9">
+<div class="code-block-caption"><span class="caption-text">代码片段 2: 使用顺序管道</span><a class="headerlink" href="#id9" title="Link to this code">¶</a></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">sequential_pipeline</span>
+
+<span class="n">msg</span> <span class="o">=</span> <span class="k">await</span> <span class="n">sequential_pipeline</span><span class="p">(</span>
+    <span class="c1"># 按顺序执行的智能体列表</span>
+    <span class="n">agents</span><span class="o">=</span><span class="p">[</span><span class="n">alice</span><span class="p">,</span> <span class="n">bob</span><span class="p">,</span> <span class="n">charlie</span><span class="p">,</span> <span class="n">david</span><span class="p">],</span>
+    <span class="c1"># 第一个输入消息，可以是 None</span>
+    <span class="n">msg</span><span class="o">=</span><span class="kc">None</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</section>
+<section id="id5">
+<h3>扇出管道<a class="headerlink" href="#id5" title="Link to this heading">¶</a></h3>
+<p>扇出管道将相同的输入消息同时分发给多个智能体并收集所有响应。当你想要收集对同一话题的不同观点或专业意见时，这非常有用。</p>
+<p>例如，以下两个代码片段是等价的：</p>
+<div class="literal-block-wrapper docutils container" id="id10">
+<div class="code-block-caption"><span class="caption-text">代码片段 3: 手动逐个调用智能体</span><a class="headerlink" href="#id10" title="Link to this code">¶</a></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">copy</span><span class="w"> </span><span class="kn">import</span> <span class="n">deepcopy</span>
+
+<span class="n">msgs</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="n">msg</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="k">for</span> <span class="n">agent</span> <span class="ow">in</span> <span class="p">[</span><span class="n">alice</span><span class="p">,</span> <span class="n">bob</span><span class="p">,</span> <span class="n">charlie</span><span class="p">,</span> <span class="n">david</span><span class="p">]:</span>
+    <span class="n">msgs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="k">await</span> <span class="n">agent</span><span class="p">(</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">msg</span><span class="p">)))</span>
+</pre></div>
+</div>
+</div>
+<div class="literal-block-wrapper docutils container" id="id11">
+<div class="code-block-caption"><span class="caption-text">代码片段 4: 使用扇出管道</span><a class="headerlink" href="#id11" title="Link to this code">¶</a></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">fanout_pipeline</span>
+
+<span class="n">msgs</span> <span class="o">=</span> <span class="k">await</span> <span class="n">fanout_pipeline</span><span class="p">(</span>
+    <span class="c1"># 要执行的智能体列表</span>
+    <span class="n">agents</span><span class="o">=</span><span class="p">[</span><span class="n">alice</span><span class="p">,</span> <span class="n">bob</span><span class="p">,</span> <span class="n">charlie</span><span class="p">,</span> <span class="n">david</span><span class="p">],</span>
+    <span class="c1"># 输入消息，可以是 None</span>
+    <span class="n">msg</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">enable_gather</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p><code class="docutils literal notranslate"><span class="pre">enable_gather</span></code> 参数控制扇出管道的执行模式：</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">enable_gather=True</span></code> (默认): 使用 <code class="docutils literal notranslate"><span class="pre">asyncio.gather()</span></code> <strong>并发</strong> 执行所有智能体。这为 I/O 密集型操作（如 API 调用）提供更好的性能，因为智能体并行运行。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">enable_gather=False</span></code>: 逐个 <strong>顺序</strong> 执行智能体。当你需要确定性的执行顺序或想要避免并发请求压垮外部服务时，这很有用。</p></li>
+</ul>
+<p>选择并发执行以获得更好的性能，或选择顺序执行以获得可预测的顺序和资源控制。</p>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">小技巧</p>
+<p>通过结合 <code class="docutils literal notranslate"><span class="pre">MsgHub</span></code> 和 <code class="docutils literal notranslate"><span class="pre">sequential_pipeline</span></code> 或 <code class="docutils literal notranslate"><span class="pre">fanout_pipeline</span></code>，你可以非常容易地创建更复杂的工作流。</p>
+</div>
+</section>
+<section id="id6">
+<h3>流式获取打印消息<a class="headerlink" href="#id6" title="Link to this heading">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">stream_printing_messages</span></code> 函数将智能体在回复过程中调用 <code class="docutils literal notranslate"><span class="pre">self.print</span></code> 打印的消息转换为一个异步生成器。
+可以帮助开发者快速以流式方式获取智能体的中间消息。</p>
+<p>该函数接受一个或多个智能体和一个协程任务作为输入，并返回一个异步生成器。
+该异步生成器返回一个二元组，包含执行协程任务过程中通过 <code class="docutils literal notranslate"><span class="pre">await</span> <span class="pre">self.print(...)</span></code> 打印的消息，以及一个布尔值，表示该消息是否为一组流式消息中的最后一个。</p>
+<p>需要注意的是，生成器返回的元组中，布尔值表示该消息是否为一组流式消息中的最后一个，而非此次智能体调用的最后一条消息。</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">run_example_pipeline</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""运行流式打印消息的示例。"""</span>
+    <span class="n">agent</span> <span class="o">=</span> <span class="n">create_agent</span><span class="p">(</span><span class="s2">"Alice"</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="s2">"student"</span><span class="p">)</span>
+
+    <span class="c1"># 我们关闭agent的终端打印以避免输出混乱</span>
+    <span class="n">agent</span><span class="o">.</span><span class="n">set_console_output_enabled</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">for</span> <span class="n">msg</span><span class="p">,</span> <span class="n">last</span> <span class="ow">in</span> <span class="n">stream_printing_messages</span><span class="p">(</span>
+        <span class="n">agents</span><span class="o">=</span><span class="p">[</span><span class="n">agent</span><span class="p">],</span>
+        <span class="n">coroutine_task</span><span class="o">=</span><span class="n">agent</span><span class="p">(</span>
+            <span class="n">Msg</span><span class="p">(</span><span class="s2">"user"</span><span class="p">,</span> <span class="s2">"你好，你是谁？"</span><span class="p">,</span> <span class="s2">"user"</span><span class="p">),</span>
+        <span class="p">),</span>
+    <span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">last</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">last</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">()</span>
+
+
+<span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">run_example_pipeline</span><span class="p">())</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Msg(id='SnXbTcDc7fmAdfN6S3ULMP', name='Alice', content=[{'type': 'text', 'text': '你好'}], role='assistant', metadata=None, timestamp='2025-10-03 14:50:12.832', invocation_id='None') False
+Msg(id='SnXbTcDc7fmAdfN6S3ULMP', name='Alice', content=[{'type': 'text', 'text': '你好！我是Alice，一个'}], role='assistant', metadata=None, timestamp='2025-10-03 14:50:12.832', invocation_id='None') False
+Msg(id='SnXbTcDc7fmAdfN6S3ULMP', name='Alice', content=[{'type': 'text', 'text': '你好！我是Alice，一个20岁的学生。很高兴'}], role='assistant', metadata=None, timestamp='2025-10-03 14:50:12.832', invocation_id='None') False
+Msg(id='SnXbTcDc7fmAdfN6S3ULMP', name='Alice', content=[{'type': 'text', 'text': '你好！我是Alice，一个20岁的学生。很高兴遇到你！'}], role='assistant', metadata=None, timestamp='2025-10-03 14:50:12.832', invocation_id='None') False
+Msg(id='SnXbTcDc7fmAdfN6S3ULMP', name='Alice', content=[{'type': 'text', 'text': '你好！我是Alice，一个20岁的学生。很高兴遇到你！'}], role='assistant', metadata=None, timestamp='2025-10-03 14:50:12.832', invocation_id='None') False
+Msg(id='SnXbTcDc7fmAdfN6S3ULMP', name='Alice', content=[{'type': 'text', 'text': '你好！我是Alice，一个20岁的学生。很高兴遇到你！'}], role='assistant', metadata=None, timestamp='2025-10-03 14:50:12.832', invocation_id='None') True
+</pre></div>
+</div>
+</section>
+</section>
+<section id="id7">
+<h2>高级管道特性<a class="headerlink" href="#id7" title="Link to this heading">¶</a></h2>
+<p>此外，为了可重用性，我们还提供了基于类的实现：</p>
+<div class="literal-block-wrapper docutils container" id="id12">
+<div class="code-block-caption"><span class="caption-text">使用 SequentialPipeline 类</span><a class="headerlink" href="#id12" title="Link to this code">¶</a></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span> <span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">SequentialPipeline</span>
+
+ <span class="c1"># 创建管道对象</span>
+ <span class="n">pipeline</span> <span class="o">=</span> <span class="n">SequentialPipeline</span><span class="p">(</span><span class="n">agents</span><span class="o">=</span><span class="p">[</span><span class="n">alice</span><span class="p">,</span> <span class="n">bob</span><span class="p">,</span> <span class="n">charlie</span><span class="p">,</span> <span class="n">david</span><span class="p">])</span>
+
+ <span class="c1"># 调用管道</span>
+ <span class="n">msg</span> <span class="o">=</span> <span class="k">await</span> <span class="n">pipeline</span><span class="p">(</span><span class="n">msg</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+ <span class="c1"># 使用不同输入复用管道</span>
+ <span class="n">msg</span> <span class="o">=</span> <span class="k">await</span> <span class="n">pipeline</span><span class="p">(</span><span class="n">msg</span><span class="o">=</span><span class="n">Msg</span><span class="p">(</span><span class="s2">"user"</span><span class="p">,</span> <span class="s2">"你好！"</span><span class="p">,</span> <span class="s2">"user"</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+<div class="literal-block-wrapper docutils container" id="id13">
+<div class="code-block-caption"><span class="caption-text">使用 FanoutPipeline 类</span><a class="headerlink" href="#id13" title="Link to this code">¶</a></div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">FanoutPipeline</span>
+
+<span class="c1"># 创建管道对象</span>
+<span class="n">pipeline</span> <span class="o">=</span> <span class="n">FanoutPipeline</span><span class="p">(</span><span class="n">agents</span><span class="o">=</span><span class="p">[</span><span class="n">alice</span><span class="p">,</span> <span class="n">bob</span><span class="p">,</span> <span class="n">charlie</span><span class="p">,</span> <span class="n">david</span><span class="p">])</span>
+
+<span class="c1"># 调用管道</span>
+<span class="n">msgs</span> <span class="o">=</span> <span class="k">await</span> <span class="n">pipeline</span><span class="p">(</span><span class="n">msg</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+<span class="c1"># 使用不同输入复用管道</span>
+<span class="n">msgs</span> <span class="o">=</span> <span class="k">await</span> <span class="n">pipeline</span><span class="p">(</span><span class="n">msg</span><span class="o">=</span><span class="n">Msg</span><span class="p">(</span><span class="s2">"user"</span><span class="p">,</span> <span class="s2">"你好！"</span><span class="p">,</span> <span class="s2">"user"</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 17.230 seconds)</p>
+<div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-tutorial-task-pipeline-py">
+<div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/a841049f564cf5f9c0fea523e59490f5/task_pipeline.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">task_pipeline.ipynb</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-python docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/549c3cb87e19391cb690a08ec4eb0538/task_pipeline.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">task_pipeline.py</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-zip docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/4aba0f9a1ca7c115828a5584d88fda18/task_pipeline.zip"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">zipped:</span> <span class="pre">task_pipeline.zip</span></code></a></p>
+</div>
+</div>
+<p class="sphx-glr-signature"><a class="reference external" href="https://sphinx-gallery.github.io">Gallery generated by Sphinx-Gallery</a></p>
+</section>
+</section>
+
+        

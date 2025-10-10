@@ -1,0 +1,207 @@
+<!-- Title: 长期记忆 - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/tutorial/task_long_term_memory.html -->
+
+          <div class="sphx-glr-download-link-note admonition note">
+<p class="admonition-title">备注</p>
+<p><a class="reference internal" href="#sphx-glr-download-tutorial-task-long-term-memory-py"><span class="std std-ref">Go to the end</span></a>
+to download the full example code.</p>
+</div>
+<section class="sphx-glr-example-title" id="long-term-memory">
+<span id="sphx-glr-tutorial-task-long-term-memory-py"></span><span id="id1"></span><h1>长期记忆<a class="headerlink" href="#long-term-memory" title="Link to this heading">¶</a></h1>
+<p>AgentScope 为长期记忆提供了一个基类 <code class="docutils literal notranslate"><span class="pre">LongTermMemoryBase</span></code> 和一个基于 <a class="reference external" href="https://github.com/mem0ai/mem0">mem0</a> 的具体实现 <code class="docutils literal notranslate"><span class="pre">Mem0LongTermMemory</span></code>。
+结合 <a class="reference internal" href="task_agent.html#agent"><span class="std std-ref">智能体</span></a> 章节中 <code class="docutils literal notranslate"><span class="pre">ReActAgent</span></code> 类的设计，我们提供了两种长期记忆模式：</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">agent_control</span></code>：智能体通过工具调用自主管理长期记忆。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">static_control</span></code>：开发者通过编程显式控制长期记忆操作。</p></li>
+</ul>
+<p>当然，开发者也可以使用 <code class="docutils literal notranslate"><span class="pre">both</span></code> 参数，将同时激活上述两种记忆管理模式。</p>
+<div class="admonition hint">
+<p class="admonition-title">提示</p>
+<p>不同的记忆模式适用于不同的使用场景，开发者可以根据需要选择合适的模式。</p>
+</div>
+<section id="id2">
+<h2>使用 mem0 长期记忆<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h2>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>在 GitHub 仓库的 <code class="docutils literal notranslate"><span class="pre">examples/long_term_memory/mem0</span></code> 目录下我们提供了 mem0 长期记忆的使用示例。</p>
+</div>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.message</span><span class="w"> </span><span class="kn">import</span> <span class="n">Msg</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.memory</span><span class="w"> </span><span class="kn">import</span> <span class="n">InMemoryMemory</span><span class="p">,</span> <span class="n">Mem0LongTermMemory</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.agent</span><span class="w"> </span><span class="kn">import</span> <span class="n">ReActAgent</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.embedding</span><span class="w"> </span><span class="kn">import</span> <span class="n">DashScopeTextEmbedding</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.formatter</span><span class="w"> </span><span class="kn">import</span> <span class="n">DashScopeChatFormatter</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.model</span><span class="w"> </span><span class="kn">import</span> <span class="n">DashScopeChatModel</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.tool</span><span class="w"> </span><span class="kn">import</span> <span class="n">Toolkit</span>
+
+
+<span class="c1"># 创建 mem0 长期记忆实例</span>
+<span class="n">long_term_memory</span> <span class="o">=</span> <span class="n">Mem0LongTermMemory</span><span class="p">(</span>
+    <span class="n">agent_name</span><span class="o">=</span><span class="s2">"Friday"</span><span class="p">,</span>
+    <span class="n">user_name</span><span class="o">=</span><span class="s2">"user_123"</span><span class="p">,</span>
+    <span class="n">model</span><span class="o">=</span><span class="n">DashScopeChatModel</span><span class="p">(</span>
+        <span class="n">model_name</span><span class="o">=</span><span class="s2">"qwen-max-latest"</span><span class="p">,</span>
+        <span class="n">api_key</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"DASHSCOPE_API_KEY"</span><span class="p">),</span>
+        <span class="n">stream</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="n">embedding_model</span><span class="o">=</span><span class="n">DashScopeTextEmbedding</span><span class="p">(</span>
+        <span class="n">model_name</span><span class="o">=</span><span class="s2">"text-embedding-v2"</span><span class="p">,</span>
+        <span class="n">api_key</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"DASHSCOPE_API_KEY"</span><span class="p">),</span>
+    <span class="p">),</span>
+    <span class="n">on_disk</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">Mem0LongTermMemory</span></code> 类提供了两个操作长期记忆的方法，<a href="#id3"><span class="problematic" id="id4">``</span></a>record` 和 <cite>retrieve</cite>。
+它们接收消息对象的列表作为输入，分别记录和检索长期记忆中的信息。</p>
+<p>例如下面的例子中，我们先存入用户的一条偏好，然后在长期记忆中检索相关信息。</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="c1"># 基本使用示例</span>
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">basic_usage</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">"""基本使用示例"""</span>
+    <span class="c1"># 记录记忆</span>
+    <span class="k">await</span> <span class="n">long_term_memory</span><span class="o">.</span><span class="n">record</span><span class="p">([</span><span class="n">Msg</span><span class="p">(</span><span class="s2">"user"</span><span class="p">,</span> <span class="s2">"我喜欢住民宿"</span><span class="p">,</span> <span class="s2">"user"</span><span class="p">)])</span>
+
+    <span class="c1"># 检索记忆</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">long_term_memory</span><span class="o">.</span><span class="n">retrieve</span><span class="p">(</span>
+        <span class="p">[</span><span class="n">Msg</span><span class="p">(</span><span class="s2">"user"</span><span class="p">,</span> <span class="s2">"我的住宿偏好"</span><span class="p">,</span> <span class="s2">"user"</span><span class="p">)],</span>
+    <span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"检索结果: </span><span class="si">{</span><span class="n">results</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+
+<span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">basic_usage</span><span class="p">())</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>检索结果: 喜欢住民宿
+</pre></div>
+</div>
+<section id="react">
+<h3>与 ReAct 智能体集成<a class="headerlink" href="#react" title="Link to this heading">¶</a></h3>
+<p>AgentScope 中的 <code class="docutils literal notranslate"><span class="pre">ReActAgent</span></code> 在构造函数中包含 <code class="docutils literal notranslate"><span class="pre">long_term_memory</span></code> 和 <code class="docutils literal notranslate"><span class="pre">long_term_memory_mode</span></code> 两个参数，
+其中 <code class="docutils literal notranslate"><span class="pre">long_term_memory</span></code> 用于指定长期记忆实例，<code class="docutils literal notranslate"><span class="pre">long_term_memory_mode</span></code> 的取值为 <code class="docutils literal notranslate"><span class="pre">"agent_control"</span></code>, <code class="docutils literal notranslate"><span class="pre">"static_control"</span></code> 或 <code class="docutils literal notranslate"><span class="pre">"both"</span></code>。</p>
+<p>当 <code class="docutils literal notranslate"><span class="pre">long_term_memory_mode</span></code> 设置为 <code class="docutils literal notranslate"><span class="pre">"agent_control"</span></code> 或 <code class="docutils literal notranslate"><span class="pre">both</span></code> 时，在 <code class="docutils literal notranslate"><span class="pre">ReActAgent</span></code> 的构造函数中将
+注册两个工具函数：<code class="docutils literal notranslate"><span class="pre">record_to_memory</span></code> 和 <code class="docutils literal notranslate"><span class="pre">retrieve_from_memory</span></code>。
+从而使智能体能够自主的管理长期记忆。</p>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>为了达到最好的效果，<code class="docutils literal notranslate"><span class="pre">"agent_control"</span></code> 模式可能还需要在系统提示（system prompt）中添加相应的说明。</p>
+</div>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="c1"># 创建带有长期记忆的 ReAct 智能体</span>
+<span class="n">agent</span> <span class="o">=</span> <span class="n">ReActAgent</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"Friday"</span><span class="p">,</span>
+    <span class="n">sys_prompt</span><span class="o">=</span><span class="s2">"你是一个具有长期记忆功能的助手。"</span><span class="p">,</span>
+    <span class="n">model</span><span class="o">=</span><span class="n">DashScopeChatModel</span><span class="p">(</span>
+        <span class="n">api_key</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"DASHSCOPE_API_KEY"</span><span class="p">),</span>
+        <span class="n">model_name</span><span class="o">=</span><span class="s2">"qwen-max-latest"</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="n">formatter</span><span class="o">=</span><span class="n">DashScopeChatFormatter</span><span class="p">(),</span>
+    <span class="n">toolkit</span><span class="o">=</span><span class="n">Toolkit</span><span class="p">(),</span>
+    <span class="n">memory</span><span class="o">=</span><span class="n">InMemoryMemory</span><span class="p">(),</span>
+    <span class="n">long_term_memory</span><span class="o">=</span><span class="n">long_term_memory</span><span class="p">,</span>
+    <span class="n">long_term_memory_mode</span><span class="o">=</span><span class="s2">"static_control"</span><span class="p">,</span>  <span class="c1"># 使用 static_control 模式</span>
+<span class="p">)</span>
+
+
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">record_preferences</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">"""ReAct agent integration example"""</span>
+    <span class="c1"># 对话示例</span>
+    <span class="n">msg</span> <span class="o">=</span> <span class="n">Msg</span><span class="p">(</span><span class="s2">"user"</span><span class="p">,</span> <span class="s2">"我去杭州旅行时，喜欢住民宿"</span><span class="p">,</span> <span class="s2">"user"</span><span class="p">)</span>
+    <span class="k">await</span> <span class="n">agent</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+
+<span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">record_preferences</span><span class="p">())</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Friday: 听起来您在杭州旅行时有一些很不错的住宿体验！喜欢住民宿的人通常能够更好地体验当地的文化和生活方式。杭州是一个充满历史文化和自然美景的城市，住在民宿确实可以让您更深入地了解这座城市。
+
+如果您计划再次前往杭州或者想推荐给别人一些好的民宿选择，可以考虑以下几点：
+
+1. **西湖周边**：找一家靠近西湖的民宿可以让您方便地游览这个著名的景点，并且早晚时分避开人群，享受更加宁静的西湖风光。
+2. **历史文化街区**：如河坊街、南宋御街等地，这些地方不仅有丰富的历史文化底蕴，而且周围也有很多具有特色的民宿。
+3. **龙井茶村**：如果您对茶文化感兴趣的话，在龙井村附近找寻一家被茶园环绕的小屋居住将是一次难忘的经历。
+4. **选择特色主题民宿**：杭州有很多以艺术、设计为主题的个性民宿，根据自己的喜好挑选一个特别的地方入住也能让旅程增添不少乐趣。
+
+希望这些建议能帮助到您未来探索更多美丽的地方！如果需要具体推荐或是关于旅行规划的帮助，请随时告诉我。
+Friday: 希望这些建议能帮助到您未来探索更多美丽的地方！如果需要具体推荐或是关于旅行规划的帮助，请随时告诉我。
+</pre></div>
+</div>
+<p>然后我们清空智能体的短期记忆，以避免造成干扰，并测试智能体是否会记住之前的对话。</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">retrieve_preferences</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">"""Retrieve user preferences from long-term memory"""</span>
+    <span class="c1"># 我们清空智能体的短期记忆，以避免造成干扰</span>
+    <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+
+    <span class="c1"># 测试智能体是否会记住之前的对话</span>
+    <span class="n">msg2</span> <span class="o">=</span> <span class="n">Msg</span><span class="p">(</span><span class="s2">"user"</span><span class="p">,</span> <span class="s2">"我有什么偏好？简要的回答我"</span><span class="p">,</span> <span class="s2">"user"</span><span class="p">)</span>
+    <span class="k">await</span> <span class="n">agent</span><span class="p">(</span><span class="n">msg2</span><span class="p">)</span>
+
+
+<span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">retrieve_preferences</span><span class="p">())</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Friday: 你偏好在旅行时选择住民宿。
+</pre></div>
+</div>
+</section>
+</section>
+<section id="id5">
+<h2>自定义长期记忆<a class="headerlink" href="#id5" title="Link to this heading">¶</a></h2>
+<p>AgentScope 提供了 <code class="docutils literal notranslate"><span class="pre">LongTermMemoryBase</span></code> 基类，它定义了长期记忆的基本接口。</p>
+<p>开发者可以继承 <code class="docutils literal notranslate"><span class="pre">LongTermMemoryBase</span></code> 并实现以下的抽象方法来定义自己的长期记忆类：</p>
+<div class="table-wrapper docutils container" id="id7">
+<table class="docutils align-default" id="id7">
+<caption><span class="caption-text">AgentScope 中的长期记忆类</span><a class="headerlink" href="#id7" title="Link to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>类</p></th>
+<th class="head"><p>抽象方法</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">LongTermMemoryBase</span></code></p></td>
+<td><div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">record</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">retrieve</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">record_to_memory</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">retrieve_from_memory</span></code></div>
+</div>
+</td>
+<td><ul class="simple">
+<li><p>如果想支持 “static_control” 模式，必须实现 <code class="docutils literal notranslate"><span class="pre">record</span></code> 和 <code class="docutils literal notranslate"><span class="pre">retrieve</span></code> 方法。</p></li>
+<li><p>想要支持 “agent_control” 模式，必须实现 <code class="docutils literal notranslate"><span class="pre">record_to_memory</span></code> 和 <code class="docutils literal notranslate"><span class="pre">retrieve_from_memory</span></code> 方法。</p></li>
+</ul>
+</td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">Mem0LongTermMemory</span></code></p></td>
+<td><p>-</p></td>
+<td><p>基于 mem0 库的长期记忆实现，支持向量存储和检索。</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="id6">
+<h2>进一步阅读<a class="headerlink" href="#id6" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="task_memory.html#memory"><span class="std std-ref">记忆</span></a> - 基础记忆系统</p></li>
+<li><p><a class="reference internal" href="task_agent.html#agent"><span class="std std-ref">智能体</span></a> - ReAct 智能体</p></li>
+<li><p><a class="reference internal" href="task_tool.html#tool"><span class="std std-ref">工具</span></a> - 工具系统</p></li>
+</ul>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 41.145 seconds)</p>
+<div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-tutorial-task-long-term-memory-py">
+<div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/cf2bfcc46b2b3d58d3df8c98a6a13f87/task_long_term_memory.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">task_long_term_memory.ipynb</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-python docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/dfc4107f6cb424112915d8ba1645abaa/task_long_term_memory.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">task_long_term_memory.py</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-zip docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/4831cd88c08c9ed54770eb093c5cd9ae/task_long_term_memory.zip"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">zipped:</span> <span class="pre">task_long_term_memory.zip</span></code></a></p>
+</div>
+</div>
+<p class="sphx-glr-signature"><a class="reference external" href="https://sphinx-gallery.github.io">Gallery generated by Sphinx-Gallery</a></p>
+</section>
+</section>
+
+        

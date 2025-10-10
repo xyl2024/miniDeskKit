@@ -1,0 +1,127 @@
+<!-- Title: agentscope.agent._react_agent_base - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/agent/_react_agent_base.html -->
+
+          <h1>agentscope.agent._react_agent_base 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The base class for ReAct agent in agentscope."""</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Any</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">._agent_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">AgentBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">._agent_meta</span><span class="w"> </span><span class="kn">import</span> <span class="n">_ReActAgentMeta</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..message</span><span class="w"> </span><span class="kn">import</span> <span class="n">Msg</span>
+
+
+<div class="viewcode-block" id="ReActAgentBase">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.ReActAgentBase">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ReActAgentBase</span><span class="p">(</span><span class="n">AgentBase</span><span class="p">,</span> <span class="n">metaclass</span><span class="o">=</span><span class="n">_ReActAgentMeta</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The ReAct agent base class.</span>
+
+<span class="sd">    To support ReAct algorithm, this class extends the AgentBase class by</span>
+<span class="sd">    adding two abstract interfaces: reasoning and acting, while supporting</span>
+<span class="sd">    hook functions at four positions: pre-reasoning, post-reasoning,</span>
+<span class="sd">    pre-acting, and post-acting by the `_ReActAgentMeta` metaclass.</span>
+<span class="sd">    """</span>
+
+    <span class="n">supported_hook_types</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">"pre_reply"</span><span class="p">,</span>
+        <span class="s2">"post_reply"</span><span class="p">,</span>
+        <span class="s2">"pre_print"</span><span class="p">,</span>
+        <span class="s2">"post_print"</span><span class="p">,</span>
+        <span class="s2">"pre_observe"</span><span class="p">,</span>
+        <span class="s2">"post_observe"</span><span class="p">,</span>
+        <span class="s2">"pre_reasoning"</span><span class="p">,</span>
+        <span class="s2">"post_reasoning"</span><span class="p">,</span>
+        <span class="s2">"pre_acting"</span><span class="p">,</span>
+        <span class="s2">"post_acting"</span><span class="p">,</span>
+    <span class="p">]</span>
+<span class="w">    </span><span class="sd">"""Supported hook types for the agent base class."""</span>
+
+    <span class="n">_class_pre_reasoning_hooks</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span>
+        <span class="nb">str</span><span class="p">,</span>
+        <span class="n">Callable</span><span class="p">[</span>
+            <span class="p">[</span>
+                <span class="s2">"ReActAgentBase"</span><span class="p">,</span>  <span class="c1"># self</span>
+                <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>  <span class="c1"># kwargs</span>
+            <span class="p">],</span>
+            <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>  <span class="c1"># The modified kwargs or None</span>
+        <span class="p">],</span>
+    <span class="p">]</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+<span class="w">    </span><span class="sd">"""The class-level pre-reasoning hooks, taking `self` object, the input</span>
+<span class="sd">    arguments as input"""</span>
+
+    <span class="n">_class_post_reasoning_hooks</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span>
+        <span class="nb">str</span><span class="p">,</span>
+        <span class="n">Callable</span><span class="p">[</span>
+            <span class="p">[</span>
+                <span class="s2">"ReActAgentBase"</span><span class="p">,</span>  <span class="c1"># self</span>
+                <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>  <span class="c1"># kwargs</span>
+                <span class="n">Any</span><span class="p">,</span>  <span class="c1"># output</span>
+            <span class="p">],</span>
+            <span class="n">Msg</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>  <span class="c1"># the modified output message or None</span>
+        <span class="p">],</span>
+    <span class="p">]</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+<span class="w">    </span><span class="sd">"""The class-level post-reasoning hooks, taking `self` object, the input</span>
+<span class="sd">    arguments and the output message as input, and return the modified output</span>
+<span class="sd">    message or None if no modification is needed."""</span>
+
+    <span class="n">_class_pre_acting_hooks</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span>
+        <span class="nb">str</span><span class="p">,</span>
+        <span class="n">Callable</span><span class="p">[</span>
+            <span class="p">[</span>
+                <span class="s2">"ReActAgentBase"</span><span class="p">,</span>  <span class="c1"># self</span>
+                <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>  <span class="c1"># kwargs</span>
+            <span class="p">],</span>
+            <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>  <span class="c1"># The modified kwargs or None</span>
+        <span class="p">],</span>
+    <span class="p">]</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+<span class="w">    </span><span class="sd">"""The class-level pre-acting hooks, taking `self` object, the input</span>
+<span class="sd">    arguments as input, and return the modified input arguments or None if no</span>
+<span class="sd">    modification is needed."""</span>
+
+    <span class="n">_class_post_acting_hooks</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span>
+        <span class="nb">str</span><span class="p">,</span>
+        <span class="n">Callable</span><span class="p">[</span>
+            <span class="p">[</span>
+                <span class="s2">"ReActAgentBase"</span><span class="p">,</span>  <span class="c1"># self</span>
+                <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>  <span class="c1"># kwargs</span>
+                <span class="n">Any</span><span class="p">,</span>  <span class="c1"># output</span>
+            <span class="p">],</span>
+            <span class="n">Msg</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>  <span class="c1"># the modified output message or None</span>
+        <span class="p">],</span>
+    <span class="p">]</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+<span class="w">    </span><span class="sd">"""The class-level post-acting hooks, taking `self` object, the input</span>
+<span class="sd">    arguments and the output message as input, and return the modified output</span>
+<span class="sd">    message or None if no modification is needed."""</span>
+
+<div class="viewcode-block" id="ReActAgentBase.__init__">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.ReActAgentBase.__init__">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize the ReAct agent base class."""</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+        <span class="c1"># Init reasoning and acting hooks</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_instance_pre_reasoning_hooks</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_instance_post_reasoning_hooks</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_instance_pre_acting_hooks</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_instance_post_acting_hooks</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span></div>
+
+
+    <span class="nd">@abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_reasoning</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""The reasoning process of the ReAct agent, which will be wrapped</span>
+<span class="sd">        with pre- and post-hooks."""</span>
+
+    <span class="nd">@abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_acting</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""The acting process of the ReAct agent, which will be wrapped with</span>
+<span class="sd">        pre- and post-hooks."""</span></div>
+
+</pre></div>
+        

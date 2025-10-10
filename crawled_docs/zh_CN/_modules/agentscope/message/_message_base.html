@@ -1,0 +1,264 @@
+<!-- Title: agentscope.message._message_base - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/message/_message_base.html -->
+
+          <h1>agentscope.message._message_base 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The message class in agentscope."""</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">overload</span><span class="p">,</span> <span class="n">Sequence</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">shortuuid</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">ToolResultBlock</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">._message_block</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">TextBlock</span><span class="p">,</span>
+    <span class="n">ToolUseBlock</span><span class="p">,</span>
+    <span class="n">ImageBlock</span><span class="p">,</span>
+    <span class="n">AudioBlock</span><span class="p">,</span>
+    <span class="n">ContentBlock</span><span class="p">,</span>
+    <span class="n">VideoBlock</span><span class="p">,</span>
+    <span class="n">ThinkingBlock</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..types</span><span class="w"> </span><span class="kn">import</span> <span class="n">JSONSerializableObject</span>
+
+
+<div class="viewcode-block" id="Msg">
+<a class="viewcode-back" href="../../../api/agentscope.message.html#agentscope.message.Msg">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Msg</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""The message class in agentscope."""</span>
+
+<div class="viewcode-block" id="Msg.__init__">
+<a class="viewcode-back" href="../../../api/agentscope.message.html#agentscope.message.Msg.__init__">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">content</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ContentBlock</span><span class="p">],</span>
+        <span class="n">role</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"user"</span><span class="p">,</span> <span class="s2">"assistant"</span><span class="p">,</span> <span class="s2">"system"</span><span class="p">],</span>
+        <span class="n">metadata</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">JSONSerializableObject</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">timestamp</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">invocation_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize the Msg object.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            name (`str`):</span>
+<span class="sd">                The name of the message sender.</span>
+<span class="sd">            content (`str | list[ContentBlock]`):</span>
+<span class="sd">                The content of the message.</span>
+<span class="sd">            role (`Literal["user", "assistant", "system"]`):</span>
+<span class="sd">                The role of the message sender.</span>
+<span class="sd">            metadata (`dict[str, JSONSerializableObject] | None`, optional):</span>
+<span class="sd">                The metadata of the message, e.g. structured output.</span>
+<span class="sd">            timestamp (`str | None`, optional):</span>
+<span class="sd">                The created timestamp of the message. If not given, the</span>
+<span class="sd">                timestamp will be set automatically.</span>
+<span class="sd">            invocation_id (`str | None`, optional):</span>
+<span class="sd">                The related API invocation id, if any. This is useful for</span>
+<span class="sd">                tracking the message in the context of an API call.</span>
+<span class="sd">        """</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">content</span> <span class="o">=</span> <span class="n">content</span>
+
+        <span class="k">assert</span> <span class="n">role</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"user"</span><span class="p">,</span> <span class="s2">"assistant"</span><span class="p">,</span> <span class="s2">"system"</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">role</span> <span class="o">=</span> <span class="n">role</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span> <span class="o">=</span> <span class="n">metadata</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">shortuuid</span><span class="o">.</span><span class="n">uuid</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">timestamp</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">timestamp</span>
+            <span class="ow">or</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span>
+                <span class="s2">"%Y-%m-</span><span class="si">%d</span><span class="s2"> %H:%M:%S.</span><span class="si">%f</span><span class="s2">"</span><span class="p">,</span>
+            <span class="p">)[:</span><span class="o">-</span><span class="mi">3</span><span class="p">]</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">invocation_id</span> <span class="o">=</span> <span class="n">invocation_id</span></div>
+
+
+<div class="viewcode-block" id="Msg.to_dict">
+<a class="viewcode-back" href="../../../api/agentscope.message.html#agentscope.message.Msg.to_dict">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Convert the message into JSON dict data."""</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">"id"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+            <span class="s2">"name"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="s2">"role"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">role</span><span class="p">,</span>
+            <span class="s2">"content"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">content</span><span class="p">,</span>
+            <span class="s2">"metadata"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
+            <span class="s2">"timestamp"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">timestamp</span><span class="p">,</span>
+        <span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="Msg.from_dict">
+<a class="viewcode-back" href="../../../api/agentscope.message.html#agentscope.message.Msg.from_dict">[文档]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">from_dict</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">json_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"Msg"</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Load a message object from the given JSON data."""</span>
+        <span class="n">new_obj</span> <span class="o">=</span> <span class="bp">cls</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">json_data</span><span class="p">[</span><span class="s2">"name"</span><span class="p">],</span>
+            <span class="n">content</span><span class="o">=</span><span class="n">json_data</span><span class="p">[</span><span class="s2">"content"</span><span class="p">],</span>
+            <span class="n">role</span><span class="o">=</span><span class="n">json_data</span><span class="p">[</span><span class="s2">"role"</span><span class="p">],</span>
+            <span class="n">metadata</span><span class="o">=</span><span class="n">json_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"metadata"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+            <span class="n">timestamp</span><span class="o">=</span><span class="n">json_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"timestamp"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+            <span class="n">invocation_id</span><span class="o">=</span><span class="n">json_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"invocation_id"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+        <span class="p">)</span>
+
+        <span class="n">new_obj</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">json_data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"id"</span><span class="p">,</span> <span class="n">new_obj</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">new_obj</span></div>
+
+
+<div class="viewcode-block" id="Msg.has_content_blocks">
+<a class="viewcode-back" href="../../../api/agentscope.message.html#agentscope.message.Msg.has_content_blocks">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">has_content_blocks</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">block_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span>
+            <span class="s2">"text"</span><span class="p">,</span>
+            <span class="s2">"tool_use"</span><span class="p">,</span>
+            <span class="s2">"tool_result"</span><span class="p">,</span>
+            <span class="s2">"image"</span><span class="p">,</span>
+            <span class="s2">"audio"</span><span class="p">,</span>
+            <span class="s2">"video"</span><span class="p">,</span>
+        <span class="p">]</span>
+        <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Check if the message has content blocks of the given type.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            block_type (Literal["text", "tool_use", "tool_result", "image", \</span>
+<span class="sd">            "audio", "video"] | None, defaults to None):</span>
+<span class="sd">                The type of the block to be checked. If `None`, it will</span>
+<span class="sd">                check if there are any content blocks.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_content_blocks</span><span class="p">(</span><span class="n">block_type</span><span class="p">))</span> <span class="o">&gt;</span> <span class="mi">0</span></div>
+
+
+<div class="viewcode-block" id="Msg.get_text_content">
+<a class="viewcode-back" href="../../../api/agentscope.message.html#agentscope.message.Msg.get_text_content">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_text_content</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Get the pure text blocks from the message content."""</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">content</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">content</span>
+
+        <span class="n">gathered_text</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">content</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">block</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"type"</span><span class="p">)</span> <span class="o">==</span> <span class="s2">"text"</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">gathered_text</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">gathered_text</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">block</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"text"</span><span class="p">))</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">gathered_text</span> <span class="o">+=</span> <span class="n">block</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"text"</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">gathered_text</span></div>
+
+
+    <span class="nd">@overload</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_content_blocks</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">block_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"text"</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">TextBlock</span><span class="p">]:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@overload</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_content_blocks</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">block_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"tool_use"</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">ToolUseBlock</span><span class="p">]:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@overload</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_content_blocks</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">block_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"tool_result"</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">ToolResultBlock</span><span class="p">]:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@overload</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_content_blocks</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">block_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"image"</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">ImageBlock</span><span class="p">]:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@overload</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_content_blocks</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">block_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"audio"</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">AudioBlock</span><span class="p">]:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@overload</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_content_blocks</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">block_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"video"</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">VideoBlock</span><span class="p">]:</span>
+        <span class="o">...</span>
+
+    <span class="nd">@overload</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_content_blocks</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">block_type</span><span class="p">:</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">ContentBlock</span><span class="p">]:</span>
+        <span class="o">...</span>
+
+<div class="viewcode-block" id="Msg.get_content_blocks">
+<a class="viewcode-back" href="../../../api/agentscope.message.html#agentscope.message.Msg.get_content_blocks">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_content_blocks</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">block_type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span>
+            <span class="s2">"text"</span><span class="p">,</span>
+            <span class="s2">"thinking"</span><span class="p">,</span>
+            <span class="s2">"tool_use"</span><span class="p">,</span>
+            <span class="s2">"tool_result"</span><span class="p">,</span>
+            <span class="s2">"image"</span><span class="p">,</span>
+            <span class="s2">"audio"</span><span class="p">,</span>
+            <span class="s2">"video"</span><span class="p">,</span>
+        <span class="p">]</span>
+        <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="p">(</span>
+        <span class="n">List</span><span class="p">[</span><span class="n">ContentBlock</span><span class="p">]</span>
+        <span class="o">|</span> <span class="n">List</span><span class="p">[</span><span class="n">TextBlock</span><span class="p">]</span>
+        <span class="o">|</span> <span class="n">List</span><span class="p">[</span><span class="n">ThinkingBlock</span><span class="p">]</span>
+        <span class="o">|</span> <span class="n">List</span><span class="p">[</span><span class="n">ToolUseBlock</span><span class="p">]</span>
+        <span class="o">|</span> <span class="n">List</span><span class="p">[</span><span class="n">ToolResultBlock</span><span class="p">]</span>
+        <span class="o">|</span> <span class="n">List</span><span class="p">[</span><span class="n">ImageBlock</span><span class="p">]</span>
+        <span class="o">|</span> <span class="n">List</span><span class="p">[</span><span class="n">AudioBlock</span><span class="p">]</span>
+        <span class="o">|</span> <span class="n">List</span><span class="p">[</span><span class="n">VideoBlock</span><span class="p">]</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Get the content in block format. If the content is a string,</span>
+<span class="sd">        it will be converted to a text block.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            block_type (`Literal["text", "thinking", "tool_use", \</span>
+<span class="sd">            "tool_result", "image", "audio", "video"] | None`, optional):</span>
+<span class="sd">                The type of the block to be extracted. If `None`, all blocks</span>
+<span class="sd">                will be returned.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `List[ContentBlock]`:</span>
+<span class="sd">                The content blocks.</span>
+<span class="sd">        """</span>
+        <span class="n">blocks</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">content</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">TextBlock</span><span class="p">(</span><span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">content</span><span class="p">),</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">blocks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">content</span>
+
+        <span class="k">if</span> <span class="n">block_type</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">blocks</span> <span class="o">=</span> <span class="p">[</span><span class="n">_</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">blocks</span> <span class="k">if</span> <span class="n">_</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="n">block_type</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">blocks</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Get the string representation of the message."""</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Msg(id='</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2">', "</span>
+            <span class="sa">f</span><span class="s2">"name='</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">', "</span>
+            <span class="sa">f</span><span class="s2">"content=</span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">content</span><span class="p">)</span><span class="si">}</span><span class="s2">, "</span>
+            <span class="sa">f</span><span class="s2">"role='</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">role</span><span class="si">}</span><span class="s2">', "</span>
+            <span class="sa">f</span><span class="s2">"metadata=</span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">metadata</span><span class="p">)</span><span class="si">}</span><span class="s2">, "</span>
+            <span class="sa">f</span><span class="s2">"timestamp='</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">timestamp</span><span class="si">}</span><span class="s2">', "</span>
+            <span class="sa">f</span><span class="s2">"invocation_id='</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">invocation_id</span><span class="si">}</span><span class="s2">')"</span>
+        <span class="p">)</span></div>
+
+</pre></div>
+        

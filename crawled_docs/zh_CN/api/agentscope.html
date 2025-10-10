@@ -1,0 +1,52 @@
+<!-- Title: agentscope - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/api/agentscope.html -->
+
+          <section id="module-agentscope">
+<span id="agentscope"></span><h1>agentscope<a class="headerlink" href="#module-agentscope" title="Link to this heading">¶</a></h1>
+<p>The agentscope serialization module</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="agentscope.init">
+<span class="sig-name descname"><span class="pre">init</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">project</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">logging_path</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">logging_level</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'INFO'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">studio_url</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tracing_url</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope.html#init"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.init" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize the agentscope library.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>project</strong> (<cite>str | None</cite>, optional) -- The project name.</p></li>
+<li><p><strong>name</strong> (<cite>str | None</cite>, optional) -- The name of the run.</p></li>
+<li><p><strong>logging_path</strong> (<cite>str | None</cite>, optional) -- The path to saving the log file. If not provided, logs will not be
+saved.</p></li>
+<li><p><strong>logging_level</strong> (<cite>str | None</cite>, optional) -- The logging level. Defaults to "INFO".</p></li>
+<li><p><strong>studio_url</strong> (<cite>str | None</cite>, optional) -- The URL of the AgentScope Studio to connect to.</p></li>
+<li><p><strong>tracing_url</strong> (<cite>str | None</cite>, optional) -- The URL of the tracing endpoint, which can connect to third-party
+OpenTelemetry tracing platforms like Arize-Phoenix and Langfuse.
+If not provided and <cite>studio_url</cite> is provided, it will send traces
+to the AgentScope Studio's tracing endpoint.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="agentscope.setup_logger">
+<span class="sig-name descname"><span class="pre">setup_logger</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">level</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filepath</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/_logging.html#setup_logger"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.setup_logger" title="Link to this definition">¶</a></dt>
+<dd><p>Set up the agentscope logger.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>level</strong> (<cite>str</cite>) -- The logging level, chosen from "INFO", "DEBUG", "WARNING",
+"ERROR", "CRITICAL".</p></li>
+<li><p><strong>filepath</strong> (<cite>str | None</cite>, optional) -- The filepath to save the logging output.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+        

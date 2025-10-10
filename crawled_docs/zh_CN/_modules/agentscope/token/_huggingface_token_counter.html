@@ -1,0 +1,97 @@
+<!-- Title: agentscope.token._huggingface_token_counter - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/token/_huggingface_token_counter.html -->
+
+          <h1>agentscope.token._huggingface_token_counter 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The huggingface token counter class."""</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.token._token_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">TokenCounterBase</span>
+
+
+<div class="viewcode-block" id="HuggingFaceTokenCounter">
+<a class="viewcode-back" href="../../../api/agentscope.token.html#agentscope.token.HuggingFaceTokenCounter">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">HuggingFaceTokenCounter</span><span class="p">(</span><span class="n">TokenCounterBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The token counter for Huggingface models."""</span>
+
+<div class="viewcode-block" id="HuggingFaceTokenCounter.__init__">
+<a class="viewcode-back" href="../../../api/agentscope.token.html#agentscope.token.HuggingFaceTokenCounter.__init__">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">pretrained_model_name_or_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">use_mirror</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">use_fast</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">trust_remote_code</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize the huggingface token counter.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            pretrained_model_name_or_path (`str`):</span>
+<span class="sd">                The name or path of the pretrained model, which will be used</span>
+<span class="sd">                to download the tokenizer from Huggingface Hub.</span>
+<span class="sd">            use_mirror (`bool`, defaults to `False`):</span>
+<span class="sd">                Whether to enable the HuggingFace mirror, which is useful for</span>
+<span class="sd">                users in China.</span>
+<span class="sd">            use_fast (`bool`, defaults to `False`):</span>
+<span class="sd">                The argument that will be passed to the tokenizer.</span>
+<span class="sd">            trust_remote_code (`bool`, defaults to `False`):</span>
+<span class="sd">                The argument that will be passed to the tokenizer.</span>
+<span class="sd">            **kwargs:</span>
+<span class="sd">                Additional keyword arguments that will be passed to the</span>
+<span class="sd">                tokenizer.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">use_mirror</span><span class="p">:</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">"HF_ENDPOINT"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"https://hf-mirror.com"</span>
+
+        <span class="kn">from</span><span class="w"> </span><span class="nn">transformers</span><span class="w"> </span><span class="kn">import</span> <span class="n">AutoTokenizer</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">tokenizer</span> <span class="o">=</span> <span class="n">AutoTokenizer</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span>
+            <span class="n">pretrained_model_name_or_path</span><span class="p">,</span>
+            <span class="n">use_fast</span><span class="o">=</span><span class="n">use_fast</span><span class="p">,</span>
+            <span class="n">trust_remote_code</span><span class="o">=</span><span class="n">trust_remote_code</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">tokenizer</span><span class="o">.</span><span class="n">chat_template</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"The tokenizer for model </span><span class="si">{</span><span class="n">pretrained_model_name_or_path</span><span class="si">}</span><span class="s2"> in "</span>
+                <span class="sa">f</span><span class="s2">"transformers does not have chat template."</span><span class="p">,</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="HuggingFaceTokenCounter.count">
+<a class="viewcode-back" href="../../../api/agentscope.token.html#agentscope.token.HuggingFaceTokenCounter.count">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">count</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">messages</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">],</span>
+        <span class="n">tools</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Count the number of tokens with the tokenizer download from</span>
+<span class="sd">        HuggingFace hub.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            messages (`list[dict]`):</span>
+<span class="sd">                A list of message dictionaries</span>
+<span class="sd">            tools (`list[dict] | None`, defaults to `None`):</span>
+<span class="sd">                The JSON schema of the tools, which will also be involved in</span>
+<span class="sd">                the token counting.</span>
+<span class="sd">            **kwargs (`Any`):</span>
+<span class="sd">                The additional keyword arguments that will be passed to the</span>
+<span class="sd">                tokenizer, e.g. `chat_template`, `padding`, etc.</span>
+<span class="sd">        """</span>
+        <span class="n">tokenized_msgs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tokenizer</span><span class="o">.</span><span class="n">apply_chat_template</span><span class="p">(</span>
+            <span class="n">messages</span><span class="p">,</span>
+            <span class="n">add_generation_prompt</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">tokenize</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">return_tensors</span><span class="o">=</span><span class="s2">"np"</span><span class="p">,</span>
+            <span class="n">tools</span><span class="o">=</span><span class="n">tools</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+        <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">tokenized_msgs</span><span class="p">)</span></div>
+</div>
+
+</pre></div>
+        

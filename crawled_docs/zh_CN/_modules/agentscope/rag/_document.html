@@ -1,0 +1,62 @@
+<!-- Title: agentscope.rag._document - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/rag/_document.html -->
+
+          <h1>agentscope.rag._document 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The document data structure used in RAG as the data chunk and</span>
+<span class="sd">retrieval result."""</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">shortuuid</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dashscope.api_entities.dashscope_response</span><span class="w"> </span><span class="kn">import</span> <span class="n">DictMixin</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">..message</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">TextBlock</span><span class="p">,</span>
+    <span class="n">ImageBlock</span><span class="p">,</span>
+    <span class="n">VideoBlock</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..types</span><span class="w"> </span><span class="kn">import</span> <span class="n">Embedding</span>
+
+
+<div class="viewcode-block" id="DocMetadata">
+<a class="viewcode-back" href="../../../api/agentscope.rag.html#agentscope.rag.DocMetadata">[文档]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">DocMetadata</span><span class="p">(</span><span class="n">DictMixin</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The metadata of the document."""</span>
+
+    <span class="n">content</span><span class="p">:</span> <span class="n">TextBlock</span> <span class="o">|</span> <span class="n">ImageBlock</span> <span class="o">|</span> <span class="n">VideoBlock</span>
+<span class="w">    </span><span class="sd">"""The data content, e.g., text, image, video."""</span>
+
+    <span class="n">doc_id</span><span class="p">:</span> <span class="nb">str</span>
+<span class="w">    </span><span class="sd">"""The document ID."""</span>
+
+    <span class="n">chunk_id</span><span class="p">:</span> <span class="nb">int</span>
+<span class="w">    </span><span class="sd">"""The chunk ID."""</span>
+
+    <span class="n">total_chunks</span><span class="p">:</span> <span class="nb">int</span>
+<span class="w">    </span><span class="sd">"""The total number of chunks."""</span></div>
+
+
+
+<div class="viewcode-block" id="Document">
+<a class="viewcode-back" href="../../../api/agentscope.rag.html#agentscope.rag.Document">[文档]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Document</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""The data chunk."""</span>
+
+    <span class="n">metadata</span><span class="p">:</span> <span class="n">DocMetadata</span>
+<span class="w">    </span><span class="sd">"""The metadata of the data chunk."""</span>
+
+    <span class="nb">id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="n">shortuuid</span><span class="o">.</span><span class="n">uuid</span><span class="p">)</span>
+<span class="w">    </span><span class="sd">"""The unique ID of the data chunk."""</span>
+
+    <span class="c1"># The fields that will be filled when the document is added to or</span>
+    <span class="c1"># retrieved from the knowledge base.</span>
+
+    <span class="n">embedding</span><span class="p">:</span> <span class="n">Embedding</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="kc">None</span><span class="p">)</span>
+<span class="w">    </span><span class="sd">"""The embedding of the data chunk."""</span>
+
+    <span class="n">score</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="w">    </span><span class="sd">"""The relevance score of the data chunk."""</span></div>
+
+</pre></div>
+        

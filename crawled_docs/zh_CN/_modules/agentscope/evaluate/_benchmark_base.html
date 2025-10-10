@@ -1,0 +1,54 @@
+<!-- Title: agentscope.evaluate._benchmark_base - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/evaluate/_benchmark_base.html -->
+
+          <h1>agentscope.evaluate._benchmark_base 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The base class for benchmark evaluation."""</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Generator</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">._task</span><span class="w"> </span><span class="kn">import</span> <span class="n">Task</span>
+
+
+<div class="viewcode-block" id="BenchmarkBase">
+<a class="viewcode-back" href="../../../api/agentscope.evaluate.html#agentscope.evaluate.BenchmarkBase">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">BenchmarkBase</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The base class for benchmark evaluation."""</span>
+
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
+<span class="w">    </span><span class="sd">"""The name of the benchmark."""</span>
+
+    <span class="n">description</span><span class="p">:</span> <span class="nb">str</span>
+<span class="w">    </span><span class="sd">"""The description of the benchmark."""</span>
+
+<div class="viewcode-block" id="BenchmarkBase.__init__">
+<a class="viewcode-back" href="../../../api/agentscope.evaluate.html#agentscope.evaluate.BenchmarkBase.__init__">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">description</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize the benchmark.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            name (`str`):</span>
+<span class="sd">                The name of the benchmark.</span>
+<span class="sd">            description (`str`):</span>
+<span class="sd">                A brief description of the benchmark.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">description</span> <span class="o">=</span> <span class="n">description</span></div>
+
+
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="n">Task</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Iterate over the benchmark."""</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">"Subclasses must implement this method."</span><span class="p">)</span>
+
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Get the length of the benchmark."""</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">"Subclasses must implement this method."</span><span class="p">)</span>
+
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">index</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Task</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Get the task at the given index."""</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">"Subclasses must implement this method."</span><span class="p">)</span></div>
+
+</pre></div>
+        

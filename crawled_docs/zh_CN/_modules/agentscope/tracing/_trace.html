@@ -1,0 +1,725 @@
+<!-- Title: agentscope.tracing._trace - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/tracing/_trace.html -->
+
+          <h1>agentscope.tracing._trace 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The tracing decorators for agent, formatter, toolkit, chat and embedding</span>
+<span class="sd">models."""</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">inspect</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">wraps</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Generator</span><span class="p">,</span>
+    <span class="n">AsyncGenerator</span><span class="p">,</span>
+    <span class="n">Callable</span><span class="p">,</span>
+    <span class="n">Any</span><span class="p">,</span>
+    <span class="n">Coroutine</span><span class="p">,</span>
+    <span class="n">TypeVar</span><span class="p">,</span>
+    <span class="n">TYPE_CHECKING</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">aioitertools</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">._attributes</span><span class="w"> </span><span class="kn">import</span> <span class="n">_serialize_to_str</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..</span><span class="w"> </span><span class="kn">import</span> <span class="n">_config</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..embedding._embedding_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">EmbeddingModelBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..model._model_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChatModelBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">._types</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpanKind</span><span class="p">,</span> <span class="n">SpanAttributes</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">..agent</span><span class="w"> </span><span class="kn">import</span> <span class="n">AgentBase</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">..formatter</span><span class="w"> </span><span class="kn">import</span> <span class="n">FormatterBase</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">..tool</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+        <span class="n">Toolkit</span><span class="p">,</span>
+        <span class="n">ToolResponse</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">..message</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+        <span class="n">Msg</span><span class="p">,</span>
+        <span class="n">ToolUseBlock</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">..embedding</span><span class="w"> </span><span class="kn">import</span> <span class="n">EmbeddingResponse</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">..model</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChatResponse</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">opentelemetry.trace</span><span class="w"> </span><span class="kn">import</span> <span class="n">Span</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">Toolkit</span> <span class="o">=</span> <span class="s2">"Toolkit"</span>
+    <span class="n">ToolResponse</span> <span class="o">=</span> <span class="s2">"ToolResponse"</span>
+    <span class="n">Msg</span> <span class="o">=</span> <span class="s2">"Msg"</span>
+    <span class="n">ToolUseBlock</span> <span class="o">=</span> <span class="s2">"ToolUseBlock"</span>
+    <span class="n">EmbeddingResponse</span> <span class="o">=</span> <span class="s2">"EmbeddingResponse"</span>
+    <span class="n">ChatResponse</span> <span class="o">=</span> <span class="s2">"ChatResponse"</span>
+    <span class="n">Span</span> <span class="o">=</span> <span class="s2">"Span"</span>
+
+
+<span class="n">T</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">"T"</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_check_tracing_enabled</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Check if the OpenTelemetry tracer is initialized in AgentScope with an</span>
+<span class="sd">    endpoint.</span>
+
+<span class="sd">    TODO: We expect an OpenTelemetry official interface to check if the</span>
+<span class="sd">     tracer is initialized. Leaving this function here as a temporary</span>
+<span class="sd">     solution.</span>
+<span class="sd">    """</span>
+    <span class="k">return</span> <span class="n">_config</span><span class="o">.</span><span class="n">trace_enabled</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_trace_sync_generator_wrapper</span><span class="p">(</span>
+    <span class="n">res</span><span class="p">:</span> <span class="n">Generator</span><span class="p">[</span><span class="n">T</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span>
+    <span class="n">span</span><span class="p">:</span> <span class="n">Span</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="n">T</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Trace the sync generator output with OpenTelemetry."""</span>
+
+    <span class="kn">import</span><span class="w"> </span><span class="nn">opentelemetry</span>
+
+    <span class="n">has_error</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">last_chunk</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">res</span><span class="p">:</span>
+            <span class="n">last_chunk</span> <span class="o">=</span> <span class="n">chunk</span>
+            <span class="k">yield</span> <span class="n">chunk</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">has_error</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">span</span><span class="o">.</span><span class="n">set_status</span><span class="p">(</span><span class="n">opentelemetry</span><span class="o">.</span><span class="n">trace</span><span class="o">.</span><span class="n">StatusCode</span><span class="o">.</span><span class="n">ERROR</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+        <span class="n">span</span><span class="o">.</span><span class="n">record_exception</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="n">e</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">has_error</span><span class="p">:</span>
+            <span class="c1"># Set the last chunk as output</span>
+            <span class="n">span</span><span class="o">.</span><span class="n">set_attributes</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="n">SpanAttributes</span><span class="o">.</span><span class="n">OUTPUT</span><span class="p">:</span> <span class="n">_serialize_to_str</span><span class="p">(</span><span class="n">last_chunk</span><span class="p">),</span>
+                <span class="p">},</span>
+            <span class="p">)</span>
+            <span class="n">span</span><span class="o">.</span><span class="n">set_status</span><span class="p">(</span><span class="n">opentelemetry</span><span class="o">.</span><span class="n">trace</span><span class="o">.</span><span class="n">StatusCode</span><span class="o">.</span><span class="n">OK</span><span class="p">)</span>
+        <span class="n">span</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+
+
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_trace_async_generator_wrapper</span><span class="p">(</span>
+    <span class="n">res</span><span class="p">:</span> <span class="n">AsyncGenerator</span><span class="p">[</span><span class="n">T</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span>
+    <span class="n">span</span><span class="p">:</span> <span class="n">Span</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AsyncGenerator</span><span class="p">[</span><span class="n">T</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Trace the async generator output with OpenTelemetry.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        res (`AsyncGenerator[T, None]`):</span>
+<span class="sd">            The generator or async generator to be traced.</span>
+<span class="sd">        span (`Span`):</span>
+<span class="sd">            The OpenTelemetry span to be used for tracing.</span>
+
+<span class="sd">    Yields:</span>
+<span class="sd">        `T`:</span>
+<span class="sd">            The output of the async generator.</span>
+<span class="sd">    """</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">opentelemetry</span>
+
+    <span class="n">has_error</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">last_chunk</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">async</span> <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">aioitertools</span><span class="o">.</span><span class="n">iter</span><span class="p">(</span><span class="n">res</span><span class="p">):</span>
+            <span class="n">last_chunk</span> <span class="o">=</span> <span class="n">chunk</span>
+            <span class="k">yield</span> <span class="n">chunk</span>
+
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">has_error</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">span</span><span class="o">.</span><span class="n">set_status</span><span class="p">(</span><span class="n">opentelemetry</span><span class="o">.</span><span class="n">trace</span><span class="o">.</span><span class="n">StatusCode</span><span class="o">.</span><span class="n">ERROR</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+        <span class="n">span</span><span class="o">.</span><span class="n">record_exception</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="n">e</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">has_error</span><span class="p">:</span>
+            <span class="c1"># Set the last chunk as output</span>
+            <span class="n">span</span><span class="o">.</span><span class="n">set_attributes</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="n">SpanAttributes</span><span class="o">.</span><span class="n">OUTPUT</span><span class="p">:</span> <span class="n">_serialize_to_str</span><span class="p">(</span><span class="n">last_chunk</span><span class="p">),</span>
+                <span class="p">},</span>
+            <span class="p">)</span>
+            <span class="n">span</span><span class="o">.</span><span class="n">set_status</span><span class="p">(</span><span class="n">opentelemetry</span><span class="o">.</span><span class="n">trace</span><span class="o">.</span><span class="n">StatusCode</span><span class="o">.</span><span class="n">OK</span><span class="p">)</span>
+        <span class="n">span</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="trace">
+<a class="viewcode-back" href="../../../api/agentscope.tracing.html#agentscope.tracing.trace">[文档]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">trace</span><span class="p">(</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""A generic tracing decorator for synchronous and asynchronous functions.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        name (`str`):</span>
+<span class="sd">            The name of the span to be created.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        `Callable`:</span>
+<span class="sd">            Returns a decorator that wraps the given function with</span>
+<span class="sd">            OpenTelemetry tracing.</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">decorator</span><span class="p">(</span>
+        <span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""A decorator that wraps the given function with OpenTelemetry tracing</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            func (`Callable`):</span>
+<span class="sd">                The function to be traced, which can be sync or async function,</span>
+<span class="sd">                and returns an object or a generator.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `Callable`:</span>
+<span class="sd">                A wrapper function that traces the function call and handles</span>
+<span class="sd">                input/output and exceptions.</span>
+<span class="sd">        """</span>
+        <span class="c1"># Async function</span>
+        <span class="k">if</span> <span class="n">inspect</span><span class="o">.</span><span class="n">iscoroutinefunction</span><span class="p">(</span><span class="n">func</span><span class="p">):</span>
+
+            <span class="nd">@wraps</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
+            <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">wrapper</span><span class="p">(</span>
+                <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+                <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+            <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">                </span><span class="sd">"""The wrapper function for tracing the sync function call."""</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">_check_tracing_enabled</span><span class="p">():</span>
+                    <span class="k">return</span> <span class="k">await</span> <span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+                <span class="kn">import</span><span class="w"> </span><span class="nn">opentelemetry</span>
+
+                <span class="n">tracer</span> <span class="o">=</span> <span class="n">opentelemetry</span><span class="o">.</span><span class="n">trace</span><span class="o">.</span><span class="n">get_tracer</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+                <span class="n">attributes</span> <span class="o">=</span> <span class="p">{</span>
+                    <span class="n">SpanAttributes</span><span class="o">.</span><span class="n">SPAN_KIND</span><span class="p">:</span> <span class="n">SpanKind</span><span class="o">.</span><span class="n">COMMON</span><span class="p">,</span>
+                    <span class="n">SpanAttributes</span><span class="o">.</span><span class="n">PROJECT_RUN_ID</span><span class="p">:</span> <span class="n">_serialize_to_str</span><span class="p">(</span>
+                        <span class="n">_config</span><span class="o">.</span><span class="n">run_id</span><span class="p">,</span>
+                    <span class="p">),</span>
+                    <span class="n">SpanAttributes</span><span class="o">.</span><span class="n">INPUT</span><span class="p">:</span> <span class="n">_serialize_to_str</span><span class="p">(</span>
+                        <span class="p">{</span>
+                            <span class="s2">"args"</span><span class="p">:</span> <span class="n">args</span><span class="p">,</span>
+                            <span class="s2">"kwargs"</span><span class="p">:</span> <span class="n">kwargs</span><span class="p">,</span>
+                        <span class="p">},</span>
+                    <span class="p">),</span>
+                    <span class="n">SpanAttributes</span><span class="o">.</span><span class="n">META</span><span class="p">:</span> <span class="n">_serialize_to_str</span><span class="p">({}),</span>
+                <span class="p">}</span>
+
+                <span class="k">with</span> <span class="n">tracer</span><span class="o">.</span><span class="n">start_as_current_span</span><span class="p">(</span>
+                    <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+                    <span class="n">attributes</span><span class="o">=</span><span class="n">attributes</span><span class="p">,</span>
+                    <span class="n">end_on_exit</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                <span class="p">)</span> <span class="k">as</span> <span class="n">span</span><span class="p">:</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">res</span> <span class="o">=</span> <span class="k">await</span> <span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+                        <span class="c1"># If generator or async generator</span>
+                        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">AsyncGenerator</span><span class="p">):</span>
+                            <span class="k">return</span> <span class="n">_trace_async_generator_wrapper</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">span</span><span class="p">)</span>
+                        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">Generator</span><span class="p">):</span>
+                            <span class="k">return</span> <span class="n">_trace_sync_generator_wrapper</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">span</span><span class="p">)</span>
+
+                        <span class="c1"># non-generator result</span>
+                        <span class="n">span</span><span class="o">.</span><span class="n">set_attributes</span><span class="p">(</span>
+                            <span class="p">{</span><span class="n">SpanAttributes</span><span class="o">.</span><span class="n">OUTPUT</span><span class="p">:</span> <span class="n">_serialize_to_str</span><span class="p">(</span><span class="n">res</span><span class="p">)},</span>
+                        <span class="p">)</span>
+                        <span class="n">span</span><span class="o">.</span><span class="n">set_status</span><span class="p">(</span><span class="n">opentelemetry</span><span class="o">.</span><span class="n">trace</span><span class="o">.</span><span class="n">StatusCode</span><span class="o">.</span><span class="n">OK</span><span class="p">)</span>
+                        <span class="n">span</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+                        <span class="k">return</span> <span class="n">res</span>
+
+                    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                        <span class="n">span</span><span class="o">.</span><span class="n">set_status</span><span class="p">(</span>
+                            <span class="n">opentelemetry</span><span class="o">.</span><span class="n">trace</span><span class="o">.</span><span class="n">StatusCode</span><span class="o">.</span><span class="n">ERROR</span><span class="p">,</span>
+                            <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">),</span>
+                        <span class="p">)</span>
+                        <span class="n">span</span><span class="o">.</span><span class="n">record_exception</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+                        <span class="n">span</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+                        <span class="k">raise</span> <span class="n">e</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+
+            <span class="k">return</span> <span class="n">wrapper</span>
+
+        <span class="c1"># Sync function</span>
+        <span class="nd">@wraps</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">sync_wrapper</span><span class="p">(</span>
+            <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">            </span><span class="sd">"""The wrapper function for tracing the sync function call."""</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">_check_tracing_enabled</span><span class="p">():</span>
+                <span class="k">return</span> <span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+            <span class="kn">import</span><span class="w"> </span><span class="nn">opentelemetry</span>
+
+            <span class="n">tracer</span> <span class="o">=</span> <span class="n">opentelemetry</span><span class="o">.</span><span class="n">trace</span><span class="o">.</span><span class="n">get_tracer</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+            <span class="n">attributes</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="n">SpanAttributes</span><span class="o">.</span><span class="n">SPAN_KIND</span><span class="p">:</span> <span class="n">SpanKind</span><span class="o">.</span><span class="n">COMMON</span><span class="p">,</span>
+                <span class="n">SpanAttributes</span><span class="o">.</span><span class="n">PROJECT_RUN_ID</span><span class="p">:</span> <span class="n">_serialize_to_str</span><span class="p">(</span>
+                    <span class="n">_config</span><span class="o">.</span><span class="n">run_id</span><span class="p">,</span>
+                <span class="p">),</span>
+                <span class="n">SpanAttributes</span><span class="o">.</span><span class="n">INPUT</span><span class="p">:</span> <span class="n">_serialize_to_str</span><span class="p">(</span>
+                    <span class="p">{</span>
+                        <span class="s2">"args"</span><span class="p">:</span> <span class="n">args</span><span class="p">,</span>
+                        <span class="s2">"kwargs"</span><span class="p">:</span> <span class="n">kwargs</span><span class="p">,</span>
+                    <span class="p">},</span>
+                <span class="p">),</span>
+                <span class="n">SpanAttributes</span><span class="o">.</span><span class="n">META</span><span class="p">:</span> <span class="n">_serialize_to_str</span><span class="p">({}),</span>
+            <span class="p">}</span>
+
+            <span class="k">with</span> <span class="n">tracer</span><span class="o">.</span><span class="n">start_as_current_span</span><span class="p">(</span>
+                <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+                <span class="n">attributes</span><span class="o">=</span><span class="n">attributes</span><span class="p">,</span>
+                <span class="n">end_on_exit</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="p">)</span> <span class="k">as</span> <span class="n">span</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">res</span> <span class="o">=</span> <span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+                    <span class="c1"># If generator or async generator</span>
+                    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">AsyncGenerator</span><span class="p">):</span>
+                        <span class="k">return</span> <span class="n">_trace_async_generator_wrapper</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">span</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">Generator</span><span class="p">):</span>
+                        <span class="k">return</span> <span class="n">_trace_sync_generator_wrapper</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">span</span><span class="p">)</span>
+
+                    <span class="c1"># non-generator result</span>
+                    <span class="n">span</span><span class="o">.</span><span class="n">set_attributes</span><span class="p">(</span>
+                        <span class="p">{</span><span class="n">SpanAttributes</span><span class="o">.</span><span class="n">OUTPUT</span><span class="p">:</span> <span class="n">_serialize_to_str</span><span class="p">(</span><span class="n">res</span><span class="p">)},</span>
+                    <span class="p">)</span>
+                    <span class="n">span</span><span class="o">.</span><span class="n">set_status</span><span class="p">(</span><span class="n">opentelemetry</span><span class="o">.</span><span class="n">trace</span><span class="o">.</span><span class="n">StatusCode</span><span class="o">.</span><span class="n">OK</span><span class="p">)</span>
+                    <span class="n">span</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+                    <span class="k">return</span> <span class="n">res</span>
+
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="n">span</span><span class="o">.</span><span class="n">set_status</span><span class="p">(</span>
+                        <span class="n">opentelemetry</span><span class="o">.</span><span class="n">trace</span><span class="o">.</span><span class="n">StatusCode</span><span class="o">.</span><span class="n">ERROR</span><span class="p">,</span>
+                        <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">),</span>
+                    <span class="p">)</span>
+                    <span class="n">span</span><span class="o">.</span><span class="n">record_exception</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+                    <span class="n">span</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+                    <span class="k">raise</span> <span class="n">e</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+
+        <span class="k">return</span> <span class="n">sync_wrapper</span>
+
+    <span class="k">return</span> <span class="n">decorator</span></div>
+
+
+
+<div class="viewcode-block" id="trace_toolkit">
+<a class="viewcode-back" href="../../../api/agentscope.tracing.html#agentscope.tracing.trace_toolkit">[文档]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">trace_toolkit</span><span class="p">(</span>
+    <span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[</span>
+        <span class="o">...</span><span class="p">,</span>
+        <span class="n">Coroutine</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">AsyncGenerator</span><span class="p">[</span><span class="n">ToolResponse</span><span class="p">,</span> <span class="kc">None</span><span class="p">]],</span>
+    <span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">Coroutine</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">AsyncGenerator</span><span class="p">[</span><span class="n">ToolResponse</span><span class="p">,</span> <span class="kc">None</span><span class="p">]]]:</span>
+<span class="w">    </span><span class="sd">"""Trace the toolkit `call_tool_function` method with OpenTelemetry."""</span>
+
+    <span class="nd">@wraps</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">wrapper</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">:</span> <span class="n">Toolkit</span><span class="p">,</span>
+        <span class="n">tool_call</span><span class="p">:</span> <span class="n">ToolUseBlock</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AsyncGenerator</span><span class="p">[</span><span class="n">ToolResponse</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""The wrapper function for tracing the toolkit call_tool_function</span>
+<span class="sd">        method."""</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">_check_tracing_enabled</span><span class="p">():</span>
+            <span class="k">return</span> <span class="k">await</span> <span class="n">func</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tool_call</span><span class="o">=</span><span class="n">tool_call</span><span class="p">)</span>
+
+        <span class="kn">import</span><span class="w"> </span><span class="nn">opentelemetry</span>
+
+        <span class="n">tracer</span> <span class="o">=</span> <span class="n">opentelemetry</span><span class="o">.</span><span class="n">trace</span><span class="o">.</span><span class="n">get_tracer</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+        <span class="c1"># Prepare the attributes for the span</span>
+        <span class="n">attributes</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">SpanAttributes</span><span class="o">.</span><span class="n">SPAN_KIND</span><span class="p">:</span> <span class="n">_serialize_to_str</span><span class="p">(</span><span class="n">SpanKind</span><span class="o">.</span><span class="n">TOOL</span><span class="p">),</span>
+            <span class="n">SpanAttributes</span><span class="o">.</span><span class="n">PROJECT_RUN_ID</span><span class="p">:</span> <span class="n">_serialize_to_str</span><span class="p">(</span><span class="n">_config</span><span class="o">.</span><span class="n">run_id</span><span class="p">),</span>
+            <span class="n">SpanAttributes</span><span class="o">.</span><span class="n">INPUT</span><span class="p">:</span> <span class="n">_serialize_to_str</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s2">"tool_call"</span><span class="p">:</span> <span class="n">tool_call</span><span class="p">,</span>
+                <span class="p">},</span>
+            <span class="p">),</span>
+            <span class="n">SpanAttributes</span><span class="o">.</span><span class="n">META</span><span class="p">:</span> <span class="n">_serialize_to_str</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="o">**</span><span class="n">tool_call</span><span class="p">,</span>
+                <span class="p">},</span>
+            <span class="p">),</span>
+        <span class="p">}</span>
+
+        <span class="k">with</span> <span class="n">tracer</span><span class="o">.</span><span class="n">start_as_current_span</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">func</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="n">attributes</span><span class="o">=</span><span class="n">attributes</span><span class="p">,</span>
+            <span class="n">end_on_exit</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="p">)</span> <span class="k">as</span> <span class="n">span</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="c1"># Call the toolkit function</span>
+                <span class="n">res</span> <span class="o">=</span> <span class="k">await</span> <span class="n">func</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tool_call</span><span class="o">=</span><span class="n">tool_call</span><span class="p">)</span>
+
+                <span class="c1"># The result must be an AsyncGenerator of ToolResponse objects</span>
+                <span class="k">return</span> <span class="n">_trace_async_generator_wrapper</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">span</span><span class="p">)</span>
+
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">span</span><span class="o">.</span><span class="n">set_status</span><span class="p">(</span>
+                    <span class="n">opentelemetry</span><span class="o">.</span><span class="n">trace</span><span class="o">.</span><span class="n">StatusCode</span><span class="o">.</span><span class="n">ERROR</span><span class="p">,</span>
+                    <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">),</span>
+                <span class="p">)</span>
+                <span class="n">span</span><span class="o">.</span><span class="n">record_exception</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+                <span class="n">span</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+                <span class="k">raise</span> <span class="n">e</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+
+    <span class="k">return</span> <span class="n">wrapper</span></div>
+
+
+
+<div class="viewcode-block" id="trace_reply">
+<a class="viewcode-back" href="../../../api/agentscope.tracing.html#agentscope.tracing.trace_reply">[文档]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">trace_reply</span><span class="p">(</span>
+    <span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">Coroutine</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Msg</span><span class="p">]],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">Coroutine</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Msg</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">"""Trace the agent reply call with OpenTelemetry.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        func (`Callable[..., Coroutine[Any, Any, Msg]]`):</span>
+<span class="sd">            The agent async reply function to be traced.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        `Callable[..., Coroutine[Any, Any, Msg]]`:</span>
+<span class="sd">            A wrapper function that traces the agent reply call and handles</span>
+<span class="sd">            input/output and exceptions.</span>
+<span class="sd">    """</span>
+
+    <span class="nd">@wraps</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">wrapper</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">:</span> <span class="s2">"AgentBase"</span><span class="p">,</span>
+        <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Msg</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""The wrapper function for tracing the agent reply function call."""</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">_check_tracing_enabled</span><span class="p">():</span>
+            <span class="k">return</span> <span class="k">await</span> <span class="n">func</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="kn">from</span><span class="w"> </span><span class="nn">..agent</span><span class="w"> </span><span class="kn">import</span> <span class="n">AgentBase</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">AgentBase</span><span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">"Skipping tracing for </span><span class="si">%s</span><span class="s2"> as the first argument"</span>
+                <span class="s2">"is not an instance of AgentBase, but </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span>
+                <span class="n">func</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+                <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="k">await</span> <span class="n">func</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="kn">import</span><span class="w"> </span><span class="nn">opentelemetry</span>
+
+        <span class="n">tracer</span> <span class="o">=</span> <span class="n">opentelemetry</span><span class="o">.</span><span class="n">trace</span><span class="o">.</span><span class="n">get_tracer</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+        <span class="c1"># Prepare the attributes for the span</span>
+        <span class="n">agent_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"name"</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
+        <span class="n">attributes</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">SpanAttributes</span><span class="o">.</span><span class="n">SPAN_KIND</span><span class="p">:</span> <span class="n">_serialize_to_str</span><span class="p">(</span><span class="n">SpanKind</span><span class="o">.</span><span class="n">AGENT</span><span class="p">),</span>
+            <span class="n">SpanAttributes</span><span class="o">.</span><span class="n">PROJECT_RUN_ID</span><span class="p">:</span> <span class="n">_serialize_to_str</span><span class="p">(</span><span class="n">_config</span><span class="o">.</span><span class="n">run_id</span><span class="p">),</span>
+            <span class="n">SpanAttributes</span><span class="o">.</span><span class="n">INPUT</span><span class="p">:</span> <span class="n">_serialize_to_str</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s2">"args"</span><span class="p">:</span> <span class="n">args</span><span class="p">,</span>
+                    <span class="s2">"kwargs"</span><span class="p">:</span> <span class="n">kwargs</span><span class="p">,</span>
+                <span class="p">},</span>
+            <span class="p">),</span>
+            <span class="n">SpanAttributes</span><span class="o">.</span><span class="n">META</span><span class="p">:</span> <span class="n">_serialize_to_str</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s2">"id"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                    <span class="s2">"name"</span><span class="p">:</span> <span class="n">agent_name</span><span class="p">,</span>
+                <span class="p">},</span>
+            <span class="p">),</span>
+        <span class="p">}</span>
+
+        <span class="k">with</span> <span class="n">tracer</span><span class="o">.</span><span class="n">start_as_current_span</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">func</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="n">attributes</span><span class="o">=</span><span class="n">attributes</span><span class="p">,</span>
+            <span class="n">end_on_exit</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="p">)</span> <span class="k">as</span> <span class="n">span</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="c1"># Call the agent reply function</span>
+                <span class="n">res</span> <span class="o">=</span> <span class="k">await</span> <span class="n">func</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+                <span class="c1"># Set the output attribute</span>
+                <span class="n">span</span><span class="o">.</span><span class="n">set_attributes</span><span class="p">(</span>
+                    <span class="p">{</span><span class="n">SpanAttributes</span><span class="o">.</span><span class="n">OUTPUT</span><span class="p">:</span> <span class="n">_serialize_to_str</span><span class="p">(</span><span class="n">res</span><span class="p">)},</span>
+                <span class="p">)</span>
+                <span class="n">span</span><span class="o">.</span><span class="n">set_status</span><span class="p">(</span><span class="n">opentelemetry</span><span class="o">.</span><span class="n">trace</span><span class="o">.</span><span class="n">StatusCode</span><span class="o">.</span><span class="n">OK</span><span class="p">)</span>
+                <span class="n">span</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+                <span class="k">return</span> <span class="n">res</span>
+
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">span</span><span class="o">.</span><span class="n">set_status</span><span class="p">(</span>
+                    <span class="n">opentelemetry</span><span class="o">.</span><span class="n">trace</span><span class="o">.</span><span class="n">StatusCode</span><span class="o">.</span><span class="n">ERROR</span><span class="p">,</span>
+                    <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">),</span>
+                <span class="p">)</span>
+                <span class="n">span</span><span class="o">.</span><span class="n">record_exception</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+                <span class="n">span</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+                <span class="k">raise</span> <span class="n">e</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+
+    <span class="k">return</span> <span class="n">wrapper</span></div>
+
+
+
+<div class="viewcode-block" id="trace_embedding">
+<a class="viewcode-back" href="../../../api/agentscope.tracing.html#agentscope.tracing.trace_embedding">[文档]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">trace_embedding</span><span class="p">(</span>
+    <span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">Coroutine</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">EmbeddingResponse</span><span class="p">]],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">Coroutine</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">EmbeddingResponse</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">"""Trace the embedding call with OpenTelemetry."""</span>
+
+    <span class="nd">@wraps</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">wrapper</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">:</span> <span class="n">EmbeddingModelBase</span><span class="p">,</span>
+        <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">EmbeddingResponse</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""The wrapper function for tracing the embedding call."""</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">_check_tracing_enabled</span><span class="p">():</span>
+            <span class="k">return</span> <span class="k">await</span> <span class="n">func</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">EmbeddingModelBase</span><span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">"Skipping tracing for </span><span class="si">%s</span><span class="s2"> as the first argument"</span>
+                <span class="s2">"is not an instance of EmbeddingModelBase, but </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span>
+                <span class="n">func</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+                <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="k">await</span> <span class="n">func</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="kn">import</span><span class="w"> </span><span class="nn">opentelemetry</span>
+
+        <span class="n">tracer</span> <span class="o">=</span> <span class="n">opentelemetry</span><span class="o">.</span><span class="n">trace</span><span class="o">.</span><span class="n">get_tracer</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+        <span class="c1"># Prepare the attributes for the span</span>
+        <span class="n">attributes</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">SpanAttributes</span><span class="o">.</span><span class="n">SPAN_KIND</span><span class="p">:</span> <span class="n">_serialize_to_str</span><span class="p">(</span><span class="n">SpanKind</span><span class="o">.</span><span class="n">EMBEDDING</span><span class="p">),</span>
+            <span class="n">SpanAttributes</span><span class="o">.</span><span class="n">PROJECT_RUN_ID</span><span class="p">:</span> <span class="n">_serialize_to_str</span><span class="p">(</span><span class="n">_config</span><span class="o">.</span><span class="n">run_id</span><span class="p">),</span>
+            <span class="n">SpanAttributes</span><span class="o">.</span><span class="n">INPUT</span><span class="p">:</span> <span class="n">_serialize_to_str</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s2">"args"</span><span class="p">:</span> <span class="n">args</span><span class="p">,</span>
+                    <span class="s2">"kwargs"</span><span class="p">:</span> <span class="n">kwargs</span><span class="p">,</span>
+                <span class="p">},</span>
+            <span class="p">),</span>
+            <span class="n">SpanAttributes</span><span class="o">.</span><span class="n">META</span><span class="p">:</span> <span class="n">_serialize_to_str</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s2">"model_name"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">,</span>
+                <span class="p">},</span>
+            <span class="p">),</span>
+        <span class="p">}</span>
+
+        <span class="k">with</span> <span class="n">tracer</span><span class="o">.</span><span class="n">start_as_current_span</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">func</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="n">attributes</span><span class="o">=</span><span class="n">attributes</span><span class="p">,</span>
+            <span class="n">end_on_exit</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="p">)</span> <span class="k">as</span> <span class="n">span</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="c1"># Call the embedding function</span>
+                <span class="n">res</span> <span class="o">=</span> <span class="k">await</span> <span class="n">func</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+                <span class="c1"># Set the output attribute</span>
+                <span class="n">span</span><span class="o">.</span><span class="n">set_attributes</span><span class="p">(</span>
+                    <span class="p">{</span><span class="n">SpanAttributes</span><span class="o">.</span><span class="n">OUTPUT</span><span class="p">:</span> <span class="n">_serialize_to_str</span><span class="p">(</span><span class="n">res</span><span class="p">)},</span>
+                <span class="p">)</span>
+                <span class="n">span</span><span class="o">.</span><span class="n">set_status</span><span class="p">(</span><span class="n">opentelemetry</span><span class="o">.</span><span class="n">trace</span><span class="o">.</span><span class="n">StatusCode</span><span class="o">.</span><span class="n">OK</span><span class="p">)</span>
+                <span class="n">span</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+                <span class="k">return</span> <span class="n">res</span>
+
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">span</span><span class="o">.</span><span class="n">set_status</span><span class="p">(</span>
+                    <span class="n">opentelemetry</span><span class="o">.</span><span class="n">trace</span><span class="o">.</span><span class="n">StatusCode</span><span class="o">.</span><span class="n">ERROR</span><span class="p">,</span>
+                    <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">),</span>
+                <span class="p">)</span>
+                <span class="n">span</span><span class="o">.</span><span class="n">record_exception</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+                <span class="n">span</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+                <span class="k">raise</span> <span class="n">e</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+
+    <span class="k">return</span> <span class="n">wrapper</span></div>
+
+
+
+<div class="viewcode-block" id="trace_format">
+<a class="viewcode-back" href="../../../api/agentscope.tracing.html#agentscope.tracing.trace_format">[文档]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">trace_format</span><span class="p">(</span>
+    <span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">Coroutine</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]]],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">Coroutine</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]]]:</span>
+<span class="w">    </span><span class="sd">"""Trace the format function of the formatter with OpenTelemetry.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        func (`Callable[..., Coroutine[Any, Any, list[dict]]]`):</span>
+<span class="sd">            The async format function to be traced.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        `Callable[..., Coroutine[Any, Any, list[dict]]]`:</span>
+<span class="sd">            An async wrapper function that traces the format call and handles</span>
+<span class="sd">            input/output and exceptions.</span>
+<span class="sd">    """</span>
+
+    <span class="nd">@wraps</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">wrapper</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">:</span> <span class="s2">"FormatterBase"</span><span class="p">,</span>
+        <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Wrap the formatter __call__ method with OpenTelemetry tracing."""</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">_check_tracing_enabled</span><span class="p">():</span>
+            <span class="k">return</span> <span class="k">await</span> <span class="n">func</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="kn">from</span><span class="w"> </span><span class="nn">..formatter</span><span class="w"> </span><span class="kn">import</span> <span class="n">FormatterBase</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">FormatterBase</span><span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">"Skipping tracing for </span><span class="si">%s</span><span class="s2"> as the first argument"</span>
+                <span class="s2">"is not an instance of FormatterBase, but </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span>
+                <span class="n">func</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+                <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="k">await</span> <span class="n">func</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="kn">import</span><span class="w"> </span><span class="nn">opentelemetry</span>
+
+        <span class="n">tracer</span> <span class="o">=</span> <span class="n">opentelemetry</span><span class="o">.</span><span class="n">trace</span><span class="o">.</span><span class="n">get_tracer</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+        <span class="c1"># Prepare the attributes for the span</span>
+        <span class="n">attributes</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">SpanAttributes</span><span class="o">.</span><span class="n">SPAN_KIND</span><span class="p">:</span> <span class="n">_serialize_to_str</span><span class="p">(</span><span class="n">SpanKind</span><span class="o">.</span><span class="n">FORMATTER</span><span class="p">),</span>
+            <span class="n">SpanAttributes</span><span class="o">.</span><span class="n">PROJECT_RUN_ID</span><span class="p">:</span> <span class="n">_serialize_to_str</span><span class="p">(</span><span class="n">_config</span><span class="o">.</span><span class="n">run_id</span><span class="p">),</span>
+            <span class="n">SpanAttributes</span><span class="o">.</span><span class="n">INPUT</span><span class="p">:</span> <span class="n">_serialize_to_str</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s2">"args"</span><span class="p">:</span> <span class="n">args</span><span class="p">,</span>
+                    <span class="s2">"kwargs"</span><span class="p">:</span> <span class="n">kwargs</span><span class="p">,</span>
+                <span class="p">},</span>
+            <span class="p">),</span>
+            <span class="n">SpanAttributes</span><span class="o">.</span><span class="n">META</span><span class="p">:</span> <span class="n">_serialize_to_str</span><span class="p">({}),</span>
+        <span class="p">}</span>
+
+        <span class="k">with</span> <span class="n">tracer</span><span class="o">.</span><span class="n">start_as_current_span</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">func</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="n">attributes</span><span class="o">=</span><span class="n">attributes</span><span class="p">,</span>
+            <span class="n">end_on_exit</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="p">)</span> <span class="k">as</span> <span class="n">span</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="c1"># Call the formatter function</span>
+                <span class="n">res</span> <span class="o">=</span> <span class="k">await</span> <span class="n">func</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+                <span class="c1"># Set the output attribute</span>
+                <span class="n">span</span><span class="o">.</span><span class="n">set_attributes</span><span class="p">(</span>
+                    <span class="p">{</span><span class="n">SpanAttributes</span><span class="o">.</span><span class="n">OUTPUT</span><span class="p">:</span> <span class="n">_serialize_to_str</span><span class="p">(</span><span class="n">res</span><span class="p">)},</span>
+                <span class="p">)</span>
+                <span class="n">span</span><span class="o">.</span><span class="n">set_status</span><span class="p">(</span><span class="n">opentelemetry</span><span class="o">.</span><span class="n">trace</span><span class="o">.</span><span class="n">StatusCode</span><span class="o">.</span><span class="n">OK</span><span class="p">)</span>
+                <span class="n">span</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+                <span class="k">return</span> <span class="n">res</span>
+
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">span</span><span class="o">.</span><span class="n">set_status</span><span class="p">(</span>
+                    <span class="n">opentelemetry</span><span class="o">.</span><span class="n">trace</span><span class="o">.</span><span class="n">StatusCode</span><span class="o">.</span><span class="n">ERROR</span><span class="p">,</span>
+                    <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">),</span>
+                <span class="p">)</span>
+                <span class="n">span</span><span class="o">.</span><span class="n">record_exception</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+                <span class="n">span</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+                <span class="k">raise</span> <span class="n">e</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+
+    <span class="k">return</span> <span class="n">wrapper</span></div>
+
+
+
+<div class="viewcode-block" id="trace_llm">
+<a class="viewcode-back" href="../../../api/agentscope.tracing.html#agentscope.tracing.trace_llm">[文档]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">trace_llm</span><span class="p">(</span>
+    <span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[</span>
+        <span class="o">...</span><span class="p">,</span>
+        <span class="n">Coroutine</span><span class="p">[</span>
+            <span class="n">Any</span><span class="p">,</span>
+            <span class="n">Any</span><span class="p">,</span>
+            <span class="n">ChatResponse</span> <span class="o">|</span> <span class="n">AsyncGenerator</span><span class="p">[</span><span class="n">ChatResponse</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span>
+        <span class="p">],</span>
+    <span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[</span>
+    <span class="o">...</span><span class="p">,</span>
+    <span class="n">Coroutine</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">ChatResponse</span> <span class="o">|</span> <span class="n">AsyncGenerator</span><span class="p">[</span><span class="n">ChatResponse</span><span class="p">,</span> <span class="kc">None</span><span class="p">]],</span>
+<span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Trace the LLM call with OpenTelemetry.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        func (`Callable`):</span>
+<span class="sd">            The function to be traced, which should be a coroutine that</span>
+<span class="sd">            returns either a `ChatResponse` or an `AsyncGenerator`</span>
+<span class="sd">            of `ChatResponse`.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        `Callable`:</span>
+<span class="sd">            A wrapper function that traces the LLM call and handles</span>
+<span class="sd">            input/output and exceptions.</span>
+<span class="sd">    """</span>
+
+    <span class="nd">@wraps</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">async_wrapper</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">:</span> <span class="n">ChatModelBase</span><span class="p">,</span>
+        <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ChatResponse</span> <span class="o">|</span> <span class="n">AsyncGenerator</span><span class="p">[</span><span class="n">ChatResponse</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""The wrapper function for tracing the LLM call."""</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">_check_tracing_enabled</span><span class="p">():</span>
+            <span class="k">return</span> <span class="k">await</span> <span class="n">func</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ChatModelBase</span><span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">"Skipping tracing for </span><span class="si">%s</span><span class="s2"> as the first argument"</span>
+                <span class="s2">"is not an instance of ChatModelBase, but </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span>
+                <span class="n">func</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+                <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="k">await</span> <span class="n">func</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="kn">import</span><span class="w"> </span><span class="nn">opentelemetry</span>
+
+        <span class="n">tracer</span> <span class="o">=</span> <span class="n">opentelemetry</span><span class="o">.</span><span class="n">trace</span><span class="o">.</span><span class="n">get_tracer</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+        <span class="c1"># Prepare the attributes for the span</span>
+        <span class="n">attributes</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">SpanAttributes</span><span class="o">.</span><span class="n">SPAN_KIND</span><span class="p">:</span> <span class="n">_serialize_to_str</span><span class="p">(</span><span class="n">SpanKind</span><span class="o">.</span><span class="n">LLM</span><span class="p">),</span>
+            <span class="n">SpanAttributes</span><span class="o">.</span><span class="n">PROJECT_RUN_ID</span><span class="p">:</span> <span class="n">_serialize_to_str</span><span class="p">(</span><span class="n">_config</span><span class="o">.</span><span class="n">run_id</span><span class="p">),</span>
+            <span class="n">SpanAttributes</span><span class="o">.</span><span class="n">INPUT</span><span class="p">:</span> <span class="n">_serialize_to_str</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s2">"args"</span><span class="p">:</span> <span class="n">args</span><span class="p">,</span>
+                    <span class="s2">"kwargs"</span><span class="p">:</span> <span class="n">kwargs</span><span class="p">,</span>
+                <span class="p">},</span>
+            <span class="p">),</span>
+            <span class="n">SpanAttributes</span><span class="o">.</span><span class="n">META</span><span class="p">:</span> <span class="n">_serialize_to_str</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s2">"model_name"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">,</span>
+                    <span class="s2">"stream"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">stream</span><span class="p">,</span>
+                <span class="p">},</span>
+            <span class="p">),</span>
+        <span class="p">}</span>
+
+        <span class="c1"># Begin the llm call span</span>
+        <span class="k">with</span> <span class="n">tracer</span><span class="o">.</span><span class="n">start_as_current_span</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">.__call__"</span><span class="p">,</span>
+            <span class="n">attributes</span><span class="o">=</span><span class="n">attributes</span><span class="p">,</span>
+            <span class="n">end_on_exit</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="p">)</span> <span class="k">as</span> <span class="n">span</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="c1"># Must be an async calling</span>
+                <span class="n">res</span> <span class="o">=</span> <span class="k">await</span> <span class="n">func</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+                <span class="c1"># If the result is a AsyncGenerator</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">AsyncGenerator</span><span class="p">):</span>
+                    <span class="k">return</span> <span class="n">_trace_async_generator_wrapper</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">span</span><span class="p">)</span>
+
+                <span class="c1"># non-generator result</span>
+                <span class="n">span</span><span class="o">.</span><span class="n">set_attributes</span><span class="p">(</span>
+                    <span class="p">{</span><span class="n">SpanAttributes</span><span class="o">.</span><span class="n">OUTPUT</span><span class="p">:</span> <span class="n">_serialize_to_str</span><span class="p">(</span><span class="n">res</span><span class="p">)},</span>
+                <span class="p">)</span>
+                <span class="n">span</span><span class="o">.</span><span class="n">set_status</span><span class="p">(</span><span class="n">opentelemetry</span><span class="o">.</span><span class="n">trace</span><span class="o">.</span><span class="n">StatusCode</span><span class="o">.</span><span class="n">OK</span><span class="p">)</span>
+                <span class="n">span</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+                <span class="k">return</span> <span class="n">res</span>
+
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">span</span><span class="o">.</span><span class="n">set_status</span><span class="p">(</span>
+                    <span class="n">opentelemetry</span><span class="o">.</span><span class="n">trace</span><span class="o">.</span><span class="n">StatusCode</span><span class="o">.</span><span class="n">ERROR</span><span class="p">,</span>
+                    <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">),</span>
+                <span class="p">)</span>
+                <span class="n">span</span><span class="o">.</span><span class="n">record_exception</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+                <span class="n">span</span><span class="o">.</span><span class="n">end</span><span class="p">()</span>
+                <span class="k">raise</span> <span class="n">e</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+
+    <span class="k">return</span> <span class="n">async_wrapper</span></div>
+
+</pre></div>
+        

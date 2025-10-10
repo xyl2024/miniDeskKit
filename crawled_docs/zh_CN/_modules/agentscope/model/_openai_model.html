@@ -1,0 +1,530 @@
+<!-- Title: agentscope.model._openai_model - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/model/_openai_model.html -->
+
+          <h1>agentscope.model._openai_model 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="c1"># pylint: disable=too-many-branches</span>
+<span class="sd">"""OpenAI Chat model class."""</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Any</span><span class="p">,</span>
+    <span class="n">TYPE_CHECKING</span><span class="p">,</span>
+    <span class="n">List</span><span class="p">,</span>
+    <span class="n">AsyncGenerator</span><span class="p">,</span>
+    <span class="n">Literal</span><span class="p">,</span>
+    <span class="n">Type</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChatResponse</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">._model_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChatModelBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">._model_usage</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChatUsage</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._utils._common</span><span class="w"> </span><span class="kn">import</span> <span class="n">_json_loads_with_repair</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..message</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ToolUseBlock</span><span class="p">,</span>
+    <span class="n">TextBlock</span><span class="p">,</span>
+    <span class="n">ThinkingBlock</span><span class="p">,</span>
+    <span class="n">AudioBlock</span><span class="p">,</span>
+    <span class="n">Base64Source</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..tracing</span><span class="w"> </span><span class="kn">import</span> <span class="n">trace_llm</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..types</span><span class="w"> </span><span class="kn">import</span> <span class="n">JSONSerializableObject</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">openai.types.chat</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChatCompletion</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">openai</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncStream</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">ChatCompletion</span> <span class="o">=</span> <span class="s2">"openai.types.chat.ChatCompletion"</span>
+    <span class="n">AsyncStream</span> <span class="o">=</span> <span class="s2">"openai.types.chat.AsyncStream"</span>
+
+
+<div class="viewcode-block" id="OpenAIChatModel">
+<a class="viewcode-back" href="../../../api/agentscope.model.html#agentscope.model.OpenAIChatModel">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">OpenAIChatModel</span><span class="p">(</span><span class="n">ChatModelBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The OpenAI chat model class."""</span>
+
+<div class="viewcode-block" id="OpenAIChatModel.__init__">
+<a class="viewcode-back" href="../../../api/agentscope.model.html#agentscope.model.OpenAIChatModel.__init__">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">model_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">api_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">stream</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">reasoning_effort</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"low"</span><span class="p">,</span> <span class="s2">"medium"</span><span class="p">,</span> <span class="s2">"high"</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">organization</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">client_args</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">generate_kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">JSONSerializableObject</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize the openai client.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            model_name (`str`, default `None`):</span>
+<span class="sd">                The name of the model to use in OpenAI API.</span>
+<span class="sd">            api_key (`str`, default `None`):</span>
+<span class="sd">                The API key for OpenAI API. If not specified, it will</span>
+<span class="sd">                be read from the environment variable `OPENAI_API_KEY`.</span>
+<span class="sd">            stream (`bool`, default `True`):</span>
+<span class="sd">                Whether to use streaming output or not.</span>
+<span class="sd">            reasoning_effort (`Literal["low", "medium", "high"] | None`, \</span>
+<span class="sd">            optional):</span>
+<span class="sd">                Reasoning effort, supported for o3, o4, etc. Please refer to</span>
+<span class="sd">                `OpenAI documentation</span>
+<span class="sd">                &lt;https://platform.openai.com/docs/guides/reasoning?api-mode=chat&gt;`_</span>
+<span class="sd">                for more details.</span>
+<span class="sd">            organization (`str`, default `None`):</span>
+<span class="sd">                The organization ID for OpenAI API. If not specified, it will</span>
+<span class="sd">                be read from the environment variable `OPENAI_ORGANIZATION`.</span>
+<span class="sd">            client_args (`dict`, default `None`):</span>
+<span class="sd">                The extra keyword arguments to initialize the OpenAI client.</span>
+<span class="sd">            generate_kwargs (`dict[str, JSONSerializableObject] | None`, \</span>
+<span class="sd">             optional):</span>
+<span class="sd">               The extra keyword arguments used in OpenAI API generation,</span>
+<span class="sd">                e.g. `temperature`, `seed`.</span>
+<span class="sd">        """</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">model_name</span><span class="p">,</span> <span class="n">stream</span><span class="p">)</span>
+
+        <span class="kn">import</span><span class="w"> </span><span class="nn">openai</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">client</span> <span class="o">=</span> <span class="n">openai</span><span class="o">.</span><span class="n">AsyncClient</span><span class="p">(</span>
+            <span class="n">api_key</span><span class="o">=</span><span class="n">api_key</span><span class="p">,</span>
+            <span class="n">organization</span><span class="o">=</span><span class="n">organization</span><span class="p">,</span>
+            <span class="o">**</span><span class="p">(</span><span class="n">client_args</span> <span class="ow">or</span> <span class="p">{}),</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">reasoning_effort</span> <span class="o">=</span> <span class="n">reasoning_effort</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">generate_kwargs</span> <span class="o">=</span> <span class="n">generate_kwargs</span> <span class="ow">or</span> <span class="p">{}</span></div>
+
+
+<div class="viewcode-block" id="OpenAIChatModel.__call__">
+<a class="viewcode-back" href="../../../api/agentscope.model.html#agentscope.model.OpenAIChatModel.__call__">[文档]</a>
+    <span class="nd">@trace_llm</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">messages</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">],</span>
+        <span class="n">tools</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">tool_choice</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"auto"</span><span class="p">,</span> <span class="s2">"none"</span><span class="p">,</span> <span class="s2">"any"</span><span class="p">,</span> <span class="s2">"required"</span><span class="p">]</span>
+        <span class="o">|</span> <span class="nb">str</span>
+        <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">structured_model</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">BaseModel</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ChatResponse</span> <span class="o">|</span> <span class="n">AsyncGenerator</span><span class="p">[</span><span class="n">ChatResponse</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Get the response from OpenAI chat completions API by the given</span>
+<span class="sd">        arguments.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            messages (`list[dict]`):</span>
+<span class="sd">                A list of dictionaries, where `role` and `content` fields are</span>
+<span class="sd">                required, and `name` field is optional.</span>
+<span class="sd">            tools (`list[dict]`, default `None`):</span>
+<span class="sd">                The tools JSON schemas that the model can use.</span>
+<span class="sd">            tool_choice (`Literal["auto", "none", "any", "required"] | str \</span>
+<span class="sd">            | None`, default `None`):</span>
+<span class="sd">                Controls which (if any) tool is called by the model.</span>
+<span class="sd">                 Can be "auto", "none", "any", "required", or specific tool</span>
+<span class="sd">                 name. For more details, please refer to</span>
+<span class="sd">                 https://platform.openai.com/docs/api-reference/responses/create#responses_create-tool_choice</span>
+<span class="sd">            structured_model (`Type[BaseModel] | None`, default `None`):</span>
+<span class="sd">                A Pydantic BaseModel class that defines the expected structure</span>
+<span class="sd">                for the model's output. When provided, the model will be forced</span>
+<span class="sd">                to return data that conforms to this schema by automatically</span>
+<span class="sd">                converting the BaseModel to a tool function and setting</span>
+<span class="sd">                `tool_choice` to enforce its usage. This enables structured</span>
+<span class="sd">                output generation.</span>
+
+<span class="sd">                .. note:: When `structured_model` is specified,</span>
+<span class="sd">                    both `tools` and `tool_choice` parameters are ignored,</span>
+<span class="sd">                    and the model will only perform structured output</span>
+<span class="sd">                    generation without calling any other tools.</span>
+
+<span class="sd">                For more details, please refer to the `official document</span>
+<span class="sd">                &lt;https://platform.openai.com/docs/guides/structured-outputs&gt;`_</span>
+
+<span class="sd">            **kwargs (`Any`):</span>
+<span class="sd">                The keyword arguments for OpenAI chat completions API,</span>
+<span class="sd">                e.g. `temperature`, `max_tokens`, `top_p`, etc. Please</span>
+<span class="sd">                refer to the OpenAI API documentation for more details.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `ChatResponse | AsyncGenerator[ChatResponse, None]`:</span>
+<span class="sd">                The response from the OpenAI chat completions API.</span>
+<span class="sd">        """</span>
+
+        <span class="c1"># checking messages</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">messages</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"OpenAI `messages` field expected type `list`, "</span>
+                <span class="sa">f</span><span class="s2">"got `</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">messages</span><span class="p">)</span><span class="si">}</span><span class="s2">` instead."</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="s2">"role"</span> <span class="ow">in</span> <span class="n">msg</span> <span class="ow">and</span> <span class="s2">"content"</span> <span class="ow">in</span> <span class="n">msg</span> <span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">messages</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"Each message in the 'messages' list must contain a 'role' "</span>
+                <span class="s2">"and 'content' key for OpenAI API."</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="n">kwargs</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"model"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">,</span>
+            <span class="s2">"messages"</span><span class="p">:</span> <span class="n">messages</span><span class="p">,</span>
+            <span class="s2">"stream"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">stream</span><span class="p">,</span>
+            <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">generate_kwargs</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">reasoning_effort</span> <span class="ow">and</span> <span class="s2">"reasoning_effort"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">:</span>
+            <span class="n">kwargs</span><span class="p">[</span><span class="s2">"reasoning_effort"</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reasoning_effort</span>
+
+        <span class="k">if</span> <span class="n">tools</span><span class="p">:</span>
+            <span class="n">kwargs</span><span class="p">[</span><span class="s2">"tools"</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_format_tools_json_schemas</span><span class="p">(</span><span class="n">tools</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">tool_choice</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_validate_tool_choice</span><span class="p">(</span><span class="n">tool_choice</span><span class="p">,</span> <span class="n">tools</span><span class="p">)</span>
+            <span class="n">kwargs</span><span class="p">[</span><span class="s2">"tool_choice"</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_format_tool_choice</span><span class="p">(</span><span class="n">tool_choice</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">stream</span><span class="p">:</span>
+            <span class="n">kwargs</span><span class="p">[</span><span class="s2">"stream_options"</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"include_usage"</span><span class="p">:</span> <span class="kc">True</span><span class="p">}</span>
+
+        <span class="n">start_datetime</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">structured_model</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">tools</span> <span class="ow">or</span> <span class="n">tool_choice</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="s2">"structured_model is provided. Both 'tools' and "</span>
+                    <span class="s2">"'tool_choice' parameters will be overridden and "</span>
+                    <span class="s2">"ignored. The model will only perform structured output "</span>
+                    <span class="s2">"generation without calling any other tools."</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">"stream"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">"tools"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">"tool_choice"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="n">kwargs</span><span class="p">[</span><span class="s2">"response_format"</span><span class="p">]</span> <span class="o">=</span> <span class="n">structured_model</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">stream</span><span class="p">:</span>
+                <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="o">.</span><span class="n">completions</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="o">.</span><span class="n">completions</span><span class="o">.</span><span class="n">stream</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_openai_stream_response</span><span class="p">(</span>
+                    <span class="n">start_datetime</span><span class="p">,</span>
+                    <span class="n">response</span><span class="p">,</span>
+                    <span class="n">structured_model</span><span class="p">,</span>
+                <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="o">.</span><span class="n">completions</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">stream</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_openai_stream_response</span><span class="p">(</span>
+                <span class="n">start_datetime</span><span class="p">,</span>
+                <span class="n">response</span><span class="p">,</span>
+                <span class="n">structured_model</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Non-streaming response</span>
+        <span class="n">parsed_response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parse_openai_completion_response</span><span class="p">(</span>
+            <span class="n">start_datetime</span><span class="p">,</span>
+            <span class="n">response</span><span class="p">,</span>
+            <span class="n">structured_model</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">parsed_response</span></div>
+
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_parse_openai_stream_response</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">start_datetime</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span>
+        <span class="n">response</span><span class="p">:</span> <span class="n">AsyncStream</span><span class="p">,</span>
+        <span class="n">structured_model</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">BaseModel</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AsyncGenerator</span><span class="p">[</span><span class="n">ChatResponse</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Given an OpenAI streaming completion response, extract the content</span>
+<span class="sd">         blocks and usages from it and yield ChatResponse objects.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            start_datetime (`datetime`):</span>
+<span class="sd">                The start datetime of the response generation.</span>
+<span class="sd">            response (`AsyncStream`):</span>
+<span class="sd">                OpenAI AsyncStream object to parse.</span>
+<span class="sd">            structured_model (`Type[BaseModel] | None`, default `None`):</span>
+<span class="sd">                A Pydantic BaseModel class that defines the expected structure</span>
+<span class="sd">                for the model's output.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `AsyncGenerator[ChatResponse, None]`:</span>
+<span class="sd">                An async generator that yields ChatResponse objects containing</span>
+<span class="sd">                the content blocks and usage information for each chunk in</span>
+<span class="sd">                the streaming response.</span>
+
+<span class="sd">        .. note::</span>
+<span class="sd">            If `structured_model` is not `None`, the expected structured output</span>
+<span class="sd">            will be stored in the metadata of the `ChatResponse`.</span>
+<span class="sd">        """</span>
+        <span class="n">usage</span><span class="p">,</span> <span class="n">res</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+        <span class="n">text</span> <span class="o">=</span> <span class="s2">""</span>
+        <span class="n">thinking</span> <span class="o">=</span> <span class="s2">""</span>
+        <span class="n">audio</span> <span class="o">=</span> <span class="s2">""</span>
+        <span class="n">tool_calls</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+        <span class="n">metadata</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">contents</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span>
+            <span class="n">TextBlock</span> <span class="o">|</span> <span class="n">ToolUseBlock</span> <span class="o">|</span> <span class="n">ThinkingBlock</span> <span class="o">|</span> <span class="n">AudioBlock</span>
+        <span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">async</span> <span class="k">with</span> <span class="n">response</span> <span class="k">as</span> <span class="n">stream</span><span class="p">:</span>
+            <span class="k">async</span> <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">stream</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">structured_model</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">item</span><span class="o">.</span><span class="n">type</span> <span class="o">!=</span> <span class="s2">"chunk"</span><span class="p">:</span>
+                        <span class="k">continue</span>
+                    <span class="n">chunk</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">chunk</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">chunk</span> <span class="o">=</span> <span class="n">item</span>
+
+                <span class="k">if</span> <span class="n">chunk</span><span class="o">.</span><span class="n">usage</span><span class="p">:</span>
+                    <span class="n">usage</span> <span class="o">=</span> <span class="n">ChatUsage</span><span class="p">(</span>
+                        <span class="n">input_tokens</span><span class="o">=</span><span class="n">chunk</span><span class="o">.</span><span class="n">usage</span><span class="o">.</span><span class="n">prompt_tokens</span><span class="p">,</span>
+                        <span class="n">output_tokens</span><span class="o">=</span><span class="n">chunk</span><span class="o">.</span><span class="n">usage</span><span class="o">.</span><span class="n">completion_tokens</span><span class="p">,</span>
+                        <span class="n">time</span><span class="o">=</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_datetime</span><span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">(),</span>
+                    <span class="p">)</span>
+
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">chunk</span><span class="o">.</span><span class="n">choices</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">usage</span> <span class="ow">and</span> <span class="n">contents</span><span class="p">:</span>
+                        <span class="n">res</span> <span class="o">=</span> <span class="n">ChatResponse</span><span class="p">(</span>
+                            <span class="n">content</span><span class="o">=</span><span class="n">contents</span><span class="p">,</span>
+                            <span class="n">usage</span><span class="o">=</span><span class="n">usage</span><span class="p">,</span>
+                            <span class="n">metadata</span><span class="o">=</span><span class="n">metadata</span><span class="p">,</span>
+                        <span class="p">)</span>
+                        <span class="k">yield</span> <span class="n">res</span>
+                    <span class="k">continue</span>
+
+                <span class="n">choice</span> <span class="o">=</span> <span class="n">chunk</span><span class="o">.</span><span class="n">choices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+                <span class="n">thinking</span> <span class="o">+=</span> <span class="p">(</span>
+                    <span class="nb">getattr</span><span class="p">(</span><span class="n">choice</span><span class="o">.</span><span class="n">delta</span><span class="p">,</span> <span class="s2">"reasoning_content"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">""</span>
+                <span class="p">)</span>
+                <span class="n">text</span> <span class="o">+=</span> <span class="n">choice</span><span class="o">.</span><span class="n">delta</span><span class="o">.</span><span class="n">content</span> <span class="ow">or</span> <span class="s2">""</span>
+
+                <span class="k">if</span> <span class="p">(</span>
+                    <span class="nb">hasattr</span><span class="p">(</span><span class="n">choice</span><span class="o">.</span><span class="n">delta</span><span class="p">,</span> <span class="s2">"audio"</span><span class="p">)</span>
+                    <span class="ow">and</span> <span class="s2">"data"</span> <span class="ow">in</span> <span class="n">choice</span><span class="o">.</span><span class="n">delta</span><span class="o">.</span><span class="n">audio</span>
+                <span class="p">):</span>
+                    <span class="n">audio</span> <span class="o">+=</span> <span class="n">choice</span><span class="o">.</span><span class="n">delta</span><span class="o">.</span><span class="n">audio</span><span class="p">[</span><span class="s2">"data"</span><span class="p">]</span>
+                <span class="k">if</span> <span class="p">(</span>
+                    <span class="nb">hasattr</span><span class="p">(</span><span class="n">choice</span><span class="o">.</span><span class="n">delta</span><span class="p">,</span> <span class="s2">"audio"</span><span class="p">)</span>
+                    <span class="ow">and</span> <span class="s2">"transcript"</span> <span class="ow">in</span> <span class="n">choice</span><span class="o">.</span><span class="n">delta</span><span class="o">.</span><span class="n">audio</span>
+                <span class="p">):</span>
+                    <span class="n">text</span> <span class="o">+=</span> <span class="n">choice</span><span class="o">.</span><span class="n">delta</span><span class="o">.</span><span class="n">audio</span><span class="p">[</span><span class="s2">"transcript"</span><span class="p">]</span>
+
+                <span class="k">for</span> <span class="n">tool_call</span> <span class="ow">in</span> <span class="n">choice</span><span class="o">.</span><span class="n">delta</span><span class="o">.</span><span class="n">tool_calls</span> <span class="ow">or</span> <span class="p">[]:</span>
+                    <span class="k">if</span> <span class="n">tool_call</span><span class="o">.</span><span class="n">index</span> <span class="ow">in</span> <span class="n">tool_calls</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">tool_call</span><span class="o">.</span><span class="n">function</span><span class="o">.</span><span class="n">arguments</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                            <span class="n">tool_calls</span><span class="p">[</span><span class="n">tool_call</span><span class="o">.</span><span class="n">index</span><span class="p">][</span>
+                                <span class="s2">"input"</span>
+                            <span class="p">]</span> <span class="o">+=</span> <span class="n">tool_call</span><span class="o">.</span><span class="n">function</span><span class="o">.</span><span class="n">arguments</span>
+
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">tool_calls</span><span class="p">[</span><span class="n">tool_call</span><span class="o">.</span><span class="n">index</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                            <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"tool_use"</span><span class="p">,</span>
+                            <span class="s2">"id"</span><span class="p">:</span> <span class="n">tool_call</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                            <span class="s2">"name"</span><span class="p">:</span> <span class="n">tool_call</span><span class="o">.</span><span class="n">function</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                            <span class="s2">"input"</span><span class="p">:</span> <span class="n">tool_call</span><span class="o">.</span><span class="n">function</span><span class="o">.</span><span class="n">arguments</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">,</span>
+                        <span class="p">}</span>
+
+                <span class="n">contents</span> <span class="o">=</span> <span class="p">[]</span>
+
+                <span class="k">if</span> <span class="n">thinking</span><span class="p">:</span>
+                    <span class="n">contents</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="n">ThinkingBlock</span><span class="p">(</span>
+                            <span class="nb">type</span><span class="o">=</span><span class="s2">"thinking"</span><span class="p">,</span>
+                            <span class="n">thinking</span><span class="o">=</span><span class="n">thinking</span><span class="p">,</span>
+                        <span class="p">),</span>
+                    <span class="p">)</span>
+
+                <span class="k">if</span> <span class="n">audio</span><span class="p">:</span>
+                    <span class="n">media_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">generate_kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"audio"</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                        <span class="s2">"format"</span><span class="p">,</span>
+                        <span class="s2">"wav"</span><span class="p">,</span>
+                    <span class="p">)</span>
+                    <span class="n">contents</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="n">AudioBlock</span><span class="p">(</span>
+                            <span class="nb">type</span><span class="o">=</span><span class="s2">"audio"</span><span class="p">,</span>
+                            <span class="n">source</span><span class="o">=</span><span class="n">Base64Source</span><span class="p">(</span>
+                                <span class="n">data</span><span class="o">=</span><span class="n">audio</span><span class="p">,</span>
+                                <span class="n">media_type</span><span class="o">=</span><span class="sa">f</span><span class="s2">"audio/</span><span class="si">{</span><span class="n">media_type</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                                <span class="nb">type</span><span class="o">=</span><span class="s2">"base64"</span><span class="p">,</span>
+                            <span class="p">),</span>
+                        <span class="p">),</span>
+                    <span class="p">)</span>
+
+                <span class="k">if</span> <span class="n">text</span><span class="p">:</span>
+                    <span class="n">contents</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="n">TextBlock</span><span class="p">(</span>
+                            <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                            <span class="n">text</span><span class="o">=</span><span class="n">text</span><span class="p">,</span>
+                        <span class="p">),</span>
+                    <span class="p">)</span>
+
+                    <span class="k">if</span> <span class="n">structured_model</span><span class="p">:</span>
+                        <span class="n">metadata</span> <span class="o">=</span> <span class="n">_json_loads_with_repair</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+
+                <span class="k">for</span> <span class="n">tool_call</span> <span class="ow">in</span> <span class="n">tool_calls</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                    <span class="n">contents</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="n">ToolUseBlock</span><span class="p">(</span>
+                            <span class="nb">type</span><span class="o">=</span><span class="n">tool_call</span><span class="p">[</span><span class="s2">"type"</span><span class="p">],</span>
+                            <span class="nb">id</span><span class="o">=</span><span class="n">tool_call</span><span class="p">[</span><span class="s2">"id"</span><span class="p">],</span>
+                            <span class="n">name</span><span class="o">=</span><span class="n">tool_call</span><span class="p">[</span><span class="s2">"name"</span><span class="p">],</span>
+                            <span class="nb">input</span><span class="o">=</span><span class="n">_json_loads_with_repair</span><span class="p">(</span>
+                                <span class="n">tool_call</span><span class="p">[</span><span class="s2">"input"</span><span class="p">]</span> <span class="ow">or</span> <span class="s2">"</span><span class="si">{}</span><span class="s2">"</span><span class="p">,</span>
+                            <span class="p">),</span>
+                        <span class="p">),</span>
+                    <span class="p">)</span>
+
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">contents</span><span class="p">:</span>
+                    <span class="k">continue</span>
+
+                <span class="n">res</span> <span class="o">=</span> <span class="n">ChatResponse</span><span class="p">(</span>
+                    <span class="n">content</span><span class="o">=</span><span class="n">contents</span><span class="p">,</span>
+                    <span class="n">usage</span><span class="o">=</span><span class="n">usage</span><span class="p">,</span>
+                    <span class="n">metadata</span><span class="o">=</span><span class="n">metadata</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="k">yield</span> <span class="n">res</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_parse_openai_completion_response</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">start_datetime</span><span class="p">:</span> <span class="n">datetime</span><span class="p">,</span>
+        <span class="n">response</span><span class="p">:</span> <span class="n">ChatCompletion</span><span class="p">,</span>
+        <span class="n">structured_model</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">BaseModel</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ChatResponse</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Given an OpenAI chat completion response object, extract the content</span>
+<span class="sd">            blocks and usages from it.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            start_datetime (`datetime`):</span>
+<span class="sd">                The start datetime of the response generation.</span>
+<span class="sd">            response (`ChatCompletion`):</span>
+<span class="sd">                OpenAI ChatCompletion object to parse.</span>
+<span class="sd">            structured_model (`Type[BaseModel] | None`, default `None`):</span>
+<span class="sd">                A Pydantic BaseModel class that defines the expected structure</span>
+<span class="sd">                for the model's output.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            ChatResponse (`ChatResponse`):</span>
+<span class="sd">                A ChatResponse object containing the content blocks and usage.</span>
+
+<span class="sd">        .. note::</span>
+<span class="sd">            If `structured_model` is not `None`, the expected structured output</span>
+<span class="sd">            will be stored in the metadata of the `ChatResponse`.</span>
+<span class="sd">        """</span>
+        <span class="n">content_blocks</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span>
+            <span class="n">TextBlock</span> <span class="o">|</span> <span class="n">ToolUseBlock</span> <span class="o">|</span> <span class="n">ThinkingBlock</span> <span class="o">|</span> <span class="n">AudioBlock</span>
+        <span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">metadata</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">choices</span><span class="p">:</span>
+            <span class="n">choice</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">choices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="nb">hasattr</span><span class="p">(</span><span class="n">choice</span><span class="o">.</span><span class="n">message</span><span class="p">,</span> <span class="s2">"reasoning_content"</span><span class="p">)</span>
+                <span class="ow">and</span> <span class="n">choice</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">reasoning_content</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+            <span class="p">):</span>
+                <span class="n">content_blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">ThinkingBlock</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"thinking"</span><span class="p">,</span>
+                        <span class="n">thinking</span><span class="o">=</span><span class="n">response</span><span class="o">.</span><span class="n">choices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">reasoning_content</span><span class="p">,</span>
+                    <span class="p">),</span>
+                <span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">choice</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">content</span><span class="p">:</span>
+                <span class="n">content_blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">TextBlock</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                        <span class="n">text</span><span class="o">=</span><span class="n">response</span><span class="o">.</span><span class="n">choices</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">content</span><span class="p">,</span>
+                    <span class="p">),</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="n">choice</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">audio</span><span class="p">:</span>
+                <span class="n">media_type</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">generate_kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"audio"</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                    <span class="s2">"format"</span><span class="p">,</span>
+                    <span class="s2">"mp3"</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="n">content_blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">AudioBlock</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"audio"</span><span class="p">,</span>
+                        <span class="n">source</span><span class="o">=</span><span class="n">Base64Source</span><span class="p">(</span>
+                            <span class="n">data</span><span class="o">=</span><span class="n">choice</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">audio</span><span class="o">.</span><span class="n">data</span><span class="p">,</span>
+                            <span class="n">media_type</span><span class="o">=</span><span class="sa">f</span><span class="s2">"audio/</span><span class="si">{</span><span class="n">media_type</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                            <span class="nb">type</span><span class="o">=</span><span class="s2">"base64"</span><span class="p">,</span>
+                        <span class="p">),</span>
+                    <span class="p">),</span>
+                <span class="p">)</span>
+
+                <span class="k">if</span> <span class="n">choice</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">audio</span><span class="o">.</span><span class="n">transcript</span><span class="p">:</span>
+                    <span class="n">content_blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="n">TextBlock</span><span class="p">(</span>
+                            <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                            <span class="n">text</span><span class="o">=</span><span class="n">choice</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">audio</span><span class="o">.</span><span class="n">transcript</span><span class="p">,</span>
+                        <span class="p">),</span>
+                    <span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">tool_call</span> <span class="ow">in</span> <span class="n">choice</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">tool_calls</span> <span class="ow">or</span> <span class="p">[]:</span>
+                <span class="n">content_blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">ToolUseBlock</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"tool_use"</span><span class="p">,</span>
+                        <span class="nb">id</span><span class="o">=</span><span class="n">tool_call</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                        <span class="n">name</span><span class="o">=</span><span class="n">tool_call</span><span class="o">.</span><span class="n">function</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                        <span class="nb">input</span><span class="o">=</span><span class="n">_json_loads_with_repair</span><span class="p">(</span>
+                            <span class="n">tool_call</span><span class="o">.</span><span class="n">function</span><span class="o">.</span><span class="n">arguments</span><span class="p">,</span>
+                        <span class="p">),</span>
+                    <span class="p">),</span>
+                <span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">structured_model</span><span class="p">:</span>
+                <span class="n">metadata</span> <span class="o">=</span> <span class="n">choice</span><span class="o">.</span><span class="n">message</span><span class="o">.</span><span class="n">parsed</span><span class="o">.</span><span class="n">model_dump</span><span class="p">()</span>
+
+        <span class="n">usage</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">usage</span><span class="p">:</span>
+            <span class="n">usage</span> <span class="o">=</span> <span class="n">ChatUsage</span><span class="p">(</span>
+                <span class="n">input_tokens</span><span class="o">=</span><span class="n">response</span><span class="o">.</span><span class="n">usage</span><span class="o">.</span><span class="n">prompt_tokens</span><span class="p">,</span>
+                <span class="n">output_tokens</span><span class="o">=</span><span class="n">response</span><span class="o">.</span><span class="n">usage</span><span class="o">.</span><span class="n">completion_tokens</span><span class="p">,</span>
+                <span class="n">time</span><span class="o">=</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_datetime</span><span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">(),</span>
+            <span class="p">)</span>
+
+        <span class="n">parsed_response</span> <span class="o">=</span> <span class="n">ChatResponse</span><span class="p">(</span>
+            <span class="n">content</span><span class="o">=</span><span class="n">content_blocks</span><span class="p">,</span>
+            <span class="n">usage</span><span class="o">=</span><span class="n">usage</span><span class="p">,</span>
+            <span class="n">metadata</span><span class="o">=</span><span class="n">metadata</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">parsed_response</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_format_tools_json_schemas</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">schemas</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">"""Format the tools JSON schemas to the OpenAI format."""</span>
+        <span class="k">return</span> <span class="n">schemas</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_format_tool_choice</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">tool_choice</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"auto"</span><span class="p">,</span> <span class="s2">"none"</span><span class="p">,</span> <span class="s2">"any"</span><span class="p">,</span> <span class="s2">"required"</span><span class="p">]</span> <span class="o">|</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Format tool_choice parameter for API compatibility.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            tool_choice (`Literal["auto", "none", "any", "required"] | str \</span>
+<span class="sd">            | None`, default `None`):</span>
+<span class="sd">                Controls which (if any) tool is called by the model.</span>
+<span class="sd">                 Can be "auto", "none", "any", "required", or specific tool</span>
+<span class="sd">                 name. For more details, please refer to</span>
+<span class="sd">                 https://platform.openai.com/docs/api-reference/responses/create#responses_create-tool_choice</span>
+<span class="sd">        Returns:</span>
+<span class="sd">            `dict | None`:</span>
+<span class="sd">                The formatted tool choice configuration dict, or None if</span>
+<span class="sd">                    tool_choice is None.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">tool_choice</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="n">mode_mapping</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"auto"</span><span class="p">:</span> <span class="s2">"auto"</span><span class="p">,</span>
+            <span class="s2">"none"</span><span class="p">:</span> <span class="s2">"none"</span><span class="p">,</span>
+            <span class="s2">"any"</span><span class="p">:</span> <span class="s2">"required"</span><span class="p">,</span>
+            <span class="s2">"required"</span><span class="p">:</span> <span class="s2">"required"</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="k">if</span> <span class="n">tool_choice</span> <span class="ow">in</span> <span class="n">mode_mapping</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">mode_mapping</span><span class="p">[</span><span class="n">tool_choice</span><span class="p">]</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"function"</span><span class="p">,</span> <span class="s2">"function"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"name"</span><span class="p">:</span> <span class="n">tool_choice</span><span class="p">}}</span></div>
+
+</pre></div>
+        

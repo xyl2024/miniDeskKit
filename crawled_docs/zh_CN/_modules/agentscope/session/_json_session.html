@@ -1,0 +1,134 @@
+<!-- Title: agentscope.session._json_session - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/session/_json_session.html -->
+
+          <h1>agentscope.session._json_session 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The JSON session class."""</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">._session_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">SessionBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..module</span><span class="w"> </span><span class="kn">import</span> <span class="n">StateModule</span>
+
+
+<div class="viewcode-block" id="JSONSession">
+<a class="viewcode-back" href="../../../api/agentscope.session.html#agentscope.session.JSONSession">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">JSONSession</span><span class="p">(</span><span class="n">SessionBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The JSON session class."""</span>
+
+<div class="viewcode-block" id="JSONSession.__init__">
+<a class="viewcode-back" href="../../../api/agentscope.session.html#agentscope.session.JSONSession.__init__">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">session_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">save_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"./"</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize the JSON session class.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            session_id (`str`):</span>
+<span class="sd">                The session id, deprecated and move to the `save_session_state`</span>
+<span class="sd">                and `load_session_state` methods to support different session</span>
+<span class="sd">                ids.</span>
+<span class="sd">            save_dir (`str`, defaults to `"./"):</span>
+<span class="sd">                The directory to save the session state.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">save_dir</span> <span class="o">=</span> <span class="n">save_dir</span>
+
+        <span class="k">if</span> <span class="n">session_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">"The `session_id` argument in the JSONSession constructor is "</span>
+                <span class="s2">"deprecated and will be removed in future versions. Please "</span>
+                <span class="s2">"pass the `session_id` to the `save_session_state` and "</span>
+                <span class="s2">"`load_session_state` methods instead."</span><span class="p">,</span>
+            <span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_save_path</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""The path to save the session state.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            session_id (`str`):</span>
+<span class="sd">                The session id.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `str`:</span>
+<span class="sd">                The path to save the session state.</span>
+<span class="sd">        """</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">save_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">save_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">session_id</span><span class="si">}</span><span class="s2">.json"</span><span class="p">)</span>
+
+<div class="viewcode-block" id="JSONSession.save_session_state">
+<a class="viewcode-back" href="../../../api/agentscope.session.html#agentscope.session.JSONSession.save_session_state">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">save_session_state</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">session_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">state_modules_mapping</span><span class="p">:</span> <span class="n">StateModule</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Load the state dictionary from a JSON file.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            session_id (`str`):</span>
+<span class="sd">                The session id.</span>
+<span class="sd">            **state_modules_mapping (`dict[str, StateModule]`):</span>
+<span class="sd">                A dictionary mapping of state module names to their instances.</span>
+<span class="sd">        """</span>
+        <span class="n">state_dicts</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">name</span><span class="p">:</span> <span class="n">state_module</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">state_module</span> <span class="ow">in</span> <span class="n">state_modules_mapping</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">}</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_get_save_path</span><span class="p">(</span><span class="n">session_id</span><span class="p">),</span>
+            <span class="s2">"w"</span><span class="p">,</span>
+            <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">,</span>
+        <span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">state_dicts</span><span class="p">,</span> <span class="n">file</span><span class="p">,</span> <span class="n">ensure_ascii</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="JSONSession.load_session_state">
+<a class="viewcode-back" href="../../../api/agentscope.session.html#agentscope.session.JSONSession.load_session_state">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">load_session_state</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">session_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">allow_not_exist</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">state_modules_mapping</span><span class="p">:</span> <span class="n">StateModule</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Get the state dictionary to be saved to a JSON file.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            session_id (`str`):</span>
+<span class="sd">                The session id.</span>
+<span class="sd">            allow_not_exist (`bool`, defaults to `True`):</span>
+<span class="sd">                Whether to allow the session to not exist. If `False`, raises</span>
+<span class="sd">                an error if the session does not exist.</span>
+<span class="sd">            state_modules_mapping (`list[StateModule]`):</span>
+<span class="sd">                The list of state modules to be loaded.</span>
+<span class="sd">        """</span>
+        <span class="n">session_save_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_save_path</span><span class="p">(</span><span class="n">session_id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">session_save_path</span><span class="p">):</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">session_save_path</span><span class="p">,</span> <span class="s2">"r"</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+                <span class="n">states</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">state_module</span> <span class="ow">in</span> <span class="n">state_modules_mapping</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">states</span><span class="p">:</span>
+                    <span class="n">state_module</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">states</span><span class="p">[</span><span class="n">name</span><span class="p">])</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">"Load session state from </span><span class="si">%s</span><span class="s2"> successfully."</span><span class="p">,</span>
+                <span class="n">session_save_path</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">elif</span> <span class="n">allow_not_exist</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">"Session file </span><span class="si">%s</span><span class="s2"> does not exist. Skip loading session state."</span><span class="p">,</span>
+                <span class="n">session_save_path</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Failed to load session state for file </span><span class="si">{</span><span class="n">session_save_path</span><span class="si">}</span><span class="s2"> "</span>
+                <span class="s2">"does not exist."</span><span class="p">,</span>
+            <span class="p">)</span></div>
+</div>
+
+</pre></div>
+        

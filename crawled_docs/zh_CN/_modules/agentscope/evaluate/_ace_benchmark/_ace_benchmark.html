@@ -1,0 +1,251 @@
+<!-- Title: agentscope.evaluate._ace_benchmark._ace_benchmark - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/evaluate/_ace_benchmark/_ace_benchmark.html -->
+
+          <h1>agentscope.evaluate._ace_benchmark._ace_benchmark 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The ACE benchmark class in agentscope. The code is implemented with</span>
+<span class="sd">reference to the `ACEBench &lt;https://github.com/ACEBench/ACEBench&gt;`_</span>
+<span class="sd">under the MIT license."""</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Generator</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">json5</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">requests</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">tqdm</span><span class="w"> </span><span class="kn">import</span> <span class="n">tqdm</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">._ace_metric</span><span class="w"> </span><span class="kn">import</span> <span class="n">ACEAccuracy</span><span class="p">,</span> <span class="n">ACEProcessAccuracy</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">._ace_tools_zh</span><span class="w"> </span><span class="kn">import</span> <span class="n">ACEPhone</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._benchmark_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">BenchmarkBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._task</span><span class="w"> </span><span class="kn">import</span> <span class="n">Task</span>
+
+
+<div class="viewcode-block" id="ACEBenchmark">
+<a class="viewcode-back" href="../../../../api/agentscope.evaluate.html#agentscope.evaluate.ACEBenchmark">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ACEBenchmark</span><span class="p">(</span><span class="n">BenchmarkBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The ACE benchmark for evaluating AI agents."""</span>
+
+    <span class="n">data_dir_url</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="s2">"https://raw.githubusercontent.com/ACEBench/ACEBench/main/data_all"</span>
+    <span class="p">)</span>
+<span class="w">    </span><span class="sd">"""The URL to the data dir"""</span>
+
+    <span class="n">data_subdir</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="c1"># "data_en",  # TODO: enable English version</span>
+        <span class="s2">"data_zh"</span><span class="p">,</span>
+    <span class="p">]</span>
+
+    <span class="n">ground_truth_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"possible_answer"</span>
+
+    <span class="n">data_files</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">"data_agent_multi_step.json"</span><span class="p">,</span>
+        <span class="s2">"data_agent_multi_turn.json"</span><span class="p">,</span>
+        <span class="c1"># "data_normal_atom_bool.json",</span>
+        <span class="c1"># "data_normal_atom_enum.json",</span>
+        <span class="c1"># "data_normal_atom_list.json",</span>
+        <span class="c1"># "data_normal_atom_number.json",</span>
+        <span class="c1"># "data_normal_atom_object_deep.json",</span>
+        <span class="c1"># "data_normal_atom_object_short.json",</span>
+        <span class="c1">#</span>
+        <span class="c1"># "data_normal_multi_turn_user_adjust.json",</span>
+        <span class="c1"># "data_normal_multi_turn_user_switch.json",</span>
+        <span class="c1">#</span>
+        <span class="c1"># "data_normal_preference.json",</span>
+        <span class="c1"># "data_normal_similar_api.json",</span>
+        <span class="c1"># "data_normal_single_turn_parallel_function.json",</span>
+        <span class="c1"># "data_normal_single_turn_single_function.json",</span>
+        <span class="c1">#</span>
+        <span class="c1"># "data_special_error_param.json",</span>
+        <span class="c1"># "data_special_incomplete.json",</span>
+        <span class="c1"># "data_special_irrelevant.json",</span>
+    <span class="p">]</span>
+<span class="w">    </span><span class="sd">"""The data filenames"""</span>
+
+<div class="viewcode-block" id="ACEBenchmark.__init__">
+<a class="viewcode-back" href="../../../../api/agentscope.evaluate.html#agentscope.evaluate.ACEBenchmark.__init__">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">data_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize the ACEBenchmark</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            data_dir (`str`):</span>
+<span class="sd">                The directory where the dataset is downloaded and saved.</span>
+<span class="sd">        """</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">"ACEBench"</span><span class="p">,</span>
+            <span class="n">description</span><span class="o">=</span><span class="s2">"The ACE benchmark for evaluating AI agents."</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">data_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">data_dir</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">data_dir</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">data_dir</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"The data_dir `</span><span class="si">{</span><span class="n">data_dir</span><span class="si">}</span><span class="s2">` is not a valid directory path."</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">data_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_verify_data</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_download_data</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">dataset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_data</span><span class="p">()</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_load_data</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Load the dataset from the data directory."""</span>
+        <span class="n">dataset</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">subdir</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_subdir</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">filename</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_files</span><span class="p">:</span>
+                <span class="n">file_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_dir</span><span class="p">,</span> <span class="n">subdir</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+
+                <span class="n">gt_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">data_dir</span><span class="p">,</span>
+                    <span class="n">subdir</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">ground_truth_dir</span><span class="p">,</span>
+                    <span class="n">filename</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="n">gt_dataset</span> <span class="o">=</span> <span class="p">{}</span>
+                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">gt_path</span><span class="p">,</span> <span class="s2">"r"</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span> <span class="k">as</span> <span class="n">gt_file</span><span class="p">:</span>
+                    <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">gt_file</span><span class="p">:</span>
+                        <span class="n">gt_data</span> <span class="o">=</span> <span class="n">json5</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+                        <span class="n">gt_dataset</span><span class="p">[</span><span class="n">gt_data</span><span class="p">[</span><span class="s2">"id"</span><span class="p">]]</span> <span class="o">=</span> <span class="n">gt_data</span>
+
+                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">file_path</span><span class="p">,</span> <span class="s2">"r"</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                    <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">f</span><span class="p">:</span>
+                        <span class="n">data</span> <span class="o">=</span> <span class="n">json5</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+                        <span class="n">gt</span> <span class="o">=</span> <span class="n">gt_dataset</span><span class="p">[</span><span class="n">data</span><span class="p">[</span><span class="s2">"id"</span><span class="p">]]</span>
+                        <span class="n">gt</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">"id"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+                        <span class="n">data</span><span class="p">[</span><span class="s2">"ground_truth"</span><span class="p">]</span> <span class="o">=</span> <span class="n">gt</span><span class="p">[</span><span class="s2">"ground_truth"</span><span class="p">]</span>
+                        <span class="n">data</span><span class="p">[</span><span class="s2">"mile_stone"</span><span class="p">]</span> <span class="o">=</span> <span class="n">gt</span><span class="p">[</span><span class="s2">"mile_stone"</span><span class="p">]</span>
+                        <span class="n">data</span><span class="p">[</span><span class="s2">"language"</span><span class="p">]</span> <span class="o">=</span> <span class="n">subdir</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span>
+                            <span class="s2">"_"</span><span class="p">,</span>
+                            <span class="n">maxsplit</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                        <span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                        <span class="n">data</span><span class="p">[</span><span class="s2">"tags"</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                            <span class="s2">"language"</span><span class="p">:</span> <span class="n">data</span><span class="p">[</span><span class="s2">"language"</span><span class="p">],</span>
+                            <span class="s2">"category"</span><span class="p">:</span> <span class="n">filename</span><span class="o">.</span><span class="n">split</span><span class="p">(</span>
+                                <span class="s2">"."</span><span class="p">,</span>
+                                <span class="n">maxsplit</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+                            <span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">removeprefix</span><span class="p">(</span>
+                                <span class="s2">"data_"</span><span class="p">,</span>
+                            <span class="p">),</span>
+                        <span class="p">}</span>
+                        <span class="n">dataset</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">dataset</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_verify_data</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Verify the data completeness and integrity."""</span>
+        <span class="k">for</span> <span class="n">subdir</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_subdir</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">filename</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_files</span><span class="p">:</span>
+                <span class="n">file_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_dir</span><span class="p">,</span> <span class="n">subdir</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">file_path</span><span class="p">):</span>
+                    <span class="k">return</span> <span class="kc">False</span>
+
+                <span class="n">gt_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">data_dir</span><span class="p">,</span>
+                    <span class="n">subdir</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">ground_truth_dir</span><span class="p">,</span>
+                    <span class="n">filename</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">gt_path</span><span class="p">):</span>
+                    <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">return</span> <span class="kc">True</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_download_data</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Download the data from the URL"""</span>
+        <span class="k">for</span> <span class="n">subdir</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_subdir</span><span class="p">:</span>
+            <span class="n">subdir_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_dir</span><span class="p">,</span> <span class="n">subdir</span><span class="p">)</span>
+            <span class="n">subdir_gt_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">subdir_path</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ground_truth_dir</span><span class="p">)</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">subdir_path</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">subdir_gt_path</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">filename</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">data_files</span><span class="p">,</span>
+                <span class="n">desc</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Downloading </span><span class="si">{</span><span class="n">subdir</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+            <span class="p">):</span>
+                <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">data_dir_url</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">subdir</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">filename</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="n">response</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
+                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">subdir_path</span><span class="p">,</span> <span class="n">filename</span><span class="p">),</span> <span class="s2">"wb"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
+
+                <span class="n">gt_response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">data_dir_url</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">subdir</span><span class="si">}</span><span class="s2">/"</span>
+                    <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">ground_truth_dir</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">filename</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="n">gt_response</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
+                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">subdir_gt_path</span><span class="p">,</span> <span class="n">filename</span><span class="p">),</span> <span class="s2">"wb"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">gt_response</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_data_to_task</span><span class="p">(</span><span class="n">item</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Task</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Convert a dataset item to a Task object."""</span>
+        <span class="c1"># Start the simulated phone and load initial configuration</span>
+        <span class="n">ace_phone</span> <span class="o">=</span> <span class="n">ACEPhone</span><span class="p">()</span>
+        <span class="n">ace_phone</span><span class="o">.</span><span class="n">load_initial_config</span><span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="s2">"initial_config"</span><span class="p">])</span>
+
+        <span class="c1"># Obtain tool functions</span>
+        <span class="n">tools</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">function_schema</span> <span class="ow">in</span> <span class="n">item</span><span class="p">[</span><span class="s2">"function"</span><span class="p">]:</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="n">function_schema</span><span class="p">[</span><span class="s2">"name"</span><span class="p">]</span>
+
+            <span class="c1"># Handle the schema differences</span>
+            <span class="n">formatted_schema</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span>
+                <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span>
+                    <span class="n">function_schema</span><span class="p">,</span>
+                <span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span>
+                    <span class="s1">'"type": "dict"'</span><span class="p">,</span>
+                    <span class="s1">'"type": "object"'</span><span class="p">,</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
+
+            <span class="n">tool_function</span> <span class="o">=</span> <span class="n">ace_phone</span><span class="o">.</span><span class="n">get_tool_function</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+            <span class="n">tools</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="p">(</span>
+                    <span class="n">tool_function</span><span class="p">,</span>
+                    <span class="p">{</span>
+                        <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"function"</span><span class="p">,</span>
+                        <span class="s2">"function"</span><span class="p">:</span> <span class="n">formatted_schema</span><span class="p">,</span>
+                    <span class="p">},</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">Task</span><span class="p">(</span>
+            <span class="nb">id</span><span class="o">=</span><span class="n">item</span><span class="p">[</span><span class="s2">"id"</span><span class="p">],</span>
+            <span class="nb">input</span><span class="o">=</span><span class="n">item</span><span class="p">[</span><span class="s2">"question"</span><span class="p">],</span>
+            <span class="n">ground_truth</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">"state"</span><span class="p">:</span> <span class="n">item</span><span class="p">[</span><span class="s2">"ground_truth"</span><span class="p">],</span>
+                <span class="s2">"mile_stone"</span><span class="p">:</span> <span class="n">item</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"mile_stone"</span><span class="p">,</span> <span class="p">[]),</span>
+            <span class="p">},</span>
+            <span class="n">tags</span><span class="o">=</span><span class="n">item</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"tags"</span><span class="p">,</span> <span class="p">{}),</span>
+            <span class="n">metrics</span><span class="o">=</span><span class="p">[</span>
+                <span class="n">ACEAccuracy</span><span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="s2">"ground_truth"</span><span class="p">]),</span>
+                <span class="n">ACEProcessAccuracy</span><span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="s2">"mile_stone"</span><span class="p">]),</span>
+            <span class="p">],</span>
+            <span class="n">metadata</span><span class="o">=</span><span class="p">{</span>
+                <span class="c1"># The phone is used to extract the final state after finishing</span>
+                <span class="c1"># the task.</span>
+                <span class="s2">"phone"</span><span class="p">:</span> <span class="n">ace_phone</span><span class="p">,</span>
+                <span class="c1"># The provided tools for this task, used to equip the agent</span>
+                <span class="s2">"tools"</span><span class="p">:</span> <span class="n">tools</span><span class="p">,</span>
+            <span class="p">},</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="n">Task</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Iterate over the benchmark."""</span>
+        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">dataset</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_to_task</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">index</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Task</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Get a task by index."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data_to_task</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dataset</span><span class="p">[</span><span class="n">index</span><span class="p">])</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Get the length of the benchmark."""</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dataset</span><span class="p">)</span></div>
+
+</pre></div>
+        

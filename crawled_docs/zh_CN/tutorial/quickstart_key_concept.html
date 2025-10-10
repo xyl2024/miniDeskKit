@@ -1,0 +1,113 @@
+<!-- Title: 核心概念 - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/tutorial/quickstart_key_concept.html -->
+
+          <div class="sphx-glr-download-link-note admonition note">
+<p class="admonition-title">备注</p>
+<p><a class="reference internal" href="#sphx-glr-download-tutorial-quickstart-key-concept-py"><span class="std std-ref">Go to the end</span></a>
+to download the full example code.</p>
+</div>
+<span class="target" id="sphx-glr-tutorial-quickstart-key-concept-py"></span><section class="sphx-glr-example-title" id="id1">
+<h1>核心概念<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h1>
+<p>本章从工程实践的角度介绍 AgentScope 中的核心概念，从而阐明 AgentScope 的设计理念。</p>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>介绍核心概念的目标是为了更好的阐明 AgentScope 在工程实践中解决的问题，以及为开发者提供的帮助，而非给出严谨的定义。</p>
+</div>
+<section id="id2">
+<h2>状态<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h2>
+<p>状态（State）管理是 AgentScope 框架构建的基础。其中，状态表示对象运行时某一时刻数据的快照。</p>
+<p>AgentScope 将对象的“初始化”与“状态管理”分离，对象在初始化后通过 <code class="docutils literal notranslate"><span class="pre">load_state_dict</span></code> 和 <code class="docutils literal notranslate"><span class="pre">state_dict</span></code> 方法恢复到不同的状态，或导出当前的状态。</p>
+<p>在 AgentScope 中，智能体（Agent）、记忆（memory）、长期记忆（Long-term memory）和工具模块（toolkit）都是有状态的对象。
+AgentScope 通过支持嵌套式的状态管理，将这些对象的状态管理联系起来。</p>
+</section>
+<section id="id3">
+<h2>消息<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h2>
+<p>消息（message）是 AgentScope 最核心的数据结构，用于</p>
+<ul class="simple">
+<li><p>在智能体之间交换信息，</p></li>
+<li><p>在用户交互界面显示信息，</p></li>
+<li><p>在记忆中存储信息，</p></li>
+<li><p>作为 AgentScope 与不同 LLM API 之间的统一媒介。</p></li>
+</ul>
+</section>
+<section id="id4">
+<h2>工具<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h2>
+<p>AgentScope 中的“工具”指的是可调用的 Python 对象，包括</p>
+<ul class="simple">
+<li><p>函数，</p></li>
+<li><p>偏函数（Partial function），</p></li>
+<li><p>实例方法，</p></li>
+<li><p>类方法，</p></li>
+<li><p>静态方法，以及</p></li>
+<li><p>带有 <code class="docutils literal notranslate"><span class="pre">__call__</span></code> 方法的可调用实例。</p></li>
+</ul>
+<p>此外，可调用对象可以是</p>
+<ul class="simple">
+<li><p>异步或同步调用的，</p></li>
+<li><p>流式或非流式返回结果的。</p></li>
+</ul>
+<p>因此，请放心在 AgentScope 中使用任何调用对象作为智能体的工具。</p>
+</section>
+<section id="id5">
+<h2>智能体<a class="headerlink" href="#id5" title="Link to this heading">¶</a></h2>
+<p>在 AgentScope 中，智能体（Agent）行为被抽象为 <code class="docutils literal notranslate"><span class="pre">AgentBase</span></code> 类中的三个核心函数：</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">reply</span></code>：处理传入的消息并生成响应消息。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">observe</span></code>：接收来自环境或其它智能体的消息，但不返回响应。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">print</span></code>：将消息显示到目标输出（例如终端、Web 界面）。</p></li>
+</ul>
+<p>为了支持用户实时介入（Realtime Steering），AgentScope 提供了额外
+的 <code class="docutils literal notranslate"><span class="pre">handle_interrupt</span></code> 函数来处理智能体回复过程中的用户中断。</p>
+<p>此外，ReAct 智能体是 AgentScope 中最重要的智能体，该智能体的回复过程分为两个阶段：</p>
+<ul class="simple">
+<li><p>推理（Reasoning）：通过调用 LLM 进行推理并生成工具调用</p></li>
+<li><p>行动（Acting）：执行工具函数。</p></li>
+</ul>
+<p>因此，我们在 <code class="docutils literal notranslate"><span class="pre">ReActAgentBase</span></code> 类中提供了两个额外的核心函数，<code class="docutils literal notranslate"><span class="pre">_reasoning</span></code> 和 <code class="docutils literal notranslate"><span class="pre">_acting</span></code>。</p>
+</section>
+<section id="id6">
+<h2>提示词格式化<a class="headerlink" href="#id6" title="Link to this heading">¶</a></h2>
+<p>提示词格式化器（Prompt Formatter）是 AgentScope 中保证 LLM 兼容性的核心组件，负责将消息对象转换为 LLM API 所需的格式。</p>
+<p>此外，诸如提示工程、截断和消息验证等附加功能也可以在格式化器中实现。</p>
+<p>在格式化器中，"多智能体"（或"多实体"）概念与常见的多智能体编排概念不同。
+它专注于给定消息中包含多个身份实体的场景，因此 LLM API 中常用的 <code class="docutils literal notranslate"><span class="pre">role</span></code> 字段（通常取值为 "user"、"assistant" 或 "system"）无法区分它们。</p>
+<p>因此，AgentScope 提供 MultiAgentFormatter 来处理这种场景，通常用于游戏、多人聊天和社交仿真。</p>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>多智能体工作流 <strong>!=</strong> 格式化器中的多智能体。例如，即使以下代码片段可能涉及多个
+智能体（<code class="docutils literal notranslate"><span class="pre">tool_agent</span></code> 和 <code class="docutils literal notranslate"><span class="pre">tool_function</span></code> 的调用者），但是输入的 <code class="docutils literal notranslate"><span class="pre">query</span></code> 参数
+被包装成了 <code class="docutils literal notranslate"><span class="pre">role</span></code> 为 <strong>“user”</strong> 消息，因此 <code class="docutils literal notranslate"><span class="pre">role</span></code> 字段仍然可以区分它们。</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">tool_function</span><span class="p">(</span><span class="n">query</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""调用另一个智能体的工具函数"""</span>
+    <span class="n">msg</span> <span class="o">=</span> <span class="n">Msg</span><span class="p">(</span><span class="s2">"user"</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">role</span><span class="o">=</span><span class="s2">"user"</span><span class="p">)</span>
+    <span class="n">tool_agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"Programmer"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="k">await</span> <span class="n">tool_agent</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>理解这种区别有助于开发者了解格式化器部分中单智能体和多智能体的区别。</p>
+</div>
+</section>
+<section id="id7">
+<h2>长期记忆<a class="headerlink" href="#id7" title="Link to this heading">¶</a></h2>
+<p>虽然 AgentScope 为短期记忆和长期记忆提供了不同的基类，但是 AgentScope 中并没有严格区分它们的作用。</p>
+<p>在我们看来，一切都应该是 <strong>需求驱动的</strong>。只要开发者的需求得到了很好的满足，完全可以只使用一个强大的记忆系统。</p>
+<p>这里为了确保 AgentScope 的灵活性，我们为长期记忆提供了两种运行和管理方式，开发者可以根据自己的需要进行选择。
+其中“agent_control”模式允许智能体自己主动管理长期记忆，而“static_control”则是传统的由开发者管理的长期记忆
+模式。</p>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 0.000 seconds)</p>
+<div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-tutorial-quickstart-key-concept-py">
+<div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/47a5de2ffc432f9174425c4156af84bd/quickstart_key_concept.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">quickstart_key_concept.ipynb</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-python docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/ee690288a023215c7f656b7c5119bba7/quickstart_key_concept.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">quickstart_key_concept.py</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-zip docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/cd4b67d059021b2dce56635186db9490/quickstart_key_concept.zip"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">zipped:</span> <span class="pre">quickstart_key_concept.zip</span></code></a></p>
+</div>
+</div>
+<p class="sphx-glr-signature"><a class="reference external" href="https://sphinx-gallery.github.io">Gallery generated by Sphinx-Gallery</a></p>
+</section>
+</section>
+
+        

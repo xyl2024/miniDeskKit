@@ -1,0 +1,189 @@
+<!-- Title: agentscope.mcp._stateful_client_base - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/mcp/_stateful_client_base.html -->
+
+          <h1>agentscope.mcp._stateful_client_base 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The base MCP stateful client class in AgentScope, that provides basic</span>
+<span class="sd"> functionality for stateful MCP clients."""</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">ABC</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">contextlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncExitStack</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">mcp</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">ClientSession</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">._client_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">MCPClientBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">._mcp_function</span><span class="w"> </span><span class="kn">import</span> <span class="n">MCPToolFunction</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
+
+
+<div class="viewcode-block" id="StatefulClientBase">
+<a class="viewcode-back" href="../../../api/agentscope.mcp.html#agentscope.mcp.StatefulClientBase">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">StatefulClientBase</span><span class="p">(</span><span class="n">MCPClientBase</span><span class="p">,</span> <span class="n">ABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The base class for stateful MCP clients in AgentScope, which maintains</span>
+<span class="sd">    the session state across multiple tool calls.</span>
+
+<span class="sd">    The developers should use `connect()` and `close()` methods to manage</span>
+<span class="sd">    the client lifecycle.</span>
+<span class="sd">    """</span>
+
+    <span class="n">is_connected</span><span class="p">:</span> <span class="nb">bool</span>
+<span class="w">    </span><span class="sd">"""If connected to the MCP server"""</span>
+
+<div class="viewcode-block" id="StatefulClientBase.__init__">
+<a class="viewcode-back" href="../../../api/agentscope.mcp.html#agentscope.mcp.StatefulClientBase.__init__">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize the stateful MCP client.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            name (`str`):</span>
+<span class="sd">                The name to identify the MCP server, which should be unique</span>
+<span class="sd">                across the MCP servers.</span>
+<span class="sd">        """</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">client</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stack</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">session</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">is_connected</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="c1"># Cache the tools to avoid fetching them multiple times</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cached_tools</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="StatefulClientBase.connect">
+<a class="viewcode-back" href="../../../api/agentscope.mcp.html#agentscope.mcp.StatefulClientBase.connect">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">connect</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Connect to MCP server."""</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_connected</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="s2">"The MCP server is already connected. Call close() "</span>
+                <span class="s2">"before connecting again."</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">stack</span> <span class="o">=</span> <span class="n">AsyncExitStack</span><span class="p">()</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">context</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">stack</span><span class="o">.</span><span class="n">enter_async_context</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">read_stream</span><span class="p">,</span> <span class="n">write_stream</span> <span class="o">=</span> <span class="n">context</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">context</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">session</span> <span class="o">=</span> <span class="n">ClientSession</span><span class="p">(</span><span class="n">read_stream</span><span class="p">,</span> <span class="n">write_stream</span><span class="p">)</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">stack</span><span class="o">.</span><span class="n">enter_async_context</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="p">)</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">initialize</span><span class="p">()</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">is_connected</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"MCP client connected."</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">stack</span><span class="o">.</span><span class="n">aclose</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stack</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">raise</span></div>
+
+
+<div class="viewcode-block" id="StatefulClientBase.close">
+<a class="viewcode-back" href="../../../api/agentscope.mcp.html#agentscope.mcp.StatefulClientBase.close">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Clean up the MCP client resources. You must call this method when</span>
+<span class="sd">        your application is done."""</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_connected</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="s2">"The MCP server is not connected. Call connect() before "</span>
+                <span class="s2">"closing."</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">stack</span><span class="o">.</span><span class="n">aclose</span><span class="p">()</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"MCP client closed."</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"Error during MCP client cleanup: </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stack</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">session</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">is_connected</span> <span class="o">=</span> <span class="kc">False</span></div>
+
+
+<div class="viewcode-block" id="StatefulClientBase.list_tools">
+<a class="viewcode-back" href="../../../api/agentscope.mcp.html#agentscope.mcp.StatefulClientBase.list_tools">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">list_tools</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">mcp</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">Tool</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Get all available tools from the server.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `mcp.types.ListToolsResult`:</span>
+<span class="sd">                A list of available MCP tools.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_connection</span><span class="p">()</span>
+
+        <span class="n">res</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">list_tools</span><span class="p">()</span>
+
+        <span class="c1"># Cache the tools for later use</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cached_tools</span> <span class="o">=</span> <span class="n">res</span><span class="o">.</span><span class="n">tools</span>
+        <span class="k">return</span> <span class="n">res</span><span class="o">.</span><span class="n">tools</span></div>
+
+
+<div class="viewcode-block" id="StatefulClientBase.get_callable_function">
+<a class="viewcode-back" href="../../../api/agentscope.mcp.html#agentscope.mcp.StatefulClientBase.get_callable_function">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">get_callable_function</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">func_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">wrap_tool_result</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MCPToolFunction</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Get an async tool function from the MCP server by its name, so</span>
+<span class="sd">        that you can call it directly, wrap it into your own function, or</span>
+<span class="sd">        anyway you like.</span>
+
+<span class="sd">        .. note:: Currently, only the text, image, and audio results are</span>
+<span class="sd">         supported in this function.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            func_name (`str`):</span>
+<span class="sd">                The name of the tool function to get.</span>
+<span class="sd">            wrap_tool_result (`bool`):</span>
+<span class="sd">                Whether to wrap the tool result into agentscope's</span>
+<span class="sd">                `ToolResponse` object. If `False`, the raw result type</span>
+<span class="sd">                `mcp.types.CallToolResult` will be returned.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `MCPToolFunction`:</span>
+<span class="sd">                A callable async function that returns either</span>
+<span class="sd">                `mcp.types.CallToolResult` or `ToolResponse` when called.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_connection</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cached_tools</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">list_tools</span><span class="p">()</span>
+
+        <span class="n">target_tool</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">tool</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cached_tools</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">tool</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">func_name</span><span class="p">:</span>
+                <span class="n">target_tool</span> <span class="o">=</span> <span class="n">tool</span>
+                <span class="k">break</span>
+
+        <span class="k">if</span> <span class="n">target_tool</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Tool '</span><span class="si">{</span><span class="n">func_name</span><span class="si">}</span><span class="s2">' not found in the MCP server"</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">MCPToolFunction</span><span class="p">(</span>
+            <span class="n">mcp_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">tool</span><span class="o">=</span><span class="n">target_tool</span><span class="p">,</span>
+            <span class="n">wrap_tool_result</span><span class="o">=</span><span class="n">wrap_tool_result</span><span class="p">,</span>
+            <span class="n">session</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_connection</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Validate the connection to the MCP server."""</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_connected</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="s2">"The connection is not established. Call connect() "</span>
+                <span class="s2">"before using the client."</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="s2">"The session is not initialized. Call connect() "</span>
+                <span class="s2">"before using the client."</span><span class="p">,</span>
+            <span class="p">)</span></div>
+
+</pre></div>
+        

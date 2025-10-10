@@ -1,0 +1,196 @@
+<!-- Title: agentscope.rag._store._qdrant_store - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/rag/_store/_qdrant_store.html -->
+
+          <h1>agentscope.rag._store._qdrant_store 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The Qdrant local vector store implementation."""</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">TYPE_CHECKING</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._reader</span><span class="w"> </span><span class="kn">import</span> <span class="n">Document</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">._store_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">VDBStoreBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._document</span><span class="w"> </span><span class="kn">import</span> <span class="n">DocMetadata</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..._utils._common</span><span class="w"> </span><span class="kn">import</span> <span class="n">_map_text_to_uuid</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">...types</span><span class="w"> </span><span class="kn">import</span> <span class="n">Embedding</span>
+
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">qdrant_client</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncQdrantClient</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">AsyncQdrantClient</span> <span class="o">=</span> <span class="s2">"qdrant_client.AsyncQdrantClient"</span>
+
+
+<div class="viewcode-block" id="QdrantStore">
+<a class="viewcode-back" href="../../../../api/agentscope.rag.html#agentscope.rag.QdrantStore">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">QdrantStore</span><span class="p">(</span><span class="n">VDBStoreBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The Qdrant vector store implementation, supporting both local and</span>
+<span class="sd">    remote Qdrant instances.</span>
+
+<span class="sd">    .. note:: In Qdrant, we use the ``payload`` field to store the metadata,</span>
+<span class="sd">    including the document ID, chunk ID, and original content.</span>
+
+<span class="sd">    """</span>
+
+<div class="viewcode-block" id="QdrantStore.__init__">
+<a class="viewcode-back" href="../../../../api/agentscope.rag.html#agentscope.rag.QdrantStore.__init__">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">location</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">":memory:"</span><span class="p">]</span> <span class="o">|</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">collection_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">dimensions</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">distance</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"Cosine"</span><span class="p">,</span> <span class="s2">"Euclid"</span><span class="p">,</span> <span class="s2">"Dot"</span><span class="p">,</span> <span class="s2">"Manhattan"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"Cosine"</span><span class="p">,</span>
+        <span class="n">client_kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">collection_kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize the local Qdrant vector store.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            location (`Literal[":memory:"] | str`):</span>
+<span class="sd">                The location of the Qdrant instance. Use ":memory:" for</span>
+<span class="sd">                in-memory Qdrant instance, or url for remote Qdrant instance,</span>
+<span class="sd">                e.g. "http://localhost:6333" or a path to a directory.</span>
+<span class="sd">            collection_name (`str`):</span>
+<span class="sd">                The name of the collection to store the embeddings.</span>
+<span class="sd">            dimensions (`int`):</span>
+<span class="sd">                The dimension of the embeddings.</span>
+<span class="sd">            distance (`Literal["Cosine", "Euclid", "Dot", "Manhattan"]`, \</span>
+<span class="sd">            default to "Cosine"):</span>
+<span class="sd">                The distance metric to use for the collection. Can be one of</span>
+<span class="sd">                "Cosine", "Euclid", "Dot", or "Manhattan". Defaults to</span>
+<span class="sd">                "Cosine".</span>
+<span class="sd">            client_kwargs (`dict[str, Any] | None`, optional):</span>
+<span class="sd">                Other keyword arguments for the Qdrant client.</span>
+<span class="sd">            collection_kwargs (`dict[str, Any] | None`, optional):</span>
+<span class="sd">                Other keyword arguments for creating the collection.</span>
+<span class="sd">        """</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">qdrant_client</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncQdrantClient</span>
+        <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+                <span class="s2">"Qdrant client is not installed. Please install it with "</span>
+                <span class="s2">"`pip install qdrant-client`."</span><span class="p">,</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+
+        <span class="n">client_kwargs</span> <span class="o">=</span> <span class="n">client_kwargs</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_client</span> <span class="o">=</span> <span class="n">AsyncQdrantClient</span><span class="p">(</span><span class="n">location</span><span class="o">=</span><span class="n">location</span><span class="p">,</span> <span class="o">**</span><span class="n">client_kwargs</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">collection_name</span> <span class="o">=</span> <span class="n">collection_name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dimensions</span> <span class="o">=</span> <span class="n">dimensions</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">distance</span> <span class="o">=</span> <span class="n">distance</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">collection_kwargs</span> <span class="o">=</span> <span class="n">collection_kwargs</span> <span class="ow">or</span> <span class="p">{}</span></div>
+
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_validate_collection</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Validate the collection exists, if not, create it."""</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">collection_exists</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">collection_name</span><span class="p">):</span>
+            <span class="kn">from</span><span class="w"> </span><span class="nn">qdrant_client</span><span class="w"> </span><span class="kn">import</span> <span class="n">models</span>
+
+            <span class="n">collections_kwargs</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">"collection_name"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">collection_name</span><span class="p">,</span>
+                <span class="s2">"vectors_config"</span><span class="p">:</span> <span class="n">models</span><span class="o">.</span><span class="n">VectorParams</span><span class="p">(</span>
+                    <span class="n">size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dimensions</span><span class="p">,</span>
+                    <span class="n">distance</span><span class="o">=</span><span class="nb">getattr</span><span class="p">(</span><span class="n">models</span><span class="o">.</span><span class="n">Distance</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">distance</span><span class="o">.</span><span class="n">upper</span><span class="p">()),</span>
+                <span class="p">),</span>
+                <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">collection_kwargs</span><span class="p">,</span>
+            <span class="p">}</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">create_collection</span><span class="p">(</span><span class="o">**</span><span class="n">collections_kwargs</span><span class="p">)</span>
+
+<div class="viewcode-block" id="QdrantStore.add">
+<a class="viewcode-back" href="../../../../api/agentscope.rag.html#agentscope.rag.QdrantStore.add">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">documents</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Document</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Add embeddings to the Qdrant vector store.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            documents (`list[Document]`):</span>
+<span class="sd">                A list of embedding records to be recorded in the Qdrant store.</span>
+<span class="sd">        """</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_validate_collection</span><span class="p">()</span>
+
+        <span class="kn">from</span><span class="w"> </span><span class="nn">qdrant_client.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">PointStruct</span>
+
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">upsert</span><span class="p">(</span>
+            <span class="n">collection_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">collection_name</span><span class="p">,</span>
+            <span class="n">points</span><span class="o">=</span><span class="p">[</span>
+                <span class="n">PointStruct</span><span class="p">(</span>
+                    <span class="nb">id</span><span class="o">=</span><span class="n">_map_text_to_uuid</span><span class="p">(</span>
+                        <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span>
+                            <span class="p">{</span>
+                                <span class="s2">"doc_id"</span><span class="p">:</span> <span class="n">_</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">doc_id</span><span class="p">,</span>
+                                <span class="s2">"chunk_id"</span><span class="p">:</span> <span class="n">_</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">chunk_id</span><span class="p">,</span>
+                                <span class="s2">"content"</span><span class="p">:</span> <span class="n">_</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">content</span><span class="p">,</span>
+                            <span class="p">},</span>
+                            <span class="n">ensure_ascii</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                        <span class="p">),</span>
+                    <span class="p">),</span>
+                    <span class="n">vector</span><span class="o">=</span><span class="n">_</span><span class="o">.</span><span class="n">embedding</span><span class="p">,</span>
+                    <span class="n">payload</span><span class="o">=</span><span class="n">_</span><span class="o">.</span><span class="n">metadata</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">documents</span>
+            <span class="p">],</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="QdrantStore.search">
+<a class="viewcode-back" href="../../../../api/agentscope.rag.html#agentscope.rag.QdrantStore.search">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">search</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">query_embedding</span><span class="p">:</span> <span class="n">Embedding</span><span class="p">,</span>
+        <span class="n">limit</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">score_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Document</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Search relevant documents from the Qdrant vector store.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            query_embedding (`Embedding`):</span>
+<span class="sd">                The embedding of the query text.</span>
+<span class="sd">            limit (`int`):</span>
+<span class="sd">                The number of relevant documents to retrieve.</span>
+<span class="sd">            score_threshold (`float | None`, optional):</span>
+<span class="sd">                The threshold of the score to filter the results.</span>
+<span class="sd">            **kwargs (`Any`):</span>
+<span class="sd">                Other keyword arguments for the Qdrant client search API.</span>
+<span class="sd">        """</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client</span><span class="o">.</span><span class="n">query_points</span><span class="p">(</span>
+            <span class="n">collection_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">collection_name</span><span class="p">,</span>
+            <span class="n">query</span><span class="o">=</span><span class="n">query_embedding</span><span class="p">,</span>
+            <span class="n">limit</span><span class="o">=</span><span class="n">limit</span><span class="p">,</span>
+            <span class="n">score_threshold</span><span class="o">=</span><span class="n">score_threshold</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">collected_res</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">point</span> <span class="ow">in</span> <span class="n">res</span><span class="o">.</span><span class="n">points</span><span class="p">:</span>
+            <span class="n">collected_res</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">Document</span><span class="p">(</span>
+                    <span class="n">embedding</span><span class="o">=</span><span class="n">point</span><span class="o">.</span><span class="n">vector</span><span class="p">,</span>
+                    <span class="n">score</span><span class="o">=</span><span class="n">point</span><span class="o">.</span><span class="n">score</span><span class="p">,</span>
+                    <span class="n">metadata</span><span class="o">=</span><span class="n">DocMetadata</span><span class="p">(</span><span class="o">**</span><span class="n">point</span><span class="o">.</span><span class="n">payload</span><span class="p">),</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">collected_res</span></div>
+
+
+<div class="viewcode-block" id="QdrantStore.delete">
+<a class="viewcode-back" href="../../../../api/agentscope.rag.html#agentscope.rag.QdrantStore.delete">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">delete</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Delete is not implemented for QdrantStore."""</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+            <span class="s2">"Delete is not implemented for QdrantStore."</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="QdrantStore.get_client">
+<a class="viewcode-back" href="../../../../api/agentscope.rag.html#agentscope.rag.QdrantStore.get_client">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_client</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AsyncQdrantClient</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Get the underlying Qdrant client, so that developers can access</span>
+<span class="sd">        the full functionality of Qdrant.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `AsyncQdrantClient`:</span>
+<span class="sd">                The underlying Qdrant client.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_client</span></div>
+</div>
+
+</pre></div>
+        

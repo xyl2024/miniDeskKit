@@ -1,0 +1,88 @@
+<!-- Title: agentscope.mcp._stdio_stateful_client - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/mcp/_stdio_stateful_client.html -->
+
+          <h1>agentscope.mcp._stdio_stateful_client 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The StdIO MCP server implementation in AgentScope, which provides</span>
+<span class="sd">function-level fine-grained control over the MCP servers using standard IO."""</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Literal</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">mcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">stdio_client</span><span class="p">,</span> <span class="n">StdioServerParameters</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">._stateful_client_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">StatefulClientBase</span>
+
+
+<div class="viewcode-block" id="StdIOStatefulClient">
+<a class="viewcode-back" href="../../../api/agentscope.mcp.html#agentscope.mcp.StdIOStatefulClient">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">StdIOStatefulClient</span><span class="p">(</span><span class="n">StatefulClientBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""A client class that sets up and manage StdIO MCP server connections, and</span>
+<span class="sd">    provides function-level fine-grained control over the MCP servers.</span>
+
+<span class="sd">    .. tip:: The stateful client is recommended for MCP servers that need to</span>
+<span class="sd">     maintain session states, e.g. web browsers or other interactive</span>
+<span class="sd">     MCP servers.</span>
+
+<span class="sd">    .. note:: The stateful client will maintain one session across multiple</span>
+<span class="sd">     tool calls, until the client is closed by explicitly calling the</span>
+<span class="sd">     `close()` method.</span>
+
+<span class="sd">    .. note:: When multiple StdIOStatefulClient instances are connected,</span>
+<span class="sd">     they should be closed following the Last In First Out (LIFO) principle</span>
+<span class="sd">     to avoid potential errors. Always close the most recently registered</span>
+<span class="sd">     client first, then work backwards to the first one.</span>
+<span class="sd">     For more details, please refer to this `issue</span>
+<span class="sd">     &lt;https://github.com/modelcontextprotocol/python-sdk/issues/577&gt;`_.</span>
+<span class="sd">    """</span>
+
+<div class="viewcode-block" id="StdIOStatefulClient.__init__">
+<a class="viewcode-back" href="../../../api/agentscope.mcp.html#agentscope.mcp.StdIOStatefulClient.__init__">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">command</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">args</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">env</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">cwd</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">encoding</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"utf-8"</span><span class="p">,</span>
+        <span class="n">encoding_error_handler</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span>
+            <span class="s2">"strict"</span><span class="p">,</span>
+            <span class="s2">"ignore"</span><span class="p">,</span>
+            <span class="s2">"replace"</span><span class="p">,</span>
+        <span class="p">]</span> <span class="o">=</span> <span class="s2">"strict"</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize the MCP server with std IO.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            name (`str`):</span>
+<span class="sd">                The name to identify the MCP server, which should be unique</span>
+<span class="sd">                across the MCP servers.</span>
+<span class="sd">            command (`str`):</span>
+<span class="sd">                The executable to run to start the server.</span>
+<span class="sd">            args (`list[str] | None`, optional):</span>
+<span class="sd">                Command line arguments to pass to the executable.</span>
+<span class="sd">            env (`dict[str, str] | None`, optional):</span>
+<span class="sd">                The environment to use when spawning the process.</span>
+<span class="sd">            cwd (`str | None`, optional):</span>
+<span class="sd">                The working directory to use when spawning the process.</span>
+<span class="sd">            encoding (`str`, optional):</span>
+<span class="sd">                The text encoding used when sending/receiving messages to the</span>
+<span class="sd">                server. Defaults to "utf-8".</span>
+<span class="sd">            encoding_error_handler (`Literal["strict", "ignore", "replace"]`, \</span>
+<span class="sd">             defaults to "strict"):</span>
+<span class="sd">                The text encoding error handler.</span>
+<span class="sd">        """</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">client</span> <span class="o">=</span> <span class="n">stdio_client</span><span class="p">(</span>
+            <span class="n">StdioServerParameters</span><span class="p">(</span>
+                <span class="n">command</span><span class="o">=</span><span class="n">command</span><span class="p">,</span>
+                <span class="n">args</span><span class="o">=</span><span class="n">args</span> <span class="ow">or</span> <span class="p">[],</span>
+                <span class="n">env</span><span class="o">=</span><span class="n">env</span><span class="p">,</span>
+                <span class="n">cwd</span><span class="o">=</span><span class="n">cwd</span><span class="p">,</span>
+                <span class="n">encoding</span><span class="o">=</span><span class="n">encoding</span><span class="p">,</span>
+                <span class="n">encoding_error_handler</span><span class="o">=</span><span class="n">encoding_error_handler</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">)</span></div>
+</div>
+
+</pre></div>
+        

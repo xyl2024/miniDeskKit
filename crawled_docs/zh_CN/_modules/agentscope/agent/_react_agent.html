@@ -1,0 +1,769 @@
+<!-- Title: agentscope.agent._react_agent - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/agent/_react_agent.html -->
+
+          <h1>agentscope.agent._react_agent 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="c1"># pylint: disable=not-an-iterable</span>
+<span class="c1"># mypy: disable-error-code="list-item"</span>
+<span class="sd">"""ReAct agent class in agentscope."""</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">AsyncGenerator</span><span class="p">,</span> <span class="n">Literal</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">shortuuid</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span><span class="p">,</span> <span class="n">ValidationError</span><span class="p">,</span> <span class="n">Field</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">._react_agent_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">ReActAgentBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..formatter</span><span class="w"> </span><span class="kn">import</span> <span class="n">FormatterBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..memory</span><span class="w"> </span><span class="kn">import</span> <span class="n">MemoryBase</span><span class="p">,</span> <span class="n">LongTermMemoryBase</span><span class="p">,</span> <span class="n">InMemoryMemory</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..message</span><span class="w"> </span><span class="kn">import</span> <span class="n">Msg</span><span class="p">,</span> <span class="n">ToolUseBlock</span><span class="p">,</span> <span class="n">ToolResultBlock</span><span class="p">,</span> <span class="n">TextBlock</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..model</span><span class="w"> </span><span class="kn">import</span> <span class="n">ChatModelBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..rag</span><span class="w"> </span><span class="kn">import</span> <span class="n">KnowledgeBase</span><span class="p">,</span> <span class="n">Document</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..plan</span><span class="w"> </span><span class="kn">import</span> <span class="n">PlanNotebook</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..tool</span><span class="w"> </span><span class="kn">import</span> <span class="n">Toolkit</span><span class="p">,</span> <span class="n">ToolResponse</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..tracing</span><span class="w"> </span><span class="kn">import</span> <span class="n">trace_reply</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">_QueryRewriteModel</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The structured model used for query rewriting."""</span>
+
+    <span class="n">rewritten_query</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Field</span><span class="p">(</span>
+        <span class="n">description</span><span class="o">=</span><span class="p">(</span>
+            <span class="s2">"The rewritten query, which should be specific and concise. "</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">finish_function_pre_print_hook</span><span class="p">(</span>
+    <span class="bp">self</span><span class="p">:</span> <span class="s2">"ReActAgent"</span><span class="p">,</span>
+    <span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""A pre-speak hook function that check if finish_function is called. If</span>
+<span class="sd">    so, it will wrap the response argument into a message and return it to</span>
+<span class="sd">    replace the original message. By this way, the calling of the finish</span>
+<span class="sd">    function will be displayed as a text reply instead of a tool call."""</span>
+
+    <span class="n">msg</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">"msg"</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">content</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">content</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">block</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">msg</span><span class="o">.</span><span class="n">content</span><span class="p">):</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="n">block</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"tool_use"</span>
+                <span class="ow">and</span> <span class="n">block</span><span class="p">[</span><span class="s2">"name"</span><span class="p">]</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">finish_function_name</span>
+            <span class="p">):</span>
+                <span class="c1"># Convert the response argument into a text block for</span>
+                <span class="c1"># displaying</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">msg</span><span class="o">.</span><span class="n">content</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">TextBlock</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                        <span class="n">text</span><span class="o">=</span><span class="n">block</span><span class="p">[</span><span class="s2">"input"</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"response"</span><span class="p">,</span> <span class="s2">""</span><span class="p">),</span>
+                    <span class="p">)</span>
+                    <span class="k">return</span> <span class="n">kwargs</span>
+                <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                    <span class="nb">print</span><span class="p">(</span><span class="s2">"Error in block input"</span><span class="p">,</span> <span class="n">block</span><span class="p">[</span><span class="s2">"input"</span><span class="p">])</span>
+
+    <span class="k">return</span> <span class="kc">None</span>
+
+
+<div class="viewcode-block" id="ReActAgent">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.ReActAgent">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ReActAgent</span><span class="p">(</span><span class="n">ReActAgentBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""A ReAct agent implementation in AgentScope, which supports</span>
+
+<span class="sd">    - Realtime steering</span>
+<span class="sd">    - API-based (parallel) tool calling</span>
+<span class="sd">    - Hooks around reasoning, acting, reply, observe and print functions</span>
+<span class="sd">    - Structured output generation</span>
+<span class="sd">    """</span>
+
+    <span class="n">finish_function_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"generate_response"</span>
+<span class="w">    </span><span class="sd">"""The function name used to finish replying and return a response to</span>
+<span class="sd">    the user."""</span>
+
+<div class="viewcode-block" id="ReActAgent.__init__">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.ReActAgent.__init__">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">sys_prompt</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">model</span><span class="p">:</span> <span class="n">ChatModelBase</span><span class="p">,</span>
+        <span class="n">formatter</span><span class="p">:</span> <span class="n">FormatterBase</span><span class="p">,</span>
+        <span class="n">toolkit</span><span class="p">:</span> <span class="n">Toolkit</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">memory</span><span class="p">:</span> <span class="n">MemoryBase</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">long_term_memory</span><span class="p">:</span> <span class="n">LongTermMemoryBase</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">long_term_memory_mode</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span>
+            <span class="s2">"agent_control"</span><span class="p">,</span>
+            <span class="s2">"static_control"</span><span class="p">,</span>
+            <span class="s2">"both"</span><span class="p">,</span>
+        <span class="p">]</span> <span class="o">=</span> <span class="s2">"both"</span><span class="p">,</span>
+        <span class="n">enable_meta_tool</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">parallel_tool_calls</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">knowledge</span><span class="p">:</span> <span class="n">KnowledgeBase</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">KnowledgeBase</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">enable_rewrite_query</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">plan_notebook</span><span class="p">:</span> <span class="n">PlanNotebook</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">print_hint_msg</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">max_iters</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize the ReAct agent</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            name (`str`):</span>
+<span class="sd">                The name of the agent.</span>
+<span class="sd">            sys_prompt (`str`):</span>
+<span class="sd">                The system prompt of the agent.</span>
+<span class="sd">            model (`ChatModelBase`):</span>
+<span class="sd">                The chat model used by the agent.</span>
+<span class="sd">            formatter (`FormatterBase`):</span>
+<span class="sd">                The formatter used to format the messages into the required</span>
+<span class="sd">                format of the model API provider.</span>
+<span class="sd">            toolkit (`Toolkit | None`, optional):</span>
+<span class="sd">                A `Toolkit` object that contains the tool functions. If not</span>
+<span class="sd">                provided, a default empty `Toolkit` will be created.</span>
+<span class="sd">            memory (`MemoryBase | None`, optional):</span>
+<span class="sd">                The memory used to store the dialogue history. If not provided,</span>
+<span class="sd">                a default `InMemoryMemory` will be created, which stores</span>
+<span class="sd">                messages in a list in memory.</span>
+<span class="sd">            long_term_memory (`LongTermMemoryBase | None`, optional):</span>
+<span class="sd">                The optional long-term memory, which will provide two tool</span>
+<span class="sd">                functions: `retrieve_from_memory` and `record_to_memory`, and</span>
+<span class="sd">                will attach the retrieved information to the system prompt</span>
+<span class="sd">                before each reply.</span>
+<span class="sd">            enable_meta_tool (`bool`, defaults to `False`):</span>
+<span class="sd">                If `True`, a meta tool function `reset_equipped_tools` will be</span>
+<span class="sd">                added to the toolkit, which allows the agent to manage its</span>
+<span class="sd">                equipped tools dynamically.</span>
+<span class="sd">            long_term_memory_mode (`Literal['agent_control', 'static_control',\</span>
+<span class="sd">              'both']`, defaults to `both`):</span>
+<span class="sd">                The mode of the long-term memory. If `agent_control`, two</span>
+<span class="sd">                tool functions `retrieve_from_memory` and `record_to_memory`</span>
+<span class="sd">                will be registered in the toolkit to allow the agent to</span>
+<span class="sd">                manage the long-term memory. If `static_control`, retrieving</span>
+<span class="sd">                and recording will happen in the beginning and end of</span>
+<span class="sd">                each reply respectively.</span>
+<span class="sd">            parallel_tool_calls (`bool`, defaults to `False`):</span>
+<span class="sd">                When LLM generates multiple tool calls, whether to execute</span>
+<span class="sd">                them in parallel.</span>
+<span class="sd">            knowledge (`KnowledgeBase | list[KnowledgeBase] | None`, optional):</span>
+<span class="sd">                The knowledge object(s) used by the agent to retrieve</span>
+<span class="sd">                relevant documents at the beginning of each reply.</span>
+<span class="sd">            enable_rewrite_query (`bool`, defaults to `True`):</span>
+<span class="sd">                Whether ask the agent to rewrite the user input query before</span>
+<span class="sd">                retrieving from the knowledge base(s), e.g. rewrite "Who am I"</span>
+<span class="sd">                to "{user's name}" to get more relevant documents. Only works</span>
+<span class="sd">                when the knowledge base(s) is provided.</span>
+<span class="sd">            plan_notebook (`PlanNotebook | None`, optional):</span>
+<span class="sd">                The plan notebook instance, allow the agent to finish the</span>
+<span class="sd">                complex task by decomposing it into a sequence of subtasks.</span>
+<span class="sd">            print_hint_msg (`bool`, defaults to `False`):</span>
+<span class="sd">                Whether to print the hint messages, including the reasoning</span>
+<span class="sd">                hint from the plan notebook, the retrieved information from</span>
+<span class="sd">                the long-term memory and knowledge base(s).</span>
+<span class="sd">            max_iters (`int`, defaults to `10`):</span>
+<span class="sd">                The maximum number of iterations of the reasoning-acting loops.</span>
+<span class="sd">        """</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+        <span class="k">assert</span> <span class="n">long_term_memory_mode</span> <span class="ow">in</span> <span class="p">[</span>
+            <span class="s2">"agent_control"</span><span class="p">,</span>
+            <span class="s2">"static_control"</span><span class="p">,</span>
+            <span class="s2">"both"</span><span class="p">,</span>
+        <span class="p">]</span>
+
+        <span class="c1"># Static variables in the agent</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sys_prompt</span> <span class="o">=</span> <span class="n">sys_prompt</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_iters</span> <span class="o">=</span> <span class="n">max_iters</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">model</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">formatter</span> <span class="o">=</span> <span class="n">formatter</span>
+
+        <span class="c1"># -------------- Memory management --------------</span>
+        <span class="c1"># Record the dialogue history in the memory</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">memory</span> <span class="o">=</span> <span class="n">memory</span> <span class="ow">or</span> <span class="n">InMemoryMemory</span><span class="p">()</span>
+        <span class="c1"># If provide the long-term memory, it will be used to retrieve info</span>
+        <span class="c1"># in the beginning of each reply, and the result will be added to the</span>
+        <span class="c1"># system prompt</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">long_term_memory</span> <span class="o">=</span> <span class="n">long_term_memory</span>
+
+        <span class="c1"># The long-term memory mode</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_static_control</span> <span class="o">=</span> <span class="n">long_term_memory</span> <span class="ow">and</span> <span class="n">long_term_memory_mode</span> <span class="ow">in</span> <span class="p">[</span>
+            <span class="s2">"static_control"</span><span class="p">,</span>
+            <span class="s2">"both"</span><span class="p">,</span>
+        <span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_agent_control</span> <span class="o">=</span> <span class="n">long_term_memory</span> <span class="ow">and</span> <span class="n">long_term_memory_mode</span> <span class="ow">in</span> <span class="p">[</span>
+            <span class="s2">"agent_control"</span><span class="p">,</span>
+            <span class="s2">"both"</span><span class="p">,</span>
+        <span class="p">]</span>
+
+        <span class="c1"># -------------- Tool management --------------</span>
+        <span class="c1"># If None, a default Toolkit will be created</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">toolkit</span> <span class="o">=</span> <span class="n">toolkit</span> <span class="ow">or</span> <span class="n">Toolkit</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">toolkit</span><span class="o">.</span><span class="n">register_tool_function</span><span class="p">(</span>
+            <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">finish_function_name</span><span class="p">),</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_agent_control</span><span class="p">:</span>
+            <span class="c1"># Adding two tool functions into the toolkit to allow self-control</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">toolkit</span><span class="o">.</span><span class="n">register_tool_function</span><span class="p">(</span>
+                <span class="n">long_term_memory</span><span class="o">.</span><span class="n">record_to_memory</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">toolkit</span><span class="o">.</span><span class="n">register_tool_function</span><span class="p">(</span>
+                <span class="n">long_term_memory</span><span class="o">.</span><span class="n">retrieve_from_memory</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="c1"># Add a meta tool function to allow agent-controlled tool management</span>
+        <span class="k">if</span> <span class="n">enable_meta_tool</span> <span class="ow">or</span> <span class="n">plan_notebook</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">toolkit</span><span class="o">.</span><span class="n">register_tool_function</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">toolkit</span><span class="o">.</span><span class="n">reset_equipped_tools</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">parallel_tool_calls</span> <span class="o">=</span> <span class="n">parallel_tool_calls</span>
+
+        <span class="c1"># -------------- RAG management --------------</span>
+        <span class="c1"># The knowledge base(s) used by the agent</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">knowledge</span><span class="p">,</span> <span class="n">KnowledgeBase</span><span class="p">):</span>
+            <span class="n">knowledge</span> <span class="o">=</span> <span class="p">[</span><span class="n">knowledge</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">knowledge</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">KnowledgeBase</span><span class="p">]</span> <span class="o">=</span> <span class="n">knowledge</span> <span class="ow">or</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">enable_rewrite_query</span> <span class="o">=</span> <span class="n">enable_rewrite_query</span>
+
+        <span class="c1"># -------------- Plan management --------------</span>
+        <span class="c1"># Equipped the plan-related tools provided by the plan notebook as</span>
+        <span class="c1"># a tool group named "plan_related". So that the agent can activate</span>
+        <span class="c1"># the plan tools by the meta tool function</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">plan_notebook</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">plan_notebook</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">plan_notebook</span> <span class="o">=</span> <span class="n">plan_notebook</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">toolkit</span><span class="o">.</span><span class="n">create_tool_group</span><span class="p">(</span>
+                <span class="s2">"plan_related"</span><span class="p">,</span>
+                <span class="n">description</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">plan_notebook</span><span class="o">.</span><span class="n">description</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">for</span> <span class="n">tool</span> <span class="ow">in</span> <span class="n">plan_notebook</span><span class="o">.</span><span class="n">list_tools</span><span class="p">():</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">toolkit</span><span class="o">.</span><span class="n">register_tool_function</span><span class="p">(</span>
+                    <span class="n">tool</span><span class="p">,</span>
+                    <span class="n">group_name</span><span class="o">=</span><span class="s2">"plan_related"</span><span class="p">,</span>
+                <span class="p">)</span>
+
+        <span class="c1"># If print the reasoning hint messages</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">print_hint_msg</span> <span class="o">=</span> <span class="n">print_hint_msg</span>
+
+        <span class="c1"># The maximum number of iterations of the reasoning-acting loops</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_iters</span> <span class="o">=</span> <span class="n">max_iters</span>
+
+        <span class="c1"># The hint messages that will be attached to the prompt to guide the</span>
+        <span class="c1"># agent's behavior before each reasoning step, and cleared after</span>
+        <span class="c1"># each reasoning step, meaning the hint messages is one-time use only.</span>
+        <span class="c1"># We use an InMemoryMemory instance to store the hint messages</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_reasoning_hint_msgs</span> <span class="o">=</span> <span class="n">InMemoryMemory</span><span class="p">()</span>
+
+        <span class="c1"># Variables to record the intermediate state</span>
+
+        <span class="c1"># If required structured output model is provided</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_required_structured_model</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">BaseModel</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># -------------- State registration and hooks --------------</span>
+        <span class="c1"># Register the status variables</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_state</span><span class="p">(</span><span class="s2">"name"</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_state</span><span class="p">(</span><span class="s2">"_sys_prompt"</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_instance_hook</span><span class="p">(</span>
+            <span class="s2">"pre_print"</span><span class="p">,</span>
+            <span class="s2">"finish_function_pre_print_hook"</span><span class="p">,</span>
+            <span class="n">finish_function_pre_print_hook</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">sys_prompt</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""The dynamic system prompt of the agent."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sys_prompt</span>
+
+<div class="viewcode-block" id="ReActAgent.reply">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.ReActAgent.reply">[文档]</a>
+    <span class="nd">@trace_reply</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">reply</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">msg</span><span class="p">:</span> <span class="n">Msg</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">Msg</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">structured_model</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">BaseModel</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Msg</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Generate a reply based on the current state and input arguments.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            msg (`Msg | list[Msg] | None`, optional):</span>
+<span class="sd">                The input message(s) to the agent.</span>
+<span class="sd">            structured_model (`Type[BaseModel] | None`, optional):</span>
+<span class="sd">                The required structured output model. If provided, the agent</span>
+<span class="sd">                is expected to generate structured output in the `metadata`</span>
+<span class="sd">                field of the output message.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `Msg`:</span>
+<span class="sd">                The output message generated by the agent.</span>
+<span class="sd">        """</span>
+        <span class="c1"># Record the input message(s) in the memory</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+        <span class="c1"># Retrieve relevant records from the long-term memory if activated</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_retrieve_from_long_term_memory</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+        <span class="c1"># Retrieve relevant documents from the knowledge base(s) if any</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_retrieve_from_knowledge</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_required_structured_model</span> <span class="o">=</span> <span class="n">structured_model</span>
+        <span class="c1"># Record structured output model if provided</span>
+        <span class="k">if</span> <span class="n">structured_model</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">toolkit</span><span class="o">.</span><span class="n">set_extended_model</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">finish_function_name</span><span class="p">,</span>
+                <span class="n">structured_model</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="c1"># The reasoning-acting loop</span>
+        <span class="n">reply_msg</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">max_iters</span><span class="p">):</span>
+            <span class="n">msg_reasoning</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reasoning</span><span class="p">()</span>
+
+            <span class="n">futures</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_acting</span><span class="p">(</span><span class="n">tool_call</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">tool_call</span> <span class="ow">in</span> <span class="n">msg_reasoning</span><span class="o">.</span><span class="n">get_content_blocks</span><span class="p">(</span>
+                    <span class="s2">"tool_use"</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">]</span>
+
+            <span class="c1"># Parallel tool calls or not</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">parallel_tool_calls</span><span class="p">:</span>
+                <span class="n">acting_responses</span> <span class="o">=</span> <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="o">*</span><span class="n">futures</span><span class="p">)</span>
+
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Sequential tool calls</span>
+                <span class="n">acting_responses</span> <span class="o">=</span> <span class="p">[</span><span class="k">await</span> <span class="n">_</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">futures</span><span class="p">]</span>
+
+            <span class="c1"># Find the first non-None replying message from the acting</span>
+            <span class="k">for</span> <span class="n">acting_msg</span> <span class="ow">in</span> <span class="n">acting_responses</span><span class="p">:</span>
+                <span class="n">reply_msg</span> <span class="o">=</span> <span class="n">reply_msg</span> <span class="ow">or</span> <span class="n">acting_msg</span>
+
+            <span class="k">if</span> <span class="n">reply_msg</span><span class="p">:</span>
+                <span class="k">break</span>
+
+        <span class="c1"># When the maximum iterations are reached</span>
+        <span class="k">if</span> <span class="n">reply_msg</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">reply_msg</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_summarizing</span><span class="p">()</span>
+
+        <span class="c1"># Post-process the memory, long-term memory</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_static_control</span><span class="p">:</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">long_term_memory</span><span class="o">.</span><span class="n">record</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="o">*</span><span class="p">([</span><span class="o">*</span><span class="n">msg</span><span class="p">]</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="k">else</span> <span class="p">[</span><span class="n">msg</span><span class="p">]),</span>
+                    <span class="o">*</span><span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">get_memory</span><span class="p">(),</span>
+                    <span class="n">reply_msg</span><span class="p">,</span>
+                <span class="p">],</span>
+            <span class="p">)</span>
+
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">reply_msg</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">reply_msg</span></div>
+
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_reasoning</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Msg</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Perform the reasoning process."""</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">plan_notebook</span><span class="p">:</span>
+            <span class="c1"># Insert the reasoning hint from the plan notebook</span>
+            <span class="n">hint_msg</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">plan_notebook</span><span class="o">.</span><span class="n">get_current_hint</span><span class="p">()</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">print_hint_msg</span> <span class="ow">and</span> <span class="n">hint_msg</span><span class="p">:</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="n">hint_msg</span><span class="p">)</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reasoning_hint_msgs</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hint_msg</span><span class="p">)</span>
+
+        <span class="c1"># Convert Msg objects into the required format of the model API</span>
+        <span class="n">prompt</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">formatter</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="n">msgs</span><span class="o">=</span><span class="p">[</span>
+                <span class="n">Msg</span><span class="p">(</span><span class="s2">"system"</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sys_prompt</span><span class="p">,</span> <span class="s2">"system"</span><span class="p">),</span>
+                <span class="o">*</span><span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">get_memory</span><span class="p">(),</span>
+                <span class="c1"># The hint messages to guide the agent's behavior, maybe empty</span>
+                <span class="o">*</span><span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reasoning_hint_msgs</span><span class="o">.</span><span class="n">get_memory</span><span class="p">(),</span>
+            <span class="p">],</span>
+        <span class="p">)</span>
+        <span class="c1"># Clear the hint messages after use</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reasoning_hint_msgs</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+
+        <span class="n">res</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span>
+            <span class="n">prompt</span><span class="p">,</span>
+            <span class="n">tools</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">toolkit</span><span class="o">.</span><span class="n">get_json_schemas</span><span class="p">(),</span>
+        <span class="p">)</span>
+
+        <span class="c1"># handle output from the model</span>
+        <span class="n">interrupted_by_user</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="n">msg</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">stream</span><span class="p">:</span>
+                <span class="n">msg</span> <span class="o">=</span> <span class="n">Msg</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="p">[],</span> <span class="s2">"assistant"</span><span class="p">)</span>
+                <span class="k">async</span> <span class="k">for</span> <span class="n">content_chunk</span> <span class="ow">in</span> <span class="n">res</span><span class="p">:</span>
+                    <span class="n">msg</span><span class="o">.</span><span class="n">content</span> <span class="o">=</span> <span class="n">content_chunk</span><span class="o">.</span><span class="n">content</span>
+                    <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">msg</span> <span class="o">=</span> <span class="n">Msg</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="nb">list</span><span class="p">(</span><span class="n">res</span><span class="o">.</span><span class="n">content</span><span class="p">),</span> <span class="s2">"assistant"</span><span class="p">)</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+
+            <span class="k">return</span> <span class="n">msg</span>
+
+        <span class="k">except</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">CancelledError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">interrupted_by_user</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">raise</span> <span class="n">e</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">msg</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">msg</span><span class="o">.</span><span class="n">has_content_blocks</span><span class="p">(</span><span class="s2">"tool_use"</span><span class="p">):</span>
+                <span class="c1"># Turn plain text response into a tool call of the finish</span>
+                <span class="c1"># function</span>
+                <span class="n">msg</span><span class="o">.</span><span class="n">content</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="n">ToolUseBlock</span><span class="p">(</span>
+                        <span class="nb">id</span><span class="o">=</span><span class="n">shortuuid</span><span class="o">.</span><span class="n">uuid</span><span class="p">(),</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"tool_use"</span><span class="p">,</span>
+                        <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">finish_function_name</span><span class="p">,</span>
+                        <span class="nb">input</span><span class="o">=</span><span class="p">{</span><span class="s2">"response"</span><span class="p">:</span> <span class="n">msg</span><span class="o">.</span><span class="n">get_text_content</span><span class="p">()},</span>
+                    <span class="p">),</span>
+                <span class="p">]</span>
+
+            <span class="c1"># None will be ignored by the memory</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+
+            <span class="c1"># Post-process for user interruption</span>
+            <span class="k">if</span> <span class="n">interrupted_by_user</span> <span class="ow">and</span> <span class="n">msg</span><span class="p">:</span>
+                <span class="c1"># Fake tool results</span>
+                <span class="n">tool_use_blocks</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="n">msg</span><span class="o">.</span><span class="n">get_content_blocks</span><span class="p">(</span>
+                    <span class="s2">"tool_use"</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="k">for</span> <span class="n">tool_call</span> <span class="ow">in</span> <span class="n">tool_use_blocks</span><span class="p">:</span>
+                    <span class="n">msg_res</span> <span class="o">=</span> <span class="n">Msg</span><span class="p">(</span>
+                        <span class="s2">"system"</span><span class="p">,</span>
+                        <span class="p">[</span>
+                            <span class="n">ToolResultBlock</span><span class="p">(</span>
+                                <span class="nb">type</span><span class="o">=</span><span class="s2">"tool_result"</span><span class="p">,</span>
+                                <span class="nb">id</span><span class="o">=</span><span class="n">tool_call</span><span class="p">[</span><span class="s2">"id"</span><span class="p">],</span>
+                                <span class="n">name</span><span class="o">=</span><span class="n">tool_call</span><span class="p">[</span><span class="s2">"name"</span><span class="p">],</span>
+                                <span class="n">output</span><span class="o">=</span><span class="s2">"The tool call has been interrupted "</span>
+                                <span class="s2">"by the user."</span><span class="p">,</span>
+                            <span class="p">),</span>
+                        <span class="p">],</span>
+                        <span class="s2">"system"</span><span class="p">,</span>
+                    <span class="p">)</span>
+                    <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">msg_res</span><span class="p">)</span>
+                    <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="n">msg_res</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_acting</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tool_call</span><span class="p">:</span> <span class="n">ToolUseBlock</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Msg</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Perform the acting process.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            tool_call (`ToolUseBlock`):</span>
+<span class="sd">                The tool use block to be executed.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `Union[Msg, None]`:</span>
+<span class="sd">                Return a message to the user if the `finish_function` is</span>
+<span class="sd">                called, otherwise return `None`.</span>
+<span class="sd">        """</span>
+
+        <span class="n">tool_res_msg</span> <span class="o">=</span> <span class="n">Msg</span><span class="p">(</span>
+            <span class="s2">"system"</span><span class="p">,</span>
+            <span class="p">[</span>
+                <span class="n">ToolResultBlock</span><span class="p">(</span>
+                    <span class="nb">type</span><span class="o">=</span><span class="s2">"tool_result"</span><span class="p">,</span>
+                    <span class="nb">id</span><span class="o">=</span><span class="n">tool_call</span><span class="p">[</span><span class="s2">"id"</span><span class="p">],</span>
+                    <span class="n">name</span><span class="o">=</span><span class="n">tool_call</span><span class="p">[</span><span class="s2">"name"</span><span class="p">],</span>
+                    <span class="n">output</span><span class="o">=</span><span class="p">[],</span>
+                <span class="p">),</span>
+            <span class="p">],</span>
+            <span class="s2">"system"</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># Execute the tool call</span>
+            <span class="n">tool_res</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">toolkit</span><span class="o">.</span><span class="n">call_tool_function</span><span class="p">(</span><span class="n">tool_call</span><span class="p">)</span>
+
+            <span class="n">response_msg</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="c1"># Async generator handling</span>
+            <span class="k">async</span> <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">tool_res</span><span class="p">:</span>
+                <span class="c1"># Turn into a tool result block</span>
+                <span class="n">tool_res_msg</span><span class="o">.</span><span class="n">content</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span>  <span class="c1"># type: ignore[index]</span>
+                    <span class="s2">"output"</span>
+                <span class="p">]</span> <span class="o">=</span> <span class="n">chunk</span><span class="o">.</span><span class="n">content</span>
+
+                <span class="c1"># Skip the printing of the finish function call</span>
+                <span class="k">if</span> <span class="p">(</span>
+                    <span class="n">tool_call</span><span class="p">[</span><span class="s2">"name"</span><span class="p">]</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">finish_function_name</span>
+                    <span class="ow">or</span> <span class="n">tool_call</span><span class="p">[</span><span class="s2">"name"</span><span class="p">]</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">finish_function_name</span>
+                    <span class="ow">and</span> <span class="p">(</span>
+                        <span class="n">chunk</span><span class="o">.</span><span class="n">metadata</span> <span class="ow">is</span> <span class="kc">None</span>
+                        <span class="ow">or</span> <span class="ow">not</span> <span class="n">chunk</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"success"</span><span class="p">)</span>
+                    <span class="p">)</span>
+                <span class="p">):</span>
+                    <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="n">tool_res_msg</span><span class="p">,</span> <span class="n">chunk</span><span class="o">.</span><span class="n">is_last</span><span class="p">)</span>
+
+                <span class="c1"># Return message if generate_response is called successfully</span>
+                <span class="k">if</span> <span class="p">(</span>
+                    <span class="n">tool_call</span><span class="p">[</span><span class="s2">"name"</span><span class="p">]</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">finish_function_name</span>
+                    <span class="ow">and</span> <span class="n">chunk</span><span class="o">.</span><span class="n">metadata</span>
+                    <span class="ow">and</span> <span class="n">chunk</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+                        <span class="s2">"success"</span><span class="p">,</span>
+                        <span class="kc">True</span><span class="p">,</span>
+                    <span class="p">)</span>
+                <span class="p">):</span>
+                    <span class="n">response_msg</span> <span class="o">=</span> <span class="n">chunk</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"response_msg"</span><span class="p">)</span>
+
+            <span class="k">return</span> <span class="n">response_msg</span>
+
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="c1"># Record the tool result message in the memory</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">tool_res_msg</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ReActAgent.observe">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.ReActAgent.observe">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">observe</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">:</span> <span class="n">Msg</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">Msg</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Receive observing message(s) without generating a reply.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            msg (`Msg | list[Msg] | None`):</span>
+<span class="sd">                The message or messages to be observed.</span>
+<span class="sd">        """</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span></div>
+
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_summarizing</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Msg</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Generate a response when the agent fails to solve the problem in</span>
+<span class="sd">        the maximum iterations."""</span>
+        <span class="n">hint_msg</span> <span class="o">=</span> <span class="n">Msg</span><span class="p">(</span>
+            <span class="s2">"user"</span><span class="p">,</span>
+            <span class="s2">"You have failed to generate response within the maximum "</span>
+            <span class="s2">"iterations. Now respond directly by summarizing the current "</span>
+            <span class="s2">"situation."</span><span class="p">,</span>
+            <span class="n">role</span><span class="o">=</span><span class="s2">"user"</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Generate a reply by summarizing the current situation</span>
+        <span class="n">prompt</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">formatter</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="n">Msg</span><span class="p">(</span><span class="s2">"system"</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sys_prompt</span><span class="p">,</span> <span class="s2">"system"</span><span class="p">),</span>
+                <span class="o">*</span><span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">get_memory</span><span class="p">(),</span>
+                <span class="n">hint_msg</span><span class="p">,</span>
+            <span class="p">],</span>
+        <span class="p">)</span>
+        <span class="c1"># TODO: handle the structured output here, maybe force calling the</span>
+        <span class="c1">#  finish_function here</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">prompt</span><span class="p">)</span>
+
+        <span class="n">res_msg</span> <span class="o">=</span> <span class="n">Msg</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="p">[],</span> <span class="s2">"assistant"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">AsyncGenerator</span><span class="p">):</span>
+            <span class="k">async</span> <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">res</span><span class="p">:</span>
+                <span class="n">res_msg</span><span class="o">.</span><span class="n">content</span> <span class="o">=</span> <span class="n">chunk</span><span class="o">.</span><span class="n">content</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="n">res_msg</span><span class="p">,</span> <span class="kc">False</span><span class="p">)</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="n">res_msg</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">res_msg</span><span class="o">.</span><span class="n">content</span> <span class="o">=</span> <span class="n">res</span><span class="o">.</span><span class="n">content</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="n">res_msg</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">res_msg</span>
+
+<div class="viewcode-block" id="ReActAgent.handle_interrupt">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.ReActAgent.handle_interrupt">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">handle_interrupt</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">_msg</span><span class="p">:</span> <span class="n">Msg</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">Msg</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Msg</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""The post-processing logic when the reply is interrupted by the</span>
+<span class="sd">        user or something else."""</span>
+
+        <span class="n">response_msg</span> <span class="o">=</span> <span class="n">Msg</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="s2">"I noticed that you have interrupted me. What can I "</span>
+            <span class="s2">"do for you?"</span><span class="p">,</span>
+            <span class="s2">"assistant"</span><span class="p">,</span>
+            <span class="n">metadata</span><span class="o">=</span><span class="p">{},</span>
+        <span class="p">)</span>
+
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="n">response_msg</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">response_msg</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">response_msg</span></div>
+
+
+<div class="viewcode-block" id="ReActAgent.generate_response">
+<a class="viewcode-back" href="../../../api/agentscope.agent.html#agentscope.agent.ReActAgent.generate_response">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">generate_response</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">response</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ToolResponse</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Generate a response. Note only the input argument `response` is</span>
+<span class="sd">        visible to the others, you should include all the necessary</span>
+<span class="sd">        information in the `response` argument.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            response (`str`):</span>
+<span class="sd">                Your response to the user.</span>
+<span class="sd">        """</span>
+        <span class="n">response_msg</span> <span class="o">=</span> <span class="n">Msg</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">response</span><span class="p">,</span>
+            <span class="s2">"assistant"</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Prepare structured output</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_required_structured_model</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="c1"># Use the metadata field of the message to store the</span>
+                <span class="c1"># structured output</span>
+                <span class="n">response_msg</span><span class="o">.</span><span class="n">metadata</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_required_structured_model</span><span class="o">.</span><span class="n">model_validate</span><span class="p">(</span>
+                        <span class="n">kwargs</span><span class="p">,</span>
+                    <span class="p">)</span><span class="o">.</span><span class="n">model_dump</span><span class="p">()</span>
+                <span class="p">)</span>
+
+            <span class="k">except</span> <span class="n">ValidationError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+                    <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+                        <span class="n">TextBlock</span><span class="p">(</span>
+                            <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                            <span class="n">text</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Arguments Validation Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                        <span class="p">),</span>
+                    <span class="p">],</span>
+                    <span class="n">metadata</span><span class="o">=</span><span class="p">{</span>
+                        <span class="s2">"success"</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+                        <span class="s2">"response_msg"</span><span class="p">:</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="p">},</span>
+                <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+            <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+                <span class="n">TextBlock</span><span class="p">(</span>
+                    <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                    <span class="n">text</span><span class="o">=</span><span class="s2">"Successfully generated response."</span><span class="p">,</span>
+                <span class="p">),</span>
+            <span class="p">],</span>
+            <span class="n">metadata</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">"success"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+                <span class="s2">"response_msg"</span><span class="p">:</span> <span class="n">response_msg</span><span class="p">,</span>
+            <span class="p">},</span>
+            <span class="n">is_last</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_retrieve_from_long_term_memory</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">msg</span><span class="p">:</span> <span class="n">Msg</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">Msg</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Insert the retrieved information from the long-term memory into</span>
+<span class="sd">        the short-term memory as a Msg object.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            msg (`Msg | list[Msg] | None`):</span>
+<span class="sd">                The input message to the agent.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_static_control</span> <span class="ow">and</span> <span class="n">msg</span><span class="p">:</span>
+            <span class="c1"># Retrieve information from the long-term memory if available</span>
+            <span class="n">retrieved_info</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">long_term_memory</span><span class="o">.</span><span class="n">retrieve</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">retrieved_info</span><span class="p">:</span>
+                <span class="n">retrieved_msg</span> <span class="o">=</span> <span class="n">Msg</span><span class="p">(</span>
+                    <span class="n">name</span><span class="o">=</span><span class="s2">"long_term_memory"</span><span class="p">,</span>
+                    <span class="n">content</span><span class="o">=</span><span class="s2">"&lt;long_term_memory&gt;The content below are "</span>
+                    <span class="s2">"retrieved from long-term memory, which maybe "</span>
+                    <span class="sa">f</span><span class="s2">"useful:</span><span class="se">\n</span><span class="si">{</span><span class="n">retrieved_info</span><span class="si">}</span><span class="s2">&lt;/long_term_memory&gt;"</span><span class="p">,</span>
+                    <span class="n">role</span><span class="o">=</span><span class="s2">"user"</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">print_hint_msg</span><span class="p">:</span>
+                    <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="n">retrieved_msg</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">retrieved_msg</span><span class="p">)</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_retrieve_from_knowledge</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">msg</span><span class="p">:</span> <span class="n">Msg</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">Msg</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Insert the retrieved documents from the RAG knowledge base(s) if</span>
+<span class="sd">        available.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            msg (`Msg | list[Msg] | None`):</span>
+<span class="sd">                The input message to the agent.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">knowledge</span> <span class="ow">and</span> <span class="n">msg</span><span class="p">:</span>
+            <span class="c1"># Prepare the user input query</span>
+            <span class="n">query</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">Msg</span><span class="p">):</span>
+                <span class="n">query</span> <span class="o">=</span> <span class="n">msg</span><span class="o">.</span><span class="n">get_text_content</span><span class="p">()</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+                <span class="n">query</span> <span class="o">=</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">_</span><span class="o">.</span><span class="n">get_text_content</span><span class="p">()</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">msg</span><span class="p">)</span>
+
+            <span class="c1"># Skip if the query is empty</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">query</span><span class="p">:</span>
+                <span class="k">return</span>
+
+            <span class="c1"># Rewrite the query by the LLM if enabled</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">enable_rewrite_query</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">rewrite_prompt</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">formatter</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                        <span class="n">msgs</span><span class="o">=</span><span class="p">[</span>
+                            <span class="n">Msg</span><span class="p">(</span><span class="s2">"system"</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sys_prompt</span><span class="p">,</span> <span class="s2">"system"</span><span class="p">),</span>
+                            <span class="o">*</span><span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">get_memory</span><span class="p">(),</span>
+                            <span class="n">Msg</span><span class="p">(</span>
+                                <span class="s2">"user"</span><span class="p">,</span>
+                                <span class="s2">"&lt;system-hint&gt;Now you need to rewrite "</span>
+                                <span class="s2">"the above user query to be more specific and "</span>
+                                <span class="s2">"concise for knowledge retrieval. For "</span>
+                                <span class="s2">"example, rewrite the query 'what happened "</span>
+                                <span class="s2">"last day' to 'what happened on 2023-10-01' "</span>
+                                <span class="s2">"(assuming today is 2023-10-02)."</span>
+                                <span class="s2">"&lt;/system-hint&gt;"</span><span class="p">,</span>
+                                <span class="s2">"user"</span><span class="p">,</span>
+                            <span class="p">),</span>
+                        <span class="p">],</span>
+                    <span class="p">)</span>
+                    <span class="n">stream_tmp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">stream</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">stream</span> <span class="o">=</span> <span class="kc">False</span>
+                    <span class="n">res</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span>
+                        <span class="n">rewrite_prompt</span><span class="p">,</span>
+                        <span class="n">structured_model</span><span class="o">=</span><span class="n">_QueryRewriteModel</span><span class="p">,</span>
+                    <span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">stream</span> <span class="o">=</span> <span class="n">stream_tmp</span>
+                    <span class="k">if</span> <span class="n">res</span><span class="o">.</span><span class="n">metadata</span> <span class="ow">and</span> <span class="n">res</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"rewritten_query"</span><span class="p">):</span>
+                        <span class="n">query</span> <span class="o">=</span> <span class="n">res</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s2">"rewritten_query"</span><span class="p">]</span>
+
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                        <span class="s2">"Skipping the query rewriting due to error: </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span>
+                        <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">),</span>
+                    <span class="p">)</span>
+
+            <span class="n">docs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Document</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">kb</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">knowledge</span><span class="p">:</span>
+                <span class="c1"># retrieve the user input query</span>
+                <span class="n">docs</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+                    <span class="k">await</span> <span class="n">kb</span><span class="o">.</span><span class="n">retrieve</span><span class="p">(</span><span class="n">query</span><span class="o">=</span><span class="n">query</span><span class="p">),</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="n">docs</span><span class="p">:</span>
+                <span class="c1"># Rerank by the relevance score</span>
+                <span class="n">docs</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
+                    <span class="n">docs</span><span class="p">,</span>
+                    <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">doc</span><span class="p">:</span> <span class="n">doc</span><span class="o">.</span><span class="n">score</span> <span class="ow">or</span> <span class="mf">0.0</span><span class="p">,</span>
+                    <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="c1"># Prepare the retrieved knowledge string</span>
+                <span class="n">retrieved_msg</span> <span class="o">=</span> <span class="n">Msg</span><span class="p">(</span>
+                    <span class="n">name</span><span class="o">=</span><span class="s2">"user"</span><span class="p">,</span>
+                    <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+                        <span class="n">TextBlock</span><span class="p">(</span>
+                            <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                            <span class="n">text</span><span class="o">=</span><span class="p">(</span>
+                                <span class="s2">"&lt;retrieved_knowledge&gt;Use the following "</span>
+                                <span class="s2">"content from the knowledge base(s) if it's "</span>
+                                <span class="s2">"helpful:</span><span class="se">\n</span><span class="s2">"</span>
+                            <span class="p">),</span>
+                        <span class="p">),</span>
+                        <span class="o">*</span><span class="p">[</span><span class="n">_</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">content</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">docs</span><span class="p">],</span>
+                        <span class="n">TextBlock</span><span class="p">(</span>
+                            <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                            <span class="n">text</span><span class="o">=</span><span class="s2">"&lt;/retrieved_knowledge&gt;"</span><span class="p">,</span>
+                        <span class="p">),</span>
+                    <span class="p">],</span>
+                    <span class="n">role</span><span class="o">=</span><span class="s2">"user"</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">print_hint_msg</span><span class="p">:</span>
+                    <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">print</span><span class="p">(</span><span class="n">retrieved_msg</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">retrieved_msg</span><span class="p">)</span></div>
+
+</pre></div>
+        

@@ -1,0 +1,223 @@
+<!-- Title: agentscope.token - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/api/agentscope.token.html -->
+
+          <section id="module-agentscope.token">
+<span id="agentscope-token"></span><h1>agentscope.token<a class="headerlink" href="#module-agentscope.token" title="Link to this heading">¶</a></h1>
+<p>The token module in agentscope</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.token.TokenCounterBase">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">TokenCounterBase</span></span><a class="reference internal" href="../_modules/agentscope/token/_token_base.html#TokenCounterBase"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.token.TokenCounterBase" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>The base class for token counting.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.token.TokenCounterBase.count">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">count</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">messages</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/token/_token_base.html#TokenCounterBase.count"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.token.TokenCounterBase.count" title="Link to this definition">¶</a></dt>
+<dd><p>Count the number of tokens by the given model and messages.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>messages</strong> (<em>list</em><em>[</em><em>dict</em><em>]</em>)</p></li>
+<li><p><strong>kwargs</strong> (<em>Any</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.token.GeminiTokenCounter">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">GeminiTokenCounter</span></span><a class="reference internal" href="../_modules/agentscope/token/_gemini_token_counter.html#GeminiTokenCounter"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.token.GeminiTokenCounter" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<a class="reference internal" href="#agentscope.token.TokenCounterBase" title="agentscope.token._token_base.TokenCounterBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">TokenCounterBase</span></code></a></p>
+<p>The Gemini token counter class.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.token.GeminiTokenCounter.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">api_key</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/token/_gemini_token_counter.html#GeminiTokenCounter.__init__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.token.GeminiTokenCounter.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize the Gemini token counter.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>model_name</strong> (<cite>str</cite>) -- The name of the Gemini model to use, e.g. "gemini-2.5-flash".</p></li>
+<li><p><strong>api_key</strong> (<cite>str</cite>) -- The API key for Google Gemini.</p></li>
+<li><p><strong>**kwargs</strong> -- Additional keyword arguments that will be passed to the
+Gemini client.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.token.GeminiTokenCounter.count">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">count</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">messages</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tools</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">config_kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/token/_gemini_token_counter.html#GeminiTokenCounter.count"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.token.GeminiTokenCounter.count" title="Link to this definition">¶</a></dt>
+<dd><p>Count the number of tokens of gemini models.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>messages</strong> (<em>list</em><em>[</em><em>dict</em><em>]</em>)</p></li>
+<li><p><strong>tools</strong> (<em>list</em><em>[</em><em>dict</em><em>] </em><em>| </em><em>None</em>)</p></li>
+<li><p><strong>config_kwargs</strong> (<em>Any</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.token.OpenAITokenCounter">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">OpenAITokenCounter</span></span><a class="reference internal" href="../_modules/agentscope/token/_openai_token_counter.html#OpenAITokenCounter"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.token.OpenAITokenCounter" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<a class="reference internal" href="#agentscope.token.TokenCounterBase" title="agentscope.token._token_base.TokenCounterBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">TokenCounterBase</span></code></a></p>
+<p>The OpenAI token counting class.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.token.OpenAITokenCounter.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/token/_openai_token_counter.html#OpenAITokenCounter.__init__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.token.OpenAITokenCounter.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize the OpenAI token counter.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>model_name</strong> (<cite>str</cite>) -- The name of the OpenAI model to use for token counting.</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.token.OpenAITokenCounter.count">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">count</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">messages</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tools</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/token/_openai_token_counter.html#OpenAITokenCounter.count"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.token.OpenAITokenCounter.count" title="Link to this definition">¶</a></dt>
+<dd><p>Count the token numbers of the given messages.</p>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>OpenAI hasn't provided an official guide for counting tokens
+with tools. If you have any ideas, please open an issue on
+our GitHub repository.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>messages</strong> (<cite>list[dict[str, Any]]</cite>) -- A list of dictionaries, where <cite>role</cite> and <cite>content</cite> fields are
+required.</p></li>
+<li><p><strong>tools</strong> (<cite>list[dict]</cite>, defaults to <cite>None</cite>)</p></li>
+<li><p><strong>kwargs</strong> (<em>Any</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.token.AnthropicTokenCounter">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">AnthropicTokenCounter</span></span><a class="reference internal" href="../_modules/agentscope/token/_anthropic_token_counter.html#AnthropicTokenCounter"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.token.AnthropicTokenCounter" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>The Anthropic token counter class.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.token.AnthropicTokenCounter.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">api_key</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/token/_anthropic_token_counter.html#AnthropicTokenCounter.__init__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.token.AnthropicTokenCounter.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize the Anthropic token counter.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>model_name</strong> (<cite>str</cite>) -- The name of the Anthropic model to use, e.g. "claude-2".</p></li>
+<li><p><strong>api_key</strong> (<cite>str</cite>) -- The API key for Anthropic.</p></li>
+<li><p><strong>kwargs</strong> (<em>Any</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.token.AnthropicTokenCounter.count">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">count</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">messages</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tools</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/token/_anthropic_token_counter.html#AnthropicTokenCounter.count"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.token.AnthropicTokenCounter.count" title="Link to this definition">¶</a></dt>
+<dd><p>Count the number of tokens for the given messages</p>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>The Anthropic token counting API requires the multimodal
+data to be in base64 format,</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>messages</strong> (<cite>list[dict]</cite>) -- A list of dictionaries, where <cite>role</cite> and <cite>content</cite> fields are
+required.</p></li>
+<li><p><strong>tools</strong> (<cite>list[dict] | None</cite>, defaults to <cite>None</cite>) -- The tools JSON schemas that the model can use.</p></li>
+<li><p><strong>**kwargs</strong> (<cite>Any</cite>) -- Additional keyword arguments for the token counting API.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.token.HuggingFaceTokenCounter">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">HuggingFaceTokenCounter</span></span><a class="reference internal" href="../_modules/agentscope/token/_huggingface_token_counter.html#HuggingFaceTokenCounter"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.token.HuggingFaceTokenCounter" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<a class="reference internal" href="#agentscope.token.TokenCounterBase" title="agentscope.token._token_base.TokenCounterBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">TokenCounterBase</span></code></a></p>
+<p>The token counter for Huggingface models.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.token.HuggingFaceTokenCounter.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pretrained_model_name_or_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_mirror</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_fast</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">trust_remote_code</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/token/_huggingface_token_counter.html#HuggingFaceTokenCounter.__init__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.token.HuggingFaceTokenCounter.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize the huggingface token counter.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>pretrained_model_name_or_path</strong> (<cite>str</cite>) -- The name or path of the pretrained model, which will be used
+to download the tokenizer from Huggingface Hub.</p></li>
+<li><p><strong>use_mirror</strong> (<cite>bool</cite>, defaults to <cite>False</cite>) -- Whether to enable the HuggingFace mirror, which is useful for
+users in China.</p></li>
+<li><p><strong>use_fast</strong> (<cite>bool</cite>, defaults to <cite>False</cite>) -- The argument that will be passed to the tokenizer.</p></li>
+<li><p><strong>trust_remote_code</strong> (<cite>bool</cite>, defaults to <cite>False</cite>) -- The argument that will be passed to the tokenizer.</p></li>
+<li><p><strong>**kwargs</strong> -- Additional keyword arguments that will be passed to the
+tokenizer.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.token.HuggingFaceTokenCounter.count">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">count</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">messages</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tools</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/token/_huggingface_token_counter.html#HuggingFaceTokenCounter.count"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.token.HuggingFaceTokenCounter.count" title="Link to this definition">¶</a></dt>
+<dd><p>Count the number of tokens with the tokenizer download from
+HuggingFace hub.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>messages</strong> (<cite>list[dict]</cite>) -- A list of message dictionaries</p></li>
+<li><p><strong>tools</strong> (<cite>list[dict] | None</cite>, defaults to <cite>None</cite>) -- The JSON schema of the tools, which will also be involved in
+the token counting.</p></li>
+<li><p><strong>**kwargs</strong> (<cite>Any</cite>) -- The additional keyword arguments that will be passed to the
+tokenizer, e.g. <cite>chat_template</cite>, <cite>padding</cite>, etc.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+        

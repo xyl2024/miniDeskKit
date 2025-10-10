@@ -1,0 +1,398 @@
+<!-- Title: 创建消息 - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/tutorial/quickstart_message.html -->
+
+          <div class="sphx-glr-download-link-note admonition note">
+<p class="admonition-title">备注</p>
+<p><a class="reference internal" href="#sphx-glr-download-tutorial-quickstart-message-py"><span class="std std-ref">Go to the end</span></a>
+to download the full example code.</p>
+</div>
+<section class="sphx-glr-example-title" id="message">
+<span id="sphx-glr-tutorial-quickstart-message-py"></span><span id="id1"></span><h1>创建消息<a class="headerlink" href="#message" title="Link to this heading">¶</a></h1>
+<p>消息是 AgentScope 中的核心概念，用于支持多模态数据、工具 API、信息存储/交换和提示构建。</p>
+<p>一个消息由四个字段组成：</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">name</span></code>，</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">role</span></code>，</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">content</span></code>，以及</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">metadata</span></code></p></li>
+</ul>
+<p>这些字段的类型和含义如下：</p>
+<div class="table-wrapper docutils container" id="id8">
+<table class="docutils align-default" id="id8">
+<caption><span class="caption-text">消息对象中的字段</span><a class="headerlink" href="#id8" title="Link to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>字段</p></th>
+<th class="head"><p>类型</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>name</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">str</span></code></p></td>
+<td><p>消息发送者的名称/身份</p></td>
+</tr>
+<tr class="row-odd"><td><p>role</p></td>
+<td><div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">Literal[</span></code></div>
+<div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">"system",</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">"assistant",</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">"user"</span></code></div>
+</div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">]</span></code></div>
+</div>
+</td>
+<td><p>消息发送者的角色，必须是 "system"、"assistant" 或 "user" 之一。</p></td>
+</tr>
+<tr class="row-even"><td><p>content</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">str</span> <span class="pre">|</span> <span class="pre">list[ContentBlock]</span></code></p></td>
+<td><p>消息包含的数据，可以是字符串或 block 的列表。</p></td>
+</tr>
+<tr class="row-odd"><td><p>metadata</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">dict[str,</span> <span class="pre">JSONSerializableObject]</span> <span class="pre">|</span> <span class="pre">None</span></code></p></td>
+<td><p>包含额外元数据的字典，通常用于结构化输出。</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">小技巧</p>
+<ul class="simple">
+<li><p>在具有多个身份实体的应用程序中，<code class="docutils literal notranslate"><span class="pre">name</span></code> 字段用于区分不同的身份。</p></li>
+<li><p>建议将 <code class="docutils literal notranslate"><span class="pre">metadata</span></code> 字段用于结构化输出，在 AgentScope 内置的模块中，<code class="docutils literal notranslate"><span class="pre">metadata</span></code> 不会参与 LLM 的提示构建。</p></li>
+</ul>
+</div>
+<p>接下来，我们根据不同的场景分别介绍 <code class="docutils literal notranslate"><span class="pre">content</span></code> 字段中支持的不同数据结构（block）。</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.message</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Msg</span><span class="p">,</span>
+    <span class="n">Base64Source</span><span class="p">,</span>
+    <span class="n">TextBlock</span><span class="p">,</span>
+    <span class="n">ThinkingBlock</span><span class="p">,</span>
+    <span class="n">ImageBlock</span><span class="p">,</span>
+    <span class="n">AudioBlock</span><span class="p">,</span>
+    <span class="n">VideoBlock</span><span class="p">,</span>
+    <span class="n">ToolUseBlock</span><span class="p">,</span>
+    <span class="n">ToolResultBlock</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+</pre></div>
+</div>
+<section id="id2">
+<h2>创建文本消息<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h2>
+<p>通过提供 <code class="docutils literal notranslate"><span class="pre">name</span></code>、<code class="docutils literal notranslate"><span class="pre">role</span></code> 和 <code class="docutils literal notranslate"><span class="pre">content</span></code> 字段来创建消息对象。</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">msg</span> <span class="o">=</span> <span class="n">Msg</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"Jarvis"</span><span class="p">,</span>
+    <span class="n">role</span><span class="o">=</span><span class="s2">"assistant"</span><span class="p">,</span>
+    <span class="n">content</span><span class="o">=</span><span class="s2">"你好！我能怎么帮助你？"</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"发送者的名称: </span><span class="si">{</span><span class="n">msg</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"发送者的角色: </span><span class="si">{</span><span class="n">msg</span><span class="o">.</span><span class="n">role</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"消息的内容: </span><span class="si">{</span><span class="n">msg</span><span class="o">.</span><span class="n">content</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>发送者的名称: Jarvis
+发送者的角色: assistant
+消息的内容: 你好！我能怎么帮助你？
+</pre></div>
+</div>
+</section>
+<section id="id3">
+<h2>创建多模态消息<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h2>
+<p>Message 类通过提供不同的 block 结构来支持多模态内容：</p>
+<div class="table-wrapper docutils container" id="id9">
+<table class="docutils align-default" id="id9">
+<caption><span class="caption-text">AgentScope 中的多模态 block</span><a class="headerlink" href="#id9" title="Link to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>类</p></th>
+<th class="head"><p>描述</p></th>
+<th class="head"><p>示例</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>TextBlock</p></td>
+<td><p>纯文本数据</p></td>
+<td><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">TextBlock</span><span class="p">(</span>
+   <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+   <span class="n">text</span><span class="o">=</span><span class="s2">"Hello, world!"</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</td>
+</tr>
+<tr class="row-odd"><td><p>ImageBlock</p></td>
+<td><p>图像数据</p></td>
+<td><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ImageBlock</span><span class="p">(</span>
+   <span class="nb">type</span><span class="o">=</span><span class="s2">"image"</span><span class="p">,</span>
+   <span class="n">source</span><span class="o">=</span><span class="n">URLSource</span><span class="p">(</span>
+       <span class="nb">type</span><span class="o">=</span><span class="s2">"url"</span><span class="p">,</span>
+       <span class="n">url</span><span class="o">=</span><span class="s2">"https://example.com/image.jpg"</span>
+   <span class="p">)</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</td>
+</tr>
+<tr class="row-even"><td><p>AudioBlock</p></td>
+<td><p>音频数据</p></td>
+<td><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">AudioBlock</span><span class="p">(</span>
+   <span class="nb">type</span><span class="o">=</span><span class="s2">"audio"</span><span class="p">,</span>
+   <span class="n">source</span><span class="o">=</span><span class="n">URLSource</span><span class="p">(</span>
+       <span class="nb">type</span><span class="o">=</span><span class="s2">"url"</span><span class="p">,</span>
+       <span class="n">url</span><span class="o">=</span><span class="s2">"https://example.com/audio.mp3"</span>
+   <span class="p">)</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</td>
+</tr>
+<tr class="row-odd"><td><p>VideoBlock</p></td>
+<td><p>视频数据</p></td>
+<td><div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">VideoBlock</span><span class="p">(</span>
+   <span class="nb">type</span><span class="o">=</span><span class="s2">"video"</span><span class="p">,</span>
+   <span class="n">source</span><span class="o">=</span><span class="n">URLSource</span><span class="p">(</span>
+       <span class="nb">type</span><span class="o">=</span><span class="s2">"url"</span><span class="p">,</span>
+       <span class="n">url</span><span class="o">=</span><span class="s2">"https://example.com/video.mp4"</span>
+   <span class="p">)</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>对于 <code class="docutils literal notranslate"><span class="pre">ImageBlock</span></code>、<code class="docutils literal notranslate"><span class="pre">AudioBlock</span></code> 和 <code class="docutils literal notranslate"><span class="pre">VideoBlock</span></code>，还可以使用 base64 编码的字符串作为数据源（Source）：</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">msg</span> <span class="o">=</span> <span class="n">Msg</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"Jarvis"</span><span class="p">,</span>
+    <span class="n">role</span><span class="o">=</span><span class="s2">"assistant"</span><span class="p">,</span>
+    <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+        <span class="n">TextBlock</span><span class="p">(</span>
+            <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+            <span class="n">text</span><span class="o">=</span><span class="s2">"这是一个包含 base64 编码数据的多模态消息。"</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="n">ImageBlock</span><span class="p">(</span>
+            <span class="nb">type</span><span class="o">=</span><span class="s2">"image"</span><span class="p">,</span>
+            <span class="n">source</span><span class="o">=</span><span class="n">Base64Source</span><span class="p">(</span>
+                <span class="nb">type</span><span class="o">=</span><span class="s2">"base64"</span><span class="p">,</span>
+                <span class="n">media_type</span><span class="o">=</span><span class="s2">"image/jpeg"</span><span class="p">,</span>
+                <span class="n">data</span><span class="o">=</span><span class="s2">"/9j/4AAQSkZ..."</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">),</span>
+        <span class="n">AudioBlock</span><span class="p">(</span>
+            <span class="nb">type</span><span class="o">=</span><span class="s2">"audio"</span><span class="p">,</span>
+            <span class="n">source</span><span class="o">=</span><span class="n">Base64Source</span><span class="p">(</span>
+                <span class="nb">type</span><span class="o">=</span><span class="s2">"base64"</span><span class="p">,</span>
+                <span class="n">media_type</span><span class="o">=</span><span class="s2">"audio/mpeg"</span><span class="p">,</span>
+                <span class="n">data</span><span class="o">=</span><span class="s2">"SUQzBAAAAA..."</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">),</span>
+        <span class="n">VideoBlock</span><span class="p">(</span>
+            <span class="nb">type</span><span class="o">=</span><span class="s2">"video"</span><span class="p">,</span>
+            <span class="n">source</span><span class="o">=</span><span class="n">Base64Source</span><span class="p">(</span>
+                <span class="nb">type</span><span class="o">=</span><span class="s2">"base64"</span><span class="p">,</span>
+                <span class="n">media_type</span><span class="o">=</span><span class="s2">"video/mp4"</span><span class="p">,</span>
+                <span class="n">data</span><span class="o">=</span><span class="s2">"AAAAIGZ0eX..."</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">),</span>
+    <span class="p">],</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="id4">
+<h2>创建推理消息<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">ThinkingBlock</span></code> 用于支持推理模型，包含模型的思考过程。</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">msg_thinking</span> <span class="o">=</span> <span class="n">Msg</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"Jarvis"</span><span class="p">,</span>
+    <span class="n">role</span><span class="o">=</span><span class="s2">"assistant"</span><span class="p">,</span>
+    <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+        <span class="n">ThinkingBlock</span><span class="p">(</span>
+            <span class="nb">type</span><span class="o">=</span><span class="s2">"thinking"</span><span class="p">,</span>
+            <span class="n">thinking</span><span class="o">=</span><span class="s2">"我正在为 AgentScope 构建一个思考块的示例。"</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="n">TextBlock</span><span class="p">(</span>
+            <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+            <span class="n">text</span><span class="o">=</span><span class="s2">"这是一个思考块的示例。"</span><span class="p">,</span>
+        <span class="p">),</span>
+    <span class="p">],</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="tool-block">
+<span id="id5"></span><h2>创建工具使用/结果消息<a class="headerlink" href="#tool-block" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">ToolUseBlock</span></code> 和 <code class="docutils literal notranslate"><span class="pre">ToolResultBlock</span></code> 用于支持工具 API：</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">msg_tool_call</span> <span class="o">=</span> <span class="n">Msg</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"Jarvis"</span><span class="p">,</span>
+    <span class="n">role</span><span class="o">=</span><span class="s2">"assistant"</span><span class="p">,</span>
+    <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+        <span class="n">ToolUseBlock</span><span class="p">(</span>
+            <span class="nb">type</span><span class="o">=</span><span class="s2">"tool_use"</span><span class="p">,</span>
+            <span class="nb">id</span><span class="o">=</span><span class="s2">"343"</span><span class="p">,</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">"get_weather"</span><span class="p">,</span>
+            <span class="nb">input</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">"location"</span><span class="p">:</span> <span class="s2">"Beijing"</span><span class="p">,</span>
+            <span class="p">},</span>
+        <span class="p">),</span>
+    <span class="p">],</span>
+<span class="p">)</span>
+
+<span class="n">msg_tool_res</span> <span class="o">=</span> <span class="n">Msg</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">"system"</span><span class="p">,</span>
+    <span class="n">role</span><span class="o">=</span><span class="s2">"system"</span><span class="p">,</span>
+    <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+        <span class="n">ToolResultBlock</span><span class="p">(</span>
+            <span class="nb">type</span><span class="o">=</span><span class="s2">"tool_result"</span><span class="p">,</span>
+            <span class="nb">id</span><span class="o">=</span><span class="s2">"343"</span><span class="p">,</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">"get_weather"</span><span class="p">,</span>
+            <span class="n">output</span><span class="o">=</span><span class="s2">"北京的天气是晴天，温度为 25°C。"</span><span class="p">,</span>
+        <span class="p">),</span>
+    <span class="p">],</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">小技巧</p>
+<p>AgentScope 中，通常使用 <code class="docutils literal notranslate"><span class="pre">role</span></code> 为“system”的消息来记录工具函数的执行结果。有关 AgentScope 中工具的更多信息，请参考 <a class="reference internal" href="task_tool.html#tool"><span class="std std-ref">工具</span></a> 部分。</p>
+</div>
+</section>
+<section id="id6">
+<h2>序列化和反序列化<a class="headerlink" href="#id6" title="Link to this heading">¶</a></h2>
+<p>消息对象可以分别通过 <code class="docutils literal notranslate"><span class="pre">to_dict</span></code> 和 <code class="docutils literal notranslate"><span class="pre">from_dict</span></code> 方法进行序列化和反序列化。</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">serialized_msg</span> <span class="o">=</span> <span class="n">msg</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">serialized_msg</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">serialized_msg</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">ensure_ascii</span><span class="o">=</span><span class="kc">False</span><span class="p">))</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>&lt;class 'dict'&gt;
+{
+    "id": "3DiuWxJac4ebwFTKhRkwtn",
+    "name": "Jarvis",
+    "role": "assistant",
+    "content": [
+        {
+            "type": "text",
+            "text": "这是一个包含 base64 编码数据的多模态消息。"
+        },
+        {
+            "type": "image",
+            "source": {
+                "type": "base64",
+                "media_type": "image/jpeg",
+                "data": "/9j/4AAQSkZ..."
+            }
+        },
+        {
+            "type": "audio",
+            "source": {
+                "type": "base64",
+                "media_type": "audio/mpeg",
+                "data": "SUQzBAAAAA..."
+            }
+        },
+        {
+            "type": "video",
+            "source": {
+                "type": "base64",
+                "media_type": "video/mp4",
+                "data": "AAAAIGZ0eX..."
+            }
+        }
+    ],
+    "metadata": null,
+    "timestamp": "2025-10-03 14:51:05.307"
+}
+</pre></div>
+</div>
+<p>从 JSON 格式的数据反序列化消息。</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">new_msg</span> <span class="o">=</span> <span class="n">Msg</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">serialized_msg</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">new_msg</span><span class="p">))</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'消息的发送者: "</span><span class="si">{</span><span class="n">new_msg</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s1">"'</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'发送者的角色: "</span><span class="si">{</span><span class="n">new_msg</span><span class="o">.</span><span class="n">role</span><span class="si">}</span><span class="s1">"'</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">'消息的内容: "</span><span class="si">{</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">new_msg</span><span class="o">.</span><span class="n">content</span><span class="p">,</span><span class="w"> </span><span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span><span class="w"> </span><span class="n">ensure_ascii</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="si">}</span><span class="s1">"'</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>&lt;class 'agentscope.message._message_base.Msg'&gt;
+消息的发送者: "Jarvis"
+发送者的角色: "assistant"
+消息的内容: "[
+    {
+        "type": "text",
+        "text": "这是一个包含 base64 编码数据的多模态消息。"
+    },
+    {
+        "type": "image",
+        "source": {
+            "type": "base64",
+            "media_type": "image/jpeg",
+            "data": "/9j/4AAQSkZ..."
+        }
+    },
+    {
+        "type": "audio",
+        "source": {
+            "type": "base64",
+            "media_type": "audio/mpeg",
+            "data": "SUQzBAAAAA..."
+        }
+    },
+    {
+        "type": "video",
+        "source": {
+            "type": "base64",
+            "media_type": "video/mp4",
+            "data": "AAAAIGZ0eX..."
+        }
+    }
+]"
+</pre></div>
+</div>
+</section>
+<section id="id7">
+<h2>属性函数<a class="headerlink" href="#id7" title="Link to this heading">¶</a></h2>
+<p>为了便于使用 Msg 对象，AgentScope 提供了以下函数：</p>
+<div class="table-wrapper docutils container" id="id10">
+<table class="docutils align-default" id="id10">
+<caption><span class="caption-text">Msg 对象的函数</span><a class="headerlink" href="#id10" title="Link to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>函数</p></th>
+<th class="head"><p>参数</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">get_text_content</span></code></p></td>
+<td></td>
+<td><p>将所有 <code class="docutils literal notranslate"><span class="pre">TextBlock</span></code> 中的内容收集到单个字符串中（用 "\n" 分隔）。</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">get_content_blocks</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">block_type</span></code></p></td>
+<td><p>返回指定类型的内容块列表。如果未提供 <code class="docutils literal notranslate"><span class="pre">block_type</span></code>，则以块格式返回全部内容。</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">has_content_blocks</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">block_type</span></code></p></td>
+<td><p>检查消息是否具有指定类型的内容块。<code class="docutils literal notranslate"><span class="pre">str</span></code> 内容会被视为 <code class="docutils literal notranslate"><span class="pre">TextBlock</span></code> 类型。</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 0.004 seconds)</p>
+<div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-tutorial-quickstart-message-py">
+<div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/197a6b1433bc7f141f190ac838df600e/quickstart_message.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">quickstart_message.ipynb</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-python docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/42fc0a3d483b565aa71fce67742699cb/quickstart_message.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">quickstart_message.py</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-zip docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/7f63d3b63eeaafd333e4ea0b5428319e/quickstart_message.zip"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">zipped:</span> <span class="pre">quickstart_message.zip</span></code></a></p>
+</div>
+</div>
+<p class="sphx-glr-signature"><a class="reference external" href="https://sphinx-gallery.github.io">Gallery generated by Sphinx-Gallery</a></p>
+</section>
+</section>
+
+        

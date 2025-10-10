@@ -1,0 +1,316 @@
+<!-- Title: agentscope.tool._multi_modality._dashscope_tools - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/tool/_multi_modality/_dashscope_tools.html -->
+
+          <h1>agentscope.tool._multi_modality._dashscope_tools 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""Use DashScope API to generate images,</span>
+<span class="sd">convert text to audio, and convert images to text.</span>
+<span class="sd">Please refer to the `official documentation &lt;https://dashscope.aliyun.com/&gt;`_</span>
+<span class="sd"> for more details.</span>
+<span class="sd">"""</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">base64</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">Sequence</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">..._utils._common</span><span class="w"> </span><span class="kn">import</span> <span class="n">_get_bytes_from_web_url</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">...message</span><span class="w"> </span><span class="kn">import</span> <span class="n">ImageBlock</span><span class="p">,</span> <span class="n">TextBlock</span><span class="p">,</span> <span class="n">AudioBlock</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">...tool</span><span class="w"> </span><span class="kn">import</span> <span class="n">ToolResponse</span>
+
+
+<div class="viewcode-block" id="dashscope_text_to_image">
+<a class="viewcode-back" href="../../../../api/agentscope.tool.html#agentscope.tool.dashscope_text_to_image">[文档]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">dashscope_text_to_image</span><span class="p">(</span>
+    <span class="n">prompt</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">api_key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="n">size</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"1024*1024"</span><span class="p">,</span> <span class="s2">"720*1280"</span><span class="p">,</span> <span class="s2">"1280*720"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"1024*1024"</span><span class="p">,</span>
+    <span class="n">model</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"wanx-v1"</span><span class="p">,</span>
+    <span class="n">use_base64</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ToolResponse</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Generate image(s) based on the given prompt, and return image url(s)</span>
+<span class="sd">    or base64 data.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        prompt (`str`):</span>
+<span class="sd">            The text prompt to generate image.</span>
+<span class="sd">        api_key (`str`):</span>
+<span class="sd">            The api key for the dashscope api.</span>
+<span class="sd">        n (`int`, defaults to `1`):</span>
+<span class="sd">            The number of images to generate.</span>
+<span class="sd">        size (`Literal["1024*1024", "720*1280", "1280*720"]`, defaults to \</span>
+<span class="sd">         `"1024*1024"`):</span>
+<span class="sd">            Size of the image.</span>
+<span class="sd">        model (`str`, defaults to '"wanx-v1"'):</span>
+<span class="sd">            The model to use, such as "wanx-v1", "qwen-image",</span>
+<span class="sd">            "wan2.2-t2i-flash", etc.</span>
+<span class="sd">        use_base64 (`bool`, defaults to 'False'):</span>
+<span class="sd">            Whether to use base64 data for images.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        `ToolResponse`:</span>
+<span class="sd">            A ToolResponse containing the generated content</span>
+<span class="sd">            (ImageBlock/TextBlock/AudioBlock) or error information if the</span>
+<span class="sd">            operation failed.</span>
+<span class="sd">    """</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">dashscope</span>
+
+        <span class="n">response</span> <span class="o">=</span> <span class="n">dashscope</span><span class="o">.</span><span class="n">ImageSynthesis</span><span class="o">.</span><span class="n">call</span><span class="p">(</span>
+            <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+            <span class="n">prompt</span><span class="o">=</span><span class="n">prompt</span><span class="p">,</span>
+            <span class="n">api_key</span><span class="o">=</span><span class="n">api_key</span><span class="p">,</span>
+            <span class="n">n</span><span class="o">=</span><span class="n">n</span><span class="p">,</span>
+            <span class="n">size</span><span class="o">=</span><span class="n">size</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">images</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">output</span><span class="p">[</span><span class="s2">"results"</span><span class="p">]</span>
+        <span class="n">urls</span> <span class="o">=</span> <span class="p">[</span><span class="n">_</span><span class="p">[</span><span class="s2">"url"</span><span class="p">]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">images</span><span class="p">]</span>
+
+        <span class="n">image_blocks</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">if</span> <span class="n">urls</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">url</span> <span class="ow">in</span> <span class="n">urls</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">use_base64</span><span class="p">:</span>
+                    <span class="n">extension</span> <span class="o">=</span> <span class="n">url</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">"."</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+
+                    <span class="n">image_data</span> <span class="o">=</span> <span class="n">_get_bytes_from_web_url</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+                    <span class="n">image_blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="n">ImageBlock</span><span class="p">(</span>
+                            <span class="nb">type</span><span class="o">=</span><span class="s2">"image"</span><span class="p">,</span>
+                            <span class="n">source</span><span class="o">=</span><span class="p">{</span>
+                                <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"base64"</span><span class="p">,</span>
+                                <span class="s2">"media_type"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"image/</span><span class="si">{</span><span class="n">extension</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                                <span class="s2">"data"</span><span class="p">:</span> <span class="n">image_data</span><span class="p">,</span>
+                            <span class="p">},</span>
+                        <span class="p">),</span>
+                    <span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">image_blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="n">ImageBlock</span><span class="p">(</span>
+                            <span class="nb">type</span><span class="o">=</span><span class="s2">"image"</span><span class="p">,</span>
+                            <span class="n">source</span><span class="o">=</span><span class="p">{</span>
+                                <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"url"</span><span class="p">,</span>
+                                <span class="s2">"url"</span><span class="p">:</span> <span class="n">url</span><span class="p">,</span>
+                            <span class="p">},</span>
+                        <span class="p">),</span>
+                    <span class="p">)</span>
+
+            <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+                <span class="n">content</span><span class="o">=</span><span class="n">image_blocks</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="n">TextBlock</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                        <span class="n">text</span><span class="o">=</span><span class="s2">"Error: Failed to generate images"</span><span class="p">,</span>
+                    <span class="p">),</span>
+                <span class="p">],</span>
+            <span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="n">TextBlock</span><span class="p">(</span>
+                    <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                    <span class="n">text</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Failed to generate images: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="p">),</span>
+            <span class="p">],</span>
+        <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="dashscope_image_to_text">
+<a class="viewcode-back" href="../../../../api/agentscope.tool.html#agentscope.tool.dashscope_image_to_text">[文档]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">dashscope_image_to_text</span><span class="p">(</span>
+    <span class="n">image_urls</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">api_key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">prompt</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"Describe the image"</span><span class="p">,</span>
+    <span class="n">model</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"qwen-vl-plus"</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ToolResponse</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Generate text based on the given images.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        image_urls (`str | Sequence[str]`):</span>
+<span class="sd">            The url of single or multiple images.</span>
+<span class="sd">        api_key (`str`):</span>
+<span class="sd">            The api key for the dashscope api.</span>
+<span class="sd">        prompt (`str`, defaults to 'Describe the image' ):</span>
+<span class="sd">            The text prompt.</span>
+<span class="sd">        model (`str`, defaults to 'qwen-vl-plus'):</span>
+<span class="sd">            The model to use in DashScope MultiModal API.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        `ToolResponse`:</span>
+<span class="sd">            A ToolResponse containing the generated content</span>
+<span class="sd">            (ImageBlock/TextBlock/AudioBlock) or error information if the</span>
+<span class="sd">            operation failed.</span>
+<span class="sd">    """</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">image_urls</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">image_urls</span> <span class="o">=</span> <span class="p">[</span><span class="n">image_urls</span><span class="p">]</span>
+
+    <span class="c1"># Check if the local url is valid</span>
+    <span class="n">img_abs_urls</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">url</span> <span class="ow">in</span> <span class="n">image_urls</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">url</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">url</span><span class="p">):</span>
+                <span class="n">img_abs_urls</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">url</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+                    <span class="p">[</span>
+                        <span class="n">TextBlock</span><span class="p">(</span>
+                            <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                            <span class="n">text</span><span class="o">=</span><span class="sa">f</span><span class="s1">'Error: The input image url "</span><span class="si">{</span><span class="n">url</span><span class="si">}</span><span class="s1">" is '</span>
+                            <span class="sa">f</span><span class="s2">"not a file."</span><span class="p">,</span>
+                        <span class="p">),</span>
+                    <span class="p">],</span>
+                <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Maybe a web url or an invalid url, we leave it to the API</span>
+            <span class="c1"># to handle</span>
+            <span class="n">img_abs_urls</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+
+    <span class="c1"># Convert image paths according to the model requirements</span>
+    <span class="n">contents</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">url</span> <span class="ow">in</span> <span class="n">img_abs_urls</span><span class="p">:</span>
+        <span class="n">contents</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">"image"</span><span class="p">:</span> <span class="n">url</span><span class="p">,</span>
+            <span class="p">},</span>
+        <span class="p">)</span>
+
+    <span class="n">contents</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">"text"</span><span class="p">:</span> <span class="n">prompt</span><span class="p">})</span>
+
+    <span class="c1"># currently only support one round of conversation</span>
+    <span class="c1"># if multiple rounds of conversation are needed,</span>
+    <span class="c1"># it would be better to implement an Agent class</span>
+    <span class="n">sys_message</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">"role"</span><span class="p">:</span> <span class="s2">"system"</span><span class="p">,</span>
+        <span class="s2">"content"</span><span class="p">:</span> <span class="p">[{</span><span class="s2">"text"</span><span class="p">:</span> <span class="s2">"You are a helpful assistant."</span><span class="p">}],</span>
+    <span class="p">}</span>
+    <span class="n">user_message</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span>
+        <span class="s2">"content"</span><span class="p">:</span> <span class="n">contents</span><span class="p">,</span>
+    <span class="p">}</span>
+    <span class="n">messages</span> <span class="o">=</span> <span class="p">[</span><span class="n">sys_message</span><span class="p">,</span> <span class="n">user_message</span><span class="p">]</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">dashscope</span>
+
+        <span class="n">response</span> <span class="o">=</span> <span class="n">dashscope</span><span class="o">.</span><span class="n">MultiModalConversation</span><span class="o">.</span><span class="n">call</span><span class="p">(</span>
+            <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+            <span class="n">messages</span><span class="o">=</span><span class="n">messages</span><span class="p">,</span>
+            <span class="n">api_key</span><span class="o">=</span><span class="n">api_key</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">content</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">output</span><span class="p">[</span><span class="s2">"choices"</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="s2">"message"</span><span class="p">][</span><span class="s2">"content"</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+            <span class="n">content</span> <span class="o">=</span> <span class="n">content</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s2">"text"</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">content</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="n">TextBlock</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                        <span class="n">text</span><span class="o">=</span><span class="n">content</span><span class="p">,</span>
+                    <span class="p">),</span>
+                <span class="p">],</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="n">TextBlock</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                        <span class="n">text</span><span class="o">=</span><span class="s2">"Error: Failed to generate text"</span><span class="p">,</span>
+                    <span class="p">),</span>
+                <span class="p">],</span>
+            <span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="n">TextBlock</span><span class="p">(</span>
+                    <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                    <span class="n">text</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Failed to generate text: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="p">),</span>
+            <span class="p">],</span>
+        <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="dashscope_text_to_audio">
+<a class="viewcode-back" href="../../../../api/agentscope.tool.html#agentscope.tool.dashscope_text_to_audio">[文档]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">dashscope_text_to_audio</span><span class="p">(</span>
+    <span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">api_key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">model</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"sambert-zhichu-v1"</span><span class="p">,</span>
+    <span class="n">sample_rate</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">48000</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ToolResponse</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Convert the given text to audio.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        text (`str`):</span>
+<span class="sd">            The text to be converted into audio.</span>
+<span class="sd">        api_key (`str`):</span>
+<span class="sd">            The api key for the dashscope API.</span>
+<span class="sd">        model (`str`, defaults to 'sambert-zhichu-v1'):</span>
+<span class="sd">            The model to use. Full model list can be found in the</span>
+<span class="sd">            `official document</span>
+<span class="sd">            &lt;https://help.aliyun.com/zh/model-studio/sambert-python-sdk&gt;`_.</span>
+<span class="sd">        sample_rate (`int`, defaults to 48000):</span>
+<span class="sd">            Sample rate of the audio.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        `ToolResponse`:</span>
+<span class="sd">            A ToolResponse containing the generated content</span>
+<span class="sd">            (ImageBlock/TextBlock/AudioBlock) or error information if the</span>
+<span class="sd">            operation failed.</span>
+
+<span class="sd">    """</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">dashscope</span>
+
+        <span class="n">dashscope</span><span class="o">.</span><span class="n">api_key</span> <span class="o">=</span> <span class="n">api_key</span>
+
+        <span class="n">res</span> <span class="o">=</span> <span class="n">dashscope</span><span class="o">.</span><span class="n">audio</span><span class="o">.</span><span class="n">tts</span><span class="o">.</span><span class="n">SpeechSynthesizer</span><span class="o">.</span><span class="n">call</span><span class="p">(</span>
+            <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span>
+            <span class="n">text</span><span class="o">=</span><span class="n">text</span><span class="p">,</span>
+            <span class="n">sample_rate</span><span class="o">=</span><span class="n">sample_rate</span><span class="p">,</span>
+            <span class="nb">format</span><span class="o">=</span><span class="s2">"wav"</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="n">audio_data</span> <span class="o">=</span> <span class="n">res</span><span class="o">.</span><span class="n">get_audio_data</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">audio_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">audio_base64</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">b64encode</span><span class="p">(</span><span class="n">audio_data</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">"utf-8"</span><span class="p">)</span>
+
+            <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="n">AudioBlock</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"audio"</span><span class="p">,</span>
+                        <span class="n">source</span><span class="o">=</span><span class="p">{</span>
+                            <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"base64"</span><span class="p">,</span>
+                            <span class="s2">"media_type"</span><span class="p">:</span> <span class="s2">"audio/wav"</span><span class="p">,</span>
+                            <span class="s2">"data"</span><span class="p">:</span> <span class="n">audio_base64</span><span class="p">,</span>
+                        <span class="p">},</span>
+                    <span class="p">),</span>
+                <span class="p">],</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+                <span class="p">[</span>
+                    <span class="n">TextBlock</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                        <span class="n">text</span><span class="o">=</span><span class="s2">"Error: Failed to generate audio"</span><span class="p">,</span>
+                    <span class="p">),</span>
+                <span class="p">],</span>
+            <span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="n">TextBlock</span><span class="p">(</span>
+                    <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                    <span class="n">text</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Failed to generate audio: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                <span class="p">),</span>
+            <span class="p">],</span>
+        <span class="p">)</span></div>
+
+</pre></div>
+        

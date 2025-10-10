@@ -1,0 +1,148 @@
+<!-- Title: agentscope.evaluate._ace_benchmark._ace_tools_zh - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/evaluate/_ace_benchmark/_ace_tools_zh.html -->
+
+          <h1>agentscope.evaluate._ace_benchmark._ace_tools_zh 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The Chinese tools for ACEBench evaluation."""</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">wraps</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Any</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">._ace_tools_api</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ReminderApi</span><span class="p">,</span>
+    <span class="n">FoodPlatformApi</span><span class="p">,</span>
+    <span class="n">TravelApi</span><span class="p">,</span>
+    <span class="n">MessageApi</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">...message</span><span class="w"> </span><span class="kn">import</span> <span class="n">TextBlock</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">...tool</span><span class="w"> </span><span class="kn">import</span> <span class="n">ToolResponse</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_tool_function_wrapper</span><span class="p">(</span><span class="n">get_tool_function</span><span class="p">:</span> <span class="n">Callable</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Wrap the tool function result to be ToolResponse."""</span>
+
+    <span class="nd">@wraps</span><span class="p">(</span><span class="n">get_tool_function</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">wrapper</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="s2">"ACEPhone"</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Wrap the tool function to return ToolResponse."""</span>
+        <span class="n">tool_function</span> <span class="o">=</span> <span class="n">get_tool_function</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+
+        <span class="nd">@wraps</span><span class="p">(</span><span class="n">tool_function</span><span class="p">)</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">wrapper_tool_function</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ToolResponse</span><span class="p">:</span>
+<span class="w">            </span><span class="sd">"""The wrapped tool function"""</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="n">tool_function</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+                <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+                    <span class="n">TextBlock</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                        <span class="n">text</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">res</span><span class="p">),</span>
+                    <span class="p">),</span>
+                <span class="p">],</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">wrapper_tool_function</span>
+
+    <span class="k">return</span> <span class="n">wrapper</span>
+
+
+<div class="viewcode-block" id="ACEPhone">
+<a class="viewcode-back" href="../../../../api/agentscope.evaluate.html#agentscope.evaluate.ACEPhone">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ACEPhone</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Simulate a user phone with various apps and functionalities in</span>
+<span class="sd">    ACEBench. The code is implemented with reference to the</span>
+<span class="sd">    `ACEBench &lt;https://github.com/ACEBench/ACEBench&gt;`_.</span>
+<span class="sd">    """</span>
+
+<div class="viewcode-block" id="ACEPhone.__init__">
+<a class="viewcode-back" href="../../../../api/agentscope.evaluate.html#agentscope.evaluate.ACEPhone.__init__">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize the shared state and apps for the ACEPhone."""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_state</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"wifi"</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+            <span class="s2">"logged_in"</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_message_app</span> <span class="o">=</span> <span class="n">MessageApi</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_reminder_app</span> <span class="o">=</span> <span class="n">ReminderApi</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_food_platform_app</span> <span class="o">=</span> <span class="n">FoodPlatformApi</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_travel</span> <span class="o">=</span> <span class="n">TravelApi</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="ACEPhone.turn_on_wifi">
+<a class="viewcode-back" href="../../../../api/agentscope.evaluate.html#agentscope.evaluate.ACEPhone.turn_on_wifi">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">turn_on_wifi</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">bool</span> <span class="o">|</span> <span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""开启WiFi连接。"""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="p">[</span><span class="s2">"wifi"</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">"status"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">"message"</span><span class="p">:</span> <span class="s2">"wifi已经打开"</span><span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="ACEPhone.login_device">
+<a class="viewcode-back" href="../../../../api/agentscope.evaluate.html#agentscope.evaluate.ACEPhone.login_device">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">login_device</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">bool</span> <span class="o">|</span> <span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""登录设备。"""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="p">[</span><span class="s2">"logged_in"</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">"status"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">"message"</span><span class="p">:</span> <span class="s2">"设备已经登录"</span><span class="p">}</span></div>
+
+
+<div class="viewcode-block" id="ACEPhone.load_initial_config">
+<a class="viewcode-back" href="../../../../api/agentscope.evaluate.html#agentscope.evaluate.ACEPhone.load_initial_config">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load_initial_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">initial_config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Load the initial config from the application configuration."""</span>
+        <span class="c1"># Empty initial config</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">initial_config</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="c1"># Fix the typo in ACEBench by renaming "Baspi" to "BaseApi"</span>
+        <span class="k">if</span> <span class="s2">"Baspi"</span> <span class="ow">in</span> <span class="n">initial_config</span><span class="p">:</span>
+            <span class="n">initial_config</span><span class="p">[</span><span class="s2">"BaseApi"</span><span class="p">]</span> <span class="o">=</span> <span class="n">initial_config</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">"Baspi"</span><span class="p">)</span>
+
+        <span class="c1"># Verify state</span>
+        <span class="k">assert</span> <span class="p">(</span>
+            <span class="s2">"BaseApi"</span> <span class="ow">in</span> <span class="n">initial_config</span>
+            <span class="ow">and</span> <span class="s2">"wifi"</span> <span class="ow">in</span> <span class="n">initial_config</span><span class="p">[</span><span class="s2">"BaseApi"</span><span class="p">]</span>
+            <span class="ow">and</span> <span class="s2">"logged_in"</span> <span class="ow">in</span> <span class="n">initial_config</span><span class="p">[</span><span class="s2">"BaseApi"</span><span class="p">]</span>
+        <span class="p">),</span> <span class="sa">f</span><span class="s2">"Invalid initial config: </span><span class="si">{</span><span class="n">initial_config</span><span class="si">}</span><span class="s2">"</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="p">[</span><span class="s2">"wifi"</span><span class="p">]</span> <span class="o">=</span> <span class="n">initial_config</span><span class="p">[</span><span class="s2">"BaseApi"</span><span class="p">][</span><span class="s2">"wifi"</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="p">[</span><span class="s2">"logged_in"</span><span class="p">]</span> <span class="o">=</span> <span class="n">initial_config</span><span class="p">[</span><span class="s2">"BaseApi"</span><span class="p">][</span><span class="s2">"logged_in"</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="ACEPhone.get_current_state">
+<a class="viewcode-back" href="../../../../api/agentscope.evaluate.html#agentscope.evaluate.ACEPhone.get_current_state">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_current_state</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Follow ACEBench to get the current state of the ACEPhone."""</span>
+        <span class="k">return</span> <span class="p">[</span>
+            <span class="p">{</span><span class="s2">"BaseApi"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_state</span><span class="p">},</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_message_app</span><span class="o">.</span><span class="n">get_state_dict</span><span class="p">(),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_reminder_app</span><span class="o">.</span><span class="n">get_state_dict</span><span class="p">(),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_food_platform_app</span><span class="o">.</span><span class="n">get_state_dict</span><span class="p">(),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_travel</span><span class="o">.</span><span class="n">get_state_dict</span><span class="p">(),</span>
+        <span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="ACEPhone.get_tool_function">
+<a class="viewcode-back" href="../../../../api/agentscope.evaluate.html#agentscope.evaluate.ACEPhone.get_tool_function">[文档]</a>
+    <span class="nd">@_tool_function_wrapper</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_tool_function</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Get a tool function by name."""</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">[</span>
+            <span class="s2">"turn_on_wifi"</span><span class="p">,</span>
+            <span class="s2">"login_device"</span><span class="p">,</span>
+        <span class="p">]:</span>
+            <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_message_app</span><span class="o">.</span><span class="n">tool_functions</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_message_app</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_food_platform_app</span><span class="o">.</span><span class="n">tool_functions</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_food_platform_app</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_reminder_app</span><span class="o">.</span><span class="n">tool_functions</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_reminder_app</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_travel</span><span class="o">.</span><span class="n">tool_functions</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_travel</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Tool function '</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">' not found in ACEPhone."</span><span class="p">,</span>
+        <span class="p">)</span></div>
+</div>
+
+</pre></div>
+        

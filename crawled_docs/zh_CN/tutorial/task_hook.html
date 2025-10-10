@@ -1,0 +1,387 @@
+<!-- Title: 智能体钩子函数 - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/tutorial/task_hook.html -->
+
+          <div class="sphx-glr-download-link-note admonition note">
+<p class="admonition-title">备注</p>
+<p><a class="reference internal" href="#sphx-glr-download-tutorial-task-hook-py"><span class="std std-ref">Go to the end</span></a>
+to download the full example code.</p>
+</div>
+<section class="sphx-glr-example-title" id="hook">
+<span id="sphx-glr-tutorial-task-hook-py"></span><span id="id1"></span><h1>智能体钩子函数<a class="headerlink" href="#hook" title="Link to this heading">¶</a></h1>
+<p>钩子（Hook）是 AgentScope 中的扩展点，允许开发者在特定位置自定义智能体行为，提供了一种灵活的方式来修改或扩展智能体的功能，而无需更改其核心实现。</p>
+<p>在 AgentScope 中，钩子围绕智能体的核心函数实现：</p>
+<div class="table-wrapper docutils container" id="id8">
+<table class="docutils align-default" id="id8">
+<caption><span class="caption-text">AgentScope 中支持的钩子类型</span><a class="headerlink" href="#id8" title="Link to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>智能体类</p></th>
+<th class="head"><p>核心函数</p></th>
+<th class="head"><p>钩子类型</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">AgentBase</span></code> 及其子类</div>
+</div>
+</td>
+<td><p><code class="docutils literal notranslate"><span class="pre">reply</span></code></p></td>
+<td><div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">pre_reply</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">post_reply</span></code></div>
+</div>
+</td>
+<td><p>智能体回复消息前/后的钩子</p></td>
+</tr>
+<tr class="row-odd"><td></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">print</span></code></p></td>
+<td><div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">pre_print</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">post_print</span></code></div>
+</div>
+</td>
+<td><p>向目标输出（如终端、Web 界面）打印消息前/后的钩子</p></td>
+</tr>
+<tr class="row-even"><td></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">observe</span></code></p></td>
+<td><div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">pre_observe</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">post_observe</span></code></div>
+</div>
+</td>
+<td><p>从环境或其它智能体观察消息前/后的钩子</p></td>
+</tr>
+<tr class="row-odd"><td><div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">ReActAgentBase</span></code> 及其子类</div>
+</div>
+</td>
+<td><div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">reply</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">print</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">observe</span></code></div>
+</div>
+</td>
+<td><div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">pre_reply</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">post_reply</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">pre_print</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">post_print</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">pre_observe</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">post_observe</span></code></div>
+</div>
+</td>
+<td></td>
+</tr>
+<tr class="row-even"><td></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">_reasoning</span></code></p></td>
+<td><div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">pre_reasoning</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">post_reasoning</span></code></div>
+</div>
+</td>
+<td><p>智能体推理过程前/后的钩子</p></td>
+</tr>
+<tr class="row-odd"><td></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">_acting</span></code></p></td>
+<td><div class="line-block">
+<div class="line"><code class="docutils literal notranslate"><span class="pre">pre_acting</span></code></div>
+<div class="line"><code class="docutils literal notranslate"><span class="pre">post_acting</span></code></div>
+</div>
+</td>
+<td><p>智能体行动过程前/后的钩子</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">小技巧</p>
+<p>由于 AgentScope 中的钩子函数是通过 meta class 实现的，因此支持继承。</p>
+</div>
+<p>为了简化使用，AgentScope 为所有钩子提供了统一的签名。</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Type</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.agent</span><span class="w"> </span><span class="kn">import</span> <span class="n">ReActAgentBase</span><span class="p">,</span> <span class="n">AgentBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.message</span><span class="w"> </span><span class="kn">import</span> <span class="n">Msg</span>
+</pre></div>
+</div>
+<section id="id2">
+<h2>钩子签名<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h2>
+<p>AgentScope 为所有前置（<a href="#id12"><span class="problematic" id="id13">pre_</span></a>）和后置（<a href="#id14"><span class="problematic" id="id15">post_</span></a>）钩子提供统一的钩子签名，如下所示：</p>
+<p><strong>前置钩子签名</strong></p>
+<div class="table-wrapper docutils container" id="id9">
+<table class="docutils align-default" id="id9">
+<caption><span class="caption-text">所有前置钩子的签名</span><a class="headerlink" href="#id9" title="Link to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"></th>
+<th class="head"><p>名称</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>参数</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">self:</span> <span class="pre">AgentBase</span> <span class="pre">|</span> <span class="pre">ReActAgentBase</span></code></p></td>
+<td><p>智能体实例</p></td>
+</tr>
+<tr class="row-odd"><td></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">kwargs:</span> <span class="pre">dict[str,</span> <span class="pre">Any]</span></code></p></td>
+<td><div class="line-block">
+<div class="line">目标函数的输入参数，或来自最近</div>
+<div class="line">一个非 None 返回值的钩子修</div>
+<div class="line">改后的参数</div>
+</div>
+</td>
+</tr>
+<tr class="row-even"><td><p>返回值</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">dict[str,</span> <span class="pre">Any]</span> <span class="pre">|</span> <span class="pre">None</span></code></p></td>
+<td><p>修改后的参数或 None</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>核心函数的所有位置参数（<a href="#id3"><span class="problematic" id="id4">*</span></a>args）和关键字参数（<a href="#id5"><span class="problematic" id="id6">**</span></a>kwargs）被统一成单个 <code class="docutils literal notranslate"><span class="pre">kwargs</span></code> 字典传递给钩子函数</p>
+</div>
+<p>前置钩子模板定义如下：</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">pre_hook_template</span><span class="p">(</span>
+    <span class="bp">self</span><span class="p">:</span> <span class="n">AgentBase</span> <span class="o">|</span> <span class="n">ReActAgentBase</span><span class="p">,</span>
+    <span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># 修改后的输入</span>
+<span class="w">    </span><span class="sd">"""前置钩子模板。"""</span>
+    <span class="k">pass</span>
+</pre></div>
+</div>
+<p><strong>后置钩子签名</strong></p>
+<p>对于后置钩子，在签名中增加了一个额外的 <code class="docutils literal notranslate"><span class="pre">output</span></code> 参数，表示目标函数的输出。
+如果核心函数没有输出，<code class="docutils literal notranslate"><span class="pre">output</span></code> 参数将为 <code class="docutils literal notranslate"><span class="pre">None</span></code>。</p>
+<div class="table-wrapper docutils container" id="id10">
+<table class="docutils align-default" id="id10">
+<caption><span class="caption-text">所有后置钩子的签名</span><a class="headerlink" href="#id10" title="Link to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"></th>
+<th class="head"><p>名称</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>参数</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">self:</span> <span class="pre">AgentBase</span> <span class="pre">|</span> <span class="pre">ReActAgentBase</span></code></p></td>
+<td><p>智能体实例</p></td>
+</tr>
+<tr class="row-odd"><td></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">kwargs:</span> <span class="pre">dict[str,</span> <span class="pre">Any]</span></code></p></td>
+<td><div class="line-block">
+<div class="line">包含目标函数所有参数的字典</div>
+</div>
+</td>
+</tr>
+<tr class="row-even"><td></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">output:</span> <span class="pre">Any</span></code></p></td>
+<td><div class="line-block">
+<div class="line">目标函数的输出或来自前序钩子</div>
+<div class="line">最近一个非 None 返回值</div>
+</div>
+</td>
+</tr>
+<tr class="row-odd"><td><p>返回值</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">dict[str,</span> <span class="pre">Any]</span> <span class="pre">|</span> <span class="pre">None</span></code></p></td>
+<td><p>修改后的输出或 None</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">post_hook_template</span><span class="p">(</span>
+    <span class="bp">self</span><span class="p">:</span> <span class="n">AgentBase</span> <span class="o">|</span> <span class="n">ReActAgentBase</span><span class="p">,</span>
+    <span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+    <span class="n">output</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>  <span class="c1"># 目标函数的输出</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>  <span class="c1"># 修改后的输出</span>
+<span class="w">    </span><span class="sd">"""后置钩子模板。"""</span>
+    <span class="k">pass</span>
+</pre></div>
+</div>
+</section>
+<section id="id7">
+<h2>钩子管理<a class="headerlink" href="#id7" title="Link to this heading">¶</a></h2>
+<p>AgentScope 提供实例级（instance）和类级（class）钩子，其区别在于钩子函数的作用范围。
+它们按以下顺序执行：</p>
+<a class="bordered-image reference internal image-reference" href="../_images/sequential_hook.png"><img alt="AgentScope 中的钩子" class="bordered-image align-center" src="../_images/sequential_hook.png" style="width: 90%;">
+</a>
+<p>AgentScope 提供内置方法来管理实例级和类级的钩子，如下所示：</p>
+<div class="table-wrapper docutils container" id="id11">
+<table class="docutils align-default" id="id11">
+<caption><span class="caption-text">AgentScope 中的钩子管理方法</span><a class="headerlink" href="#id11" title="Link to this table">¶</a></caption>
+<thead>
+<tr class="row-odd"><th class="head"><p>级别</p></th>
+<th class="head"><p>方法</p></th>
+<th class="head"><p>描述</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>实例级</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">register_instance_hook</span></code></p></td>
+<td><div class="line-block">
+<div class="line">为当前对象注册具有给定钩子类型</div>
+<div class="line">和名称的钩子。</div>
+</div>
+</td>
+</tr>
+<tr class="row-odd"><td></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">remove_instance_hook</span></code></p></td>
+<td><div class="line-block">
+<div class="line">移除当前对象具有给定钩子类型</div>
+<div class="line">和名称的钩子。</div>
+</div>
+</td>
+</tr>
+<tr class="row-even"><td></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">clear_instance_hooks</span></code></p></td>
+<td><div class="line-block">
+<div class="line">清除当前对象具有给定钩子类型</div>
+<div class="line">的所有钩子。</div>
+</div>
+</td>
+</tr>
+<tr class="row-odd"><td><p>类级</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">register_class_hook</span></code></p></td>
+<td><div class="line-block">
+<div class="line">为该类的所有对象注册具有给定</div>
+<div class="line">钩子类型和名称的钩子。</div>
+</div>
+</td>
+</tr>
+<tr class="row-even"><td></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">remove_class_hook</span></code></p></td>
+<td><div class="line-block">
+<div class="line">移除该类所有对象具有给定</div>
+<div class="line">钩子类型和名称的钩子。</div>
+</div>
+</td>
+</tr>
+<tr class="row-odd"><td></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">clear_class_hooks</span></code></p></td>
+<td><div class="line-block">
+<div class="line">清除该类所有对象具有给定</div>
+<div class="line">钩子类型的所有钩子。</div>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>使用钩子时，开发者需要注意以下规则：</p>
+<div class="admonition important">
+<p class="admonition-title">重要</p>
+<p><strong>执行顺序</strong></p>
+<ul class="simple">
+<li><p>钩子按注册顺序执行</p></li>
+<li><p>多个钩子可以链式连接</p></li>
+</ul>
+<p><strong>返回值处理</strong></p>
+<ul class="simple">
+<li><p>对于前置钩子：非 None 返回值会传递给下一个钩子或核心函数</p></li>
+</ul>
+<blockquote>
+<div><ul class="simple">
+<li><p>当钩子返回 None 时，下一个钩子将使用前序钩子中最近的非 None 返回值</p></li>
+<li><p>如果所有前序钩子都返回 None，那该钩子接收原始参数的副本作为输入</p></li>
+<li><p>最后一个非 None 返回值（或如果所有钩子都返回 None 则使用原始参数）传递给核心函数</p></li>
+</ul>
+</div></blockquote>
+<ul class="simple">
+<li><p>对于后置钩子：工作方式与前置钩子相似。</p></li>
+</ul>
+<p><strong>重要提示</strong>：不要在钩子内调用核心函数（reply/speak/observe/_reasoning/_acting）以避免循环调用！</p>
+</div>
+<p>以下面的智能体为例，我们可以看到如何注册、移除和清除钩子：</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="c1"># 创建一个简单的测试智能体类</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">TestAgent</span><span class="p">(</span><span class="n">AgentBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""用于演示钩子的测试智能体。"""</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">reply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">:</span> <span class="n">Msg</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Msg</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""回复消息。"""</span>
+        <span class="k">return</span> <span class="n">msg</span>
+</pre></div>
+</div>
+<p>我们创建一个实例级钩子和一个类级钩子来在回复前修改消息内容。</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="c1"># 创建两个前置回复钩子</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">instance_pre_reply_hook</span><span class="p">(</span>
+    <span class="bp">self</span><span class="p">:</span> <span class="n">AgentBase</span><span class="p">,</span>
+    <span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""修改消息内容的前置回复钩子。"""</span>
+    <span class="n">msg</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">"msg"</span><span class="p">]</span>
+    <span class="n">msg</span><span class="o">.</span><span class="n">content</span> <span class="o">+=</span> <span class="s2">"[instance-pre-reply]"</span>
+    <span class="c1"># 返回修改后的 kwargs</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+        <span class="s2">"msg"</span><span class="p">:</span> <span class="n">msg</span><span class="p">,</span>
+    <span class="p">}</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">cls_pre_reply_hook</span><span class="p">(</span>
+    <span class="bp">self</span><span class="p">:</span> <span class="n">AgentBase</span><span class="p">,</span>
+    <span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""修改消息内容的前置回复钩子。"""</span>
+    <span class="n">msg</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s2">"msg"</span><span class="p">]</span>
+    <span class="n">msg</span><span class="o">.</span><span class="n">content</span> <span class="o">+=</span> <span class="s2">"[cls-pre-reply]"</span>
+    <span class="c1"># 返回修改后的 kwargs</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+        <span class="s2">"msg"</span><span class="p">:</span> <span class="n">msg</span><span class="p">,</span>
+    <span class="p">}</span>
+
+
+<span class="c1"># 注册类钩子</span>
+<span class="n">TestAgent</span><span class="o">.</span><span class="n">register_class_hook</span><span class="p">(</span>
+    <span class="n">hook_type</span><span class="o">=</span><span class="s2">"pre_reply"</span><span class="p">,</span>
+    <span class="n">hook_name</span><span class="o">=</span><span class="s2">"test_pre_reply"</span><span class="p">,</span>
+    <span class="n">hook</span><span class="o">=</span><span class="n">cls_pre_reply_hook</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># 注册实例钩子</span>
+<span class="n">agent</span> <span class="o">=</span> <span class="n">TestAgent</span><span class="p">()</span>
+<span class="n">agent</span><span class="o">.</span><span class="n">register_instance_hook</span><span class="p">(</span>
+    <span class="n">hook_type</span><span class="o">=</span><span class="s2">"pre_reply"</span><span class="p">,</span>
+    <span class="n">hook_name</span><span class="o">=</span><span class="s2">"test_pre_reply"</span><span class="p">,</span>
+    <span class="n">hook</span><span class="o">=</span><span class="n">instance_pre_reply_hook</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">example_test_hook</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""测试钩子的示例函数。"""</span>
+    <span class="n">msg</span> <span class="o">=</span> <span class="n">Msg</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">"user"</span><span class="p">,</span>
+        <span class="n">content</span><span class="o">=</span><span class="s2">"Hello, world!"</span><span class="p">,</span>
+        <span class="n">role</span><span class="o">=</span><span class="s2">"user"</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">res</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"响应内容："</span><span class="p">,</span> <span class="n">res</span><span class="o">.</span><span class="n">content</span><span class="p">)</span>
+    <span class="n">TestAgent</span><span class="o">.</span><span class="n">clear_class_hooks</span><span class="p">()</span>
+
+
+<span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">example_test_hook</span><span class="p">())</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>响应内容： Hello, world![instance-pre-reply][cls-pre-reply]
+</pre></div>
+</div>
+<p>我们可以看到 "[instance-pre-reply]" 和 "[cls-pre-reply]" 被添加到了消息内容中。</p>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 0.002 seconds)</p>
+<div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-tutorial-task-hook-py">
+<div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/c026d730e7ba6da3f16db76e4afe5c15/task_hook.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">task_hook.ipynb</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-python docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/47b9d8694ca7a181fd5e1507fe0415da/task_hook.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">task_hook.py</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-zip docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/9b69e0c98cd310697540879ef9adbba2/task_hook.zip"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">zipped:</span> <span class="pre">task_hook.zip</span></code></a></p>
+</div>
+</div>
+<p class="sphx-glr-signature"><a class="reference external" href="https://sphinx-gallery.github.io">Gallery generated by Sphinx-Gallery</a></p>
+</section>
+</section>
+
+        

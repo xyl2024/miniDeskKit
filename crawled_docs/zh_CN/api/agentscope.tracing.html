@@ -1,0 +1,125 @@
+<!-- Title: agentscope.tracing - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/api/agentscope.tracing.html -->
+
+          <section id="module-agentscope.tracing">
+<span id="agentscope-tracing"></span><h1>agentscope.tracing<a class="headerlink" href="#module-agentscope.tracing" title="Link to this heading">¶</a></h1>
+<p>The tracing interface class in agentscope.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="agentscope.tracing.setup_tracing">
+<span class="sig-name descname"><span class="pre">setup_tracing</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">endpoint</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/tracing/_setup.html#setup_tracing"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.tracing.setup_tracing" title="Link to this definition">¶</a></dt>
+<dd><p>Set up the AgentScope tracing by configuring the endpoint URL.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>endpoint</strong> (<cite>str</cite>) -- The endpoint URL for the tracing exporter.</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="agentscope.tracing.trace">
+<span class="sig-name descname"><span class="pre">trace</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/tracing/_trace.html#trace"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.tracing.trace" title="Link to this definition">¶</a></dt>
+<dd><p>A generic tracing decorator for synchronous and asynchronous functions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>name</strong> (<cite>str</cite>) -- The name of the span to be created.</p>
+</dd>
+<dt class="field-even">返回<span class="colon">:</span></dt>
+<dd class="field-even"><p>Returns a decorator that wraps the given function with
+OpenTelemetry tracing.</p>
+</dd>
+<dt class="field-odd">返回类型<span class="colon">:</span></dt>
+<dd class="field-odd"><p><cite>Callable</cite></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="agentscope.tracing.trace_llm">
+<span class="sig-name descname"><span class="pre">trace_llm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">func</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/tracing/_trace.html#trace_llm"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.tracing.trace_llm" title="Link to this definition">¶</a></dt>
+<dd><p>Trace the LLM call with OpenTelemetry.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>func</strong> (<cite>Callable</cite>) -- The function to be traced, which should be a coroutine that
+returns either a <cite>ChatResponse</cite> or an <cite>AsyncGenerator</cite>
+of <cite>ChatResponse</cite>.</p>
+</dd>
+<dt class="field-even">返回<span class="colon">:</span></dt>
+<dd class="field-even"><p>A wrapper function that traces the LLM call and handles
+input/output and exceptions.</p>
+</dd>
+<dt class="field-odd">返回类型<span class="colon">:</span></dt>
+<dd class="field-odd"><p><cite>Callable</cite></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="agentscope.tracing.trace_reply">
+<span class="sig-name descname"><span class="pre">trace_reply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">func</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/tracing/_trace.html#trace_reply"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.tracing.trace_reply" title="Link to this definition">¶</a></dt>
+<dd><p>Trace the agent reply call with OpenTelemetry.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>func</strong> (<cite>Callable[..., Coroutine[Any, Any, Msg]]</cite>) -- The agent async reply function to be traced.</p>
+</dd>
+<dt class="field-even">返回<span class="colon">:</span></dt>
+<dd class="field-even"><p>A wrapper function that traces the agent reply call and handles
+input/output and exceptions.</p>
+</dd>
+<dt class="field-odd">返回类型<span class="colon">:</span></dt>
+<dd class="field-odd"><p><cite>Callable[..., Coroutine[Any, Any, Msg]]</cite></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="agentscope.tracing.trace_format">
+<span class="sig-name descname"><span class="pre">trace_format</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">func</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/tracing/_trace.html#trace_format"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.tracing.trace_format" title="Link to this definition">¶</a></dt>
+<dd><p>Trace the format function of the formatter with OpenTelemetry.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>func</strong> (<cite>Callable[..., Coroutine[Any, Any, list[dict]]]</cite>) -- The async format function to be traced.</p>
+</dd>
+<dt class="field-even">返回<span class="colon">:</span></dt>
+<dd class="field-even"><p>An async wrapper function that traces the format call and handles
+input/output and exceptions.</p>
+</dd>
+<dt class="field-odd">返回类型<span class="colon">:</span></dt>
+<dd class="field-odd"><p><cite>Callable[..., Coroutine[Any, Any, list[dict]]]</cite></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="agentscope.tracing.trace_toolkit">
+<span class="sig-name descname"><span class="pre">trace_toolkit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">func</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/tracing/_trace.html#trace_toolkit"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.tracing.trace_toolkit" title="Link to this definition">¶</a></dt>
+<dd><p>Trace the toolkit <cite>call_tool_function</cite> method with OpenTelemetry.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>func</strong> (<em>Callable</em><em>[</em><em>[</em><em>...</em><em>]</em><em>, </em><em>Coroutine</em><em>[</em><em>Any</em><em>, </em><em>Any</em><em>, </em><em>AsyncGenerator</em><em>[</em><a class="reference internal" href="agentscope.tool.html#agentscope.tool.ToolResponse" title="agentscope.tool.ToolResponse"><em>ToolResponse</em></a><em>, </em><em>None</em><em>]</em><em>]</em><em>]</em>)</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>Callable</em>[[...], <em>Coroutine</em>[<em>Any</em>, <em>Any</em>, <em>AsyncGenerator</em>[<a class="reference internal" href="agentscope.tool.html#agentscope.tool.ToolResponse" title="agentscope.tool.ToolResponse">ToolResponse</a>, None]]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="agentscope.tracing.trace_embedding">
+<span class="sig-name descname"><span class="pre">trace_embedding</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">func</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/tracing/_trace.html#trace_embedding"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.tracing.trace_embedding" title="Link to this definition">¶</a></dt>
+<dd><p>Trace the embedding call with OpenTelemetry.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>func</strong> (<em>Callable</em><em>[</em><em>[</em><em>...</em><em>]</em><em>, </em><em>Coroutine</em><em>[</em><em>Any</em><em>, </em><em>Any</em><em>, </em><a class="reference internal" href="agentscope.embedding.html#agentscope.embedding.EmbeddingResponse" title="agentscope.embedding.EmbeddingResponse"><em>EmbeddingResponse</em></a><em>]</em><em>]</em>)</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>Callable</em>[[...], <em>Coroutine</em>[<em>Any</em>, <em>Any</em>, <a class="reference internal" href="agentscope.embedding.html#agentscope.embedding.EmbeddingResponse" title="agentscope.embedding.EmbeddingResponse">EmbeddingResponse</a>]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+        

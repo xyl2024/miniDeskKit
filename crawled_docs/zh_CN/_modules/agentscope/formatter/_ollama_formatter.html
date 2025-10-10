@@ -1,0 +1,343 @@
+<!-- Title: agentscope.formatter._ollama_formatter - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/formatter/_ollama_formatter.html -->
+
+          <h1>agentscope.formatter._ollama_formatter 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="c1"># pylint: disable=too-many-branches</span>
+<span class="sd">"""The Ollama formatter module."""</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">base64</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">urllib.parse</span><span class="w"> </span><span class="kn">import</span> <span class="n">urlparse</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">._truncated_formatter_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">TruncatedFormatterBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._utils._common</span><span class="w"> </span><span class="kn">import</span> <span class="n">_get_bytes_from_web_url</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..message</span><span class="w"> </span><span class="kn">import</span> <span class="n">Msg</span><span class="p">,</span> <span class="n">TextBlock</span><span class="p">,</span> <span class="n">ImageBlock</span><span class="p">,</span> <span class="n">ToolUseBlock</span><span class="p">,</span> <span class="n">ToolResultBlock</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..token</span><span class="w"> </span><span class="kn">import</span> <span class="n">TokenCounterBase</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_convert_ollama_image_url_to_base64_data</span><span class="p">(</span><span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Convert image url to base64."""</span>
+    <span class="n">parsed_url</span> <span class="o">=</span> <span class="n">urlparse</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">url</span><span class="p">)</span> <span class="ow">and</span> <span class="n">parsed_url</span><span class="o">.</span><span class="n">scheme</span> <span class="o">!=</span> <span class="s2">""</span><span class="p">:</span>
+        <span class="c1"># Web url</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">_get_bytes_from_web_url</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">data</span>
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">url</span><span class="p">):</span>
+        <span class="c1"># Local file</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="s2">"rb"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">b64encode</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">())</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">"utf-8"</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">data</span>
+
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">"The URL `</span><span class="si">{</span><span class="n">url</span><span class="si">}</span><span class="s2">` is not a valid image URL or local file."</span><span class="p">,</span>
+    <span class="p">)</span>
+
+
+<div class="viewcode-block" id="OllamaChatFormatter">
+<a class="viewcode-back" href="../../../api/agentscope.formatter.html#agentscope.formatter.OllamaChatFormatter">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">OllamaChatFormatter</span><span class="p">(</span><span class="n">TruncatedFormatterBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""Formatter for Ollama messages."""</span>
+
+    <span class="n">support_tools_api</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="w">    </span><span class="sd">"""Whether support tools API"""</span>
+
+    <span class="n">support_multiagent</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="w">    </span><span class="sd">"""Whether support multi-agent conversations"""</span>
+
+    <span class="n">support_vision</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="w">    </span><span class="sd">"""Whether support vision data"""</span>
+
+    <span class="n">supported_blocks</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">type</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">TextBlock</span><span class="p">,</span>
+        <span class="c1"># Multimodal</span>
+        <span class="n">ImageBlock</span><span class="p">,</span>
+        <span class="c1"># Tool use</span>
+        <span class="n">ToolUseBlock</span><span class="p">,</span>
+        <span class="n">ToolResultBlock</span><span class="p">,</span>
+    <span class="p">]</span>
+<span class="w">    </span><span class="sd">"""The list of supported message blocks"""</span>
+
+<div class="viewcode-block" id="OllamaChatFormatter._format">
+<a class="viewcode-back" href="../../../api/agentscope.formatter.html#agentscope.formatter.OllamaChatFormatter._format">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_format</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">msgs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Msg</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">"""Format message objects into Ollama API format.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            msgs (`list[Msg]`):</span>
+<span class="sd">                The list of message objects to format.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `list[dict[str, Any]]`:</span>
+<span class="sd">                The formatted messages as a list of dictionaries.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assert_list_of_msgs</span><span class="p">(</span><span class="n">msgs</span><span class="p">)</span>
+
+        <span class="n">messages</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">msgs</span><span class="p">:</span>
+            <span class="n">content_blocks</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">tool_calls</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">images</span> <span class="o">=</span> <span class="p">[]</span>
+
+            <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="n">msg</span><span class="o">.</span><span class="n">get_content_blocks</span><span class="p">():</span>
+                <span class="n">typ</span> <span class="o">=</span> <span class="n">block</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"type"</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">typ</span> <span class="o">==</span> <span class="s2">"text"</span><span class="p">:</span>
+                    <span class="n">content_blocks</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="o">**</span><span class="n">block</span><span class="p">})</span>
+
+                <span class="k">elif</span> <span class="n">typ</span> <span class="o">==</span> <span class="s2">"tool_use"</span><span class="p">:</span>
+                    <span class="n">tool_calls</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="p">{</span>
+                            <span class="s2">"id"</span><span class="p">:</span> <span class="n">block</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"id"</span><span class="p">),</span>
+                            <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"function"</span><span class="p">,</span>
+                            <span class="s2">"function"</span><span class="p">:</span> <span class="p">{</span>
+                                <span class="s2">"name"</span><span class="p">:</span> <span class="n">block</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"name"</span><span class="p">),</span>
+                                <span class="s2">"arguments"</span><span class="p">:</span> <span class="n">block</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"input"</span><span class="p">,</span> <span class="p">{}),</span>
+                            <span class="p">},</span>
+                        <span class="p">},</span>
+                    <span class="p">)</span>
+
+                <span class="k">elif</span> <span class="n">typ</span> <span class="o">==</span> <span class="s2">"tool_result"</span><span class="p">:</span>
+                    <span class="n">messages</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                        <span class="p">{</span>
+                            <span class="s2">"role"</span><span class="p">:</span> <span class="s2">"tool"</span><span class="p">,</span>
+                            <span class="s2">"tool_call_id"</span><span class="p">:</span> <span class="n">block</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"id"</span><span class="p">),</span>
+                            <span class="s2">"content"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">convert_tool_result_to_string</span><span class="p">(</span>
+                                <span class="n">block</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"output"</span><span class="p">),</span>  <span class="c1"># type: ignore[arg-type]</span>
+                            <span class="p">),</span>
+                            <span class="s2">"name"</span><span class="p">:</span> <span class="n">block</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"name"</span><span class="p">),</span>
+                        <span class="p">},</span>
+                    <span class="p">)</span>
+
+                <span class="k">elif</span> <span class="n">typ</span> <span class="o">==</span> <span class="s2">"image"</span><span class="p">:</span>
+                    <span class="n">source_type</span> <span class="o">=</span> <span class="n">block</span><span class="p">[</span><span class="s2">"source"</span><span class="p">][</span><span class="s2">"type"</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="n">source_type</span> <span class="o">==</span> <span class="s2">"url"</span><span class="p">:</span>
+                        <span class="n">images</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                            <span class="n">_convert_ollama_image_url_to_base64_data</span><span class="p">(</span>
+                                <span class="n">block</span><span class="p">[</span><span class="s2">"source"</span><span class="p">][</span><span class="s2">"url"</span><span class="p">],</span>
+                            <span class="p">),</span>
+                        <span class="p">)</span>
+                    <span class="k">elif</span> <span class="n">source_type</span> <span class="o">==</span> <span class="s2">"base64"</span><span class="p">:</span>
+                        <span class="n">images</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">block</span><span class="p">[</span><span class="s2">"source"</span><span class="p">][</span><span class="s2">"data"</span><span class="p">])</span>
+
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                        <span class="s2">"Unsupported block type </span><span class="si">%s</span><span class="s2"> in the message, skipped."</span><span class="p">,</span>
+                        <span class="n">typ</span><span class="p">,</span>
+                    <span class="p">)</span>
+            <span class="n">content_msg</span> <span class="o">=</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                <span class="n">content</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"text"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span> <span class="k">for</span> <span class="n">content</span> <span class="ow">in</span> <span class="n">content_blocks</span>
+            <span class="p">)</span>
+            <span class="n">msg_ollama</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">"role"</span><span class="p">:</span> <span class="n">msg</span><span class="o">.</span><span class="n">role</span><span class="p">,</span>
+                <span class="s2">"content"</span><span class="p">:</span> <span class="n">content_msg</span> <span class="ow">or</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="p">}</span>
+
+            <span class="k">if</span> <span class="n">tool_calls</span><span class="p">:</span>
+                <span class="n">msg_ollama</span><span class="p">[</span><span class="s2">"tool_calls"</span><span class="p">]</span> <span class="o">=</span> <span class="n">tool_calls</span>
+
+            <span class="k">if</span> <span class="n">images</span><span class="p">:</span>
+                <span class="n">msg_ollama</span><span class="p">[</span><span class="s2">"images"</span><span class="p">]</span> <span class="o">=</span> <span class="n">images</span>
+
+            <span class="k">if</span> <span class="n">msg_ollama</span><span class="p">[</span><span class="s2">"content"</span><span class="p">]</span> <span class="ow">or</span> <span class="n">msg_ollama</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"tool_calls"</span><span class="p">):</span>
+                <span class="n">messages</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">msg_ollama</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">messages</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="OllamaMultiAgentFormatter">
+<a class="viewcode-back" href="../../../api/agentscope.formatter.html#agentscope.formatter.OllamaMultiAgentFormatter">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">OllamaMultiAgentFormatter</span><span class="p">(</span><span class="n">TruncatedFormatterBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Ollama formatter for multi-agent conversations, where more than</span>
+<span class="sd">    a user and an agent are involved.</span>
+<span class="sd">    """</span>
+
+    <span class="n">support_tools_api</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="w">    </span><span class="sd">"""Whether support tools API"""</span>
+
+    <span class="n">support_multiagent</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="w">    </span><span class="sd">"""Whether support multi-agent conversations"""</span>
+
+    <span class="n">support_vision</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="w">    </span><span class="sd">"""Whether support vision data"""</span>
+
+    <span class="n">supported_blocks</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">type</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">TextBlock</span><span class="p">,</span>
+        <span class="c1"># Multimodal</span>
+        <span class="n">ImageBlock</span><span class="p">,</span>
+        <span class="c1"># Tool use</span>
+        <span class="n">ToolUseBlock</span><span class="p">,</span>
+        <span class="n">ToolResultBlock</span><span class="p">,</span>
+    <span class="p">]</span>
+<span class="w">    </span><span class="sd">"""The list of supported message blocks"""</span>
+
+<div class="viewcode-block" id="OllamaMultiAgentFormatter.__init__">
+<a class="viewcode-back" href="../../../api/agentscope.formatter.html#agentscope.formatter.OllamaMultiAgentFormatter.__init__">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">conversation_history_prompt</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="s2">"# Conversation History</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="s2">"The content between &lt;history&gt;&lt;/history&gt; tags contains "</span>
+            <span class="s2">"your conversation history</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="p">),</span>
+        <span class="n">token_counter</span><span class="p">:</span> <span class="n">TokenCounterBase</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">max_tokens</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize the Ollama multi-agent formatter.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            conversation_history_prompt (`str`):</span>
+<span class="sd">                The prompt to use for the conversation history section.</span>
+<span class="sd">            token_counter (`TokenCounterBase | None`, optional):</span>
+<span class="sd">                The token counter used for truncation.</span>
+<span class="sd">            max_tokens (`int | None`, optional):</span>
+<span class="sd">                The maximum number of tokens allowed in the formatted</span>
+<span class="sd">                messages. If `None`, no truncation will be applied.</span>
+<span class="sd">        """</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">token_counter</span><span class="o">=</span><span class="n">token_counter</span><span class="p">,</span> <span class="n">max_tokens</span><span class="o">=</span><span class="n">max_tokens</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">conversation_history_prompt</span> <span class="o">=</span> <span class="n">conversation_history_prompt</span></div>
+
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_format_system_message</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">msg</span><span class="p">:</span> <span class="n">Msg</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Format system message for the Ollama API."""</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">"role"</span><span class="p">:</span> <span class="s2">"system"</span><span class="p">,</span>
+            <span class="s2">"content"</span><span class="p">:</span> <span class="n">msg</span><span class="o">.</span><span class="n">get_text_content</span><span class="p">(),</span>
+        <span class="p">}</span>
+
+<div class="viewcode-block" id="OllamaMultiAgentFormatter._format_tool_sequence">
+<a class="viewcode-back" href="../../../api/agentscope.formatter.html#agentscope.formatter.OllamaMultiAgentFormatter._format_tool_sequence">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_format_tool_sequence</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">msgs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Msg</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">"""Given a sequence of tool call/result messages, format them into</span>
+<span class="sd">        the required format for the Ollama API.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            msgs (`list[Msg]`):</span>
+<span class="sd">                The list of messages containing tool calls/results to format.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `list[dict[str, Any]]`:</span>
+<span class="sd">                A list of dictionaries formatted for the Ollama API.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="k">await</span> <span class="n">OllamaChatFormatter</span><span class="p">()</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">msgs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="OllamaMultiAgentFormatter._format_agent_message">
+<a class="viewcode-back" href="../../../api/agentscope.formatter.html#agentscope.formatter.OllamaMultiAgentFormatter._format_agent_message">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_format_agent_message</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">msgs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Msg</span><span class="p">],</span>
+        <span class="n">is_first</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">"""Given a sequence of messages without tool calls/results, format</span>
+<span class="sd">        them into the required format for the Ollama API.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            msgs (`list[Msg]`):</span>
+<span class="sd">                A list of Msg objects to be formatted.</span>
+<span class="sd">            is_first (`bool`, defaults to `True`):</span>
+<span class="sd">                Whether this is the first agent message in the conversation.</span>
+<span class="sd">                If `True`, the conversation history prompt will be included.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `list[dict[str, Any]]`:</span>
+<span class="sd">                A list of dictionaries formatted for the ollama API.</span>
+<span class="sd">        """</span>
+
+        <span class="k">if</span> <span class="n">is_first</span><span class="p">:</span>
+            <span class="n">conversation_history_prompt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">conversation_history_prompt</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">conversation_history_prompt</span> <span class="o">=</span> <span class="s2">""</span>
+
+        <span class="c1"># Format into required Ollama format</span>
+        <span class="n">formatted_msgs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="c1"># Collect the multimodal files</span>
+        <span class="n">conversation_blocks</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">accumulated_text</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">images</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">msg</span> <span class="ow">in</span> <span class="n">msgs</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="n">msg</span><span class="o">.</span><span class="n">get_content_blocks</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">block</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"text"</span><span class="p">:</span>
+                    <span class="n">accumulated_text</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">msg</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">block</span><span class="p">[</span><span class="s1">'text'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+                <span class="k">elif</span> <span class="n">block</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"image"</span><span class="p">:</span>
+                    <span class="c1"># Handle the accumulated text as a single block</span>
+                    <span class="n">source</span> <span class="o">=</span> <span class="n">block</span><span class="p">[</span><span class="s2">"source"</span><span class="p">]</span>
+                    <span class="k">if</span> <span class="n">accumulated_text</span><span class="p">:</span>
+                        <span class="n">conversation_blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                            <span class="p">{</span><span class="s2">"text"</span><span class="p">:</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">accumulated_text</span><span class="p">)},</span>
+                        <span class="p">)</span>
+                        <span class="n">accumulated_text</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+
+                    <span class="k">if</span> <span class="n">source</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"url"</span><span class="p">:</span>
+                        <span class="n">images</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                            <span class="n">_convert_ollama_image_url_to_base64_data</span><span class="p">(</span>
+                                <span class="n">source</span><span class="p">[</span><span class="s2">"url"</span><span class="p">],</span>
+                            <span class="p">),</span>
+                        <span class="p">)</span>
+
+                    <span class="k">elif</span> <span class="n">source</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"base64"</span><span class="p">:</span>
+                        <span class="n">images</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">source</span><span class="p">[</span><span class="s2">"data"</span><span class="p">])</span>
+
+                    <span class="n">conversation_blocks</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="o">**</span><span class="n">block</span><span class="p">})</span>
+
+        <span class="k">if</span> <span class="n">accumulated_text</span><span class="p">:</span>
+            <span class="n">conversation_blocks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="p">{</span><span class="s2">"text"</span><span class="p">:</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">accumulated_text</span><span class="p">)},</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">conversation_blocks</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">conversation_blocks</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"text"</span><span class="p">):</span>
+                <span class="n">conversation_blocks</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s2">"text"</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">conversation_history_prompt</span>
+                    <span class="o">+</span> <span class="s2">"&lt;history&gt;</span><span class="se">\n</span><span class="s2">"</span>
+                    <span class="o">+</span> <span class="n">conversation_blocks</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s2">"text"</span><span class="p">]</span>
+                <span class="p">)</span>
+
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">conversation_blocks</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span>
+                    <span class="mi">0</span><span class="p">,</span>
+                    <span class="p">{</span>
+                        <span class="s2">"text"</span><span class="p">:</span> <span class="n">conversation_history_prompt</span> <span class="o">+</span> <span class="s2">"&lt;history&gt;</span><span class="se">\n</span><span class="s2">"</span><span class="p">,</span>
+                    <span class="p">},</span>
+                <span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">conversation_blocks</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"text"</span><span class="p">):</span>
+                <span class="n">conversation_blocks</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="s2">"text"</span><span class="p">]</span> <span class="o">+=</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">&lt;/history&gt;"</span>
+
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">conversation_blocks</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">"text"</span><span class="p">:</span> <span class="s2">"&lt;/history&gt;"</span><span class="p">})</span>
+
+        <span class="n">conversation_blocks_text</span> <span class="o">=</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">conversation_block</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"text"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">conversation_block</span> <span class="ow">in</span> <span class="n">conversation_blocks</span>
+        <span class="p">)</span>
+
+        <span class="n">user_message</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span>
+            <span class="s2">"content"</span><span class="p">:</span> <span class="n">conversation_blocks_text</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="k">if</span> <span class="n">images</span><span class="p">:</span>
+            <span class="n">user_message</span><span class="p">[</span><span class="s2">"images"</span><span class="p">]</span> <span class="o">=</span> <span class="n">images</span>
+        <span class="k">if</span> <span class="n">conversation_blocks</span><span class="p">:</span>
+            <span class="n">formatted_msgs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">user_message</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">formatted_msgs</span></div>
+</div>
+
+</pre></div>
+        

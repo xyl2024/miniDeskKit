@@ -1,0 +1,209 @@
+<!-- Title: agentscope.evaluate._evaluator._evaluator_base - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/evaluate/_evaluator/_evaluator_base.html -->
+
+          <h1>agentscope.evaluate._evaluator._evaluator_base 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The base class for evaluator in evaluation."""</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">collections</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Coroutine</span><span class="p">,</span> <span class="n">Any</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._solution</span><span class="w"> </span><span class="kn">import</span> <span class="n">SolutionOutput</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._task</span><span class="w"> </span><span class="kn">import</span> <span class="n">Task</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._benchmark_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">BenchmarkBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._evaluator_storage</span><span class="w"> </span><span class="kn">import</span> <span class="n">EvaluatorStorageBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._metric_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">MetricType</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..._utils._common</span><span class="w"> </span><span class="kn">import</span> <span class="n">_get_timestamp</span>
+
+
+<div class="viewcode-block" id="EvaluatorBase">
+<a class="viewcode-back" href="../../../../api/agentscope.evaluate.html#agentscope.evaluate.EvaluatorBase">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">EvaluatorBase</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""The class that runs the evaluation process."""</span>
+
+<div class="viewcode-block" id="EvaluatorBase.__init__">
+<a class="viewcode-back" href="../../../../api/agentscope.evaluate.html#agentscope.evaluate.EvaluatorBase.__init__">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">benchmark</span><span class="p">:</span> <span class="n">BenchmarkBase</span><span class="p">,</span>
+        <span class="n">n_repeat</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">storage</span><span class="p">:</span> <span class="n">EvaluatorStorageBase</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize the evaluator.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            name (`str`):</span>
+<span class="sd">                The name of this evaluator.</span>
+<span class="sd">            benchmark: (`BenchmarkBase`):</span>
+<span class="sd">                A benchmark instance inheriting from `BenchmarkBase` that</span>
+<span class="sd">                defines the evaluation dataset.</span>
+<span class="sd">            n_repeat (`int`):</span>
+<span class="sd">                How many times to repeat the evaluation for each task.</span>
+<span class="sd">            storage (`EvaluatorStorageBase`):</span>
+<span class="sd">                A instance inheriting from the child class of</span>
+<span class="sd">                `EvaluatorStorageBase` that supports storing and loading</span>
+<span class="sd">                solution output and evaluation results.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">benchmark</span> <span class="o">=</span> <span class="n">benchmark</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_repeat</span> <span class="o">=</span> <span class="n">n_repeat</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">storage</span> <span class="o">=</span> <span class="n">storage</span></div>
+
+
+<div class="viewcode-block" id="EvaluatorBase.run">
+<a class="viewcode-back" href="../../../../api/agentscope.evaluate.html#agentscope.evaluate.EvaluatorBase.run">[文档]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">solution</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[</span>
+            <span class="p">[</span><span class="n">Task</span><span class="p">,</span> <span class="n">Callable</span><span class="p">],</span>
+            <span class="n">Coroutine</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">SolutionOutput</span><span class="p">],</span>
+        <span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Run the evaluation and return the results.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            solution (`Callable[[Task, Callable], Coroutine[Any, Any, \</span>
+<span class="sd">            SolutionOutput]]`):</span>
+<span class="sd">                A async function that takes a `Task` instance and a pre-hook</span>
+<span class="sd">                as input and returns a `SolutionOutput` instance.</span>
+<span class="sd">        """</span></div>
+
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_save_evaluation_meta</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Save the evaluation meta information."""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">save_evaluation_meta</span><span class="p">(</span>
+            <span class="p">{</span>
+                <span class="s2">"evaluation_name"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                <span class="s2">"created_at"</span><span class="p">:</span> <span class="n">_get_timestamp</span><span class="p">(),</span>
+                <span class="s2">"total_repeats"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_repeat</span><span class="p">,</span>
+                <span class="s2">"benchmark"</span><span class="p">:</span> <span class="p">{</span>
+                    <span class="s2">"name"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">benchmark</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                    <span class="s2">"description"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">benchmark</span><span class="o">.</span><span class="n">description</span><span class="p">,</span>
+                    <span class="s2">"total_tasks"</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">benchmark</span><span class="p">),</span>
+                <span class="p">},</span>
+                <span class="s2">"schema_version"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="p">},</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="EvaluatorBase.aggregate">
+<a class="viewcode-back" href="../../../../api/agentscope.evaluate.html#agentscope.evaluate.EvaluatorBase.aggregate">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">aggregate</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># pylint: disable=too-many-branches</span>
+<span class="w">        </span><span class="sd">"""Aggregate the evaluation results and save an overall result."""</span>
+        <span class="n">meta_info</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"total_tasks"</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">benchmark</span><span class="p">),</span>
+            <span class="s2">"total_repeats"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_repeat</span><span class="p">,</span>
+            <span class="s2">"repeats"</span><span class="p">:</span> <span class="p">{},</span>
+            <span class="s2">"schema_version"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="p">}</span>
+
+        <span class="k">for</span> <span class="n">repeat_index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_repeat</span><span class="p">):</span>
+            <span class="n">repeat_id</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">repeat_index</span><span class="p">)</span>
+            <span class="n">current_repeat</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">"completed_tasks"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+                <span class="s2">"incomplete_tasks"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+                <span class="s2">"metrics"</span><span class="p">:</span> <span class="p">{},</span>
+                <span class="s2">"completed_ids"</span><span class="p">:</span> <span class="p">[],</span>
+                <span class="s2">"incomplete_ids"</span><span class="p">:</span> <span class="p">[],</span>
+            <span class="p">}</span>
+            <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">benchmark</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">task</span><span class="o">.</span><span class="n">metrics</span><span class="p">:</span>
+                    <span class="c1"># Create a new dict in aggregated_result</span>
+                    <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">current_repeat</span><span class="p">[</span><span class="s2">"metrics"</span><span class="p">]:</span>
+                        <span class="n">current_repeat</span><span class="p">[</span><span class="s2">"metrics"</span><span class="p">][</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                            <span class="s2">"type"</span><span class="p">:</span> <span class="n">metric</span><span class="o">.</span><span class="n">metric_type</span><span class="p">,</span>
+                            <span class="s2">"involved_tasks"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+                            <span class="s2">"completed_tasks"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+                            <span class="s2">"incomplete_tasks"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+                            <span class="s2">"aggregation"</span><span class="p">:</span> <span class="p">{},</span>
+                            <span class="s2">"distribution"</span><span class="p">:</span> <span class="n">collections</span><span class="o">.</span><span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">),</span>
+                        <span class="p">}</span>
+
+                    <span class="c1"># Record the submitted task</span>
+                    <span class="n">current_repeat</span><span class="p">[</span><span class="s2">"metrics"</span><span class="p">][</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">][</span>
+                        <span class="s2">"involved_tasks"</span>
+                    <span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+
+                    <span class="c1"># Not finished</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">evaluation_result_exists</span><span class="p">(</span>
+                        <span class="n">task</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                        <span class="n">repeat_id</span><span class="p">,</span>
+                        <span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                    <span class="p">):</span>
+                        <span class="k">if</span> <span class="n">task</span><span class="o">.</span><span class="n">id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">current_repeat</span><span class="p">[</span><span class="s2">"incomplete_ids"</span><span class="p">]:</span>
+                            <span class="n">current_repeat</span><span class="p">[</span><span class="s2">"incomplete_tasks"</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+                            <span class="n">current_repeat</span><span class="p">[</span><span class="s2">"incomplete_ids"</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">task</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+                        <span class="n">current_repeat</span><span class="p">[</span><span class="s2">"metrics"</span><span class="p">][</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">][</span>
+                            <span class="s2">"incomplete_tasks"</span>
+                        <span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+                        <span class="k">continue</span>
+
+                    <span class="k">if</span> <span class="n">task</span><span class="o">.</span><span class="n">id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">current_repeat</span><span class="p">[</span><span class="s2">"completed_ids"</span><span class="p">]:</span>
+                        <span class="n">current_repeat</span><span class="p">[</span><span class="s2">"completed_tasks"</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+                        <span class="n">current_repeat</span><span class="p">[</span><span class="s2">"completed_ids"</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">task</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+                    <span class="n">current_repeat</span><span class="p">[</span><span class="s2">"metrics"</span><span class="p">][</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">][</span>
+                        <span class="s2">"completed_tasks"</span>
+                    <span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+
+                    <span class="c1"># Get the evaluation result</span>
+                    <span class="n">eval_result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">get_evaluation_result</span><span class="p">(</span>
+                        <span class="n">task</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                        <span class="n">repeat_id</span><span class="p">,</span>
+                        <span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                    <span class="p">)</span>
+
+                    <span class="c1"># Record the metric result</span>
+                    <span class="k">if</span> <span class="n">metric</span><span class="o">.</span><span class="n">metric_type</span> <span class="o">==</span> <span class="n">MetricType</span><span class="o">.</span><span class="n">CATEGORY</span><span class="p">:</span>
+                        <span class="n">current_repeat</span><span class="p">[</span><span class="s2">"metrics"</span><span class="p">][</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">][</span><span class="s2">"distribution"</span><span class="p">][</span>
+                            <span class="n">eval_result</span><span class="o">.</span><span class="n">result</span>
+                        <span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                            <span class="n">task</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                        <span class="p">)</span>
+
+                    <span class="k">elif</span> <span class="n">metric</span><span class="o">.</span><span class="n">metric_type</span> <span class="o">==</span> <span class="n">MetricType</span><span class="o">.</span><span class="n">NUMERICAL</span><span class="p">:</span>
+                        <span class="n">current_repeat</span><span class="p">[</span><span class="s2">"metrics"</span><span class="p">][</span><span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">][</span><span class="s2">"distribution"</span><span class="p">][</span>
+                            <span class="n">task</span><span class="o">.</span><span class="n">id</span>
+                        <span class="p">]</span> <span class="o">=</span> <span class="n">eval_result</span><span class="o">.</span><span class="n">result</span>
+
+            <span class="nb">print</span><span class="p">(</span><span class="s2">"Repeat ID:"</span><span class="p">,</span> <span class="n">repeat_id</span><span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">metric</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">current_repeat</span><span class="p">[</span><span class="s2">"metrics"</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\t</span><span class="s2">Metric:"</span><span class="p">,</span> <span class="n">metric</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\t\t</span><span class="s2">Type:"</span><span class="p">,</span> <span class="n">value</span><span class="p">[</span><span class="s2">"type"</span><span class="p">])</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\t\t</span><span class="s2">Involved tasks:"</span><span class="p">,</span> <span class="n">value</span><span class="p">[</span><span class="s2">"involved_tasks"</span><span class="p">])</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\t\t</span><span class="s2">Completed tasks:"</span><span class="p">,</span> <span class="n">value</span><span class="p">[</span><span class="s2">"completed_tasks"</span><span class="p">])</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\t\t</span><span class="s2">Incomplete tasks:"</span><span class="p">,</span> <span class="n">value</span><span class="p">[</span><span class="s2">"incomplete_tasks"</span><span class="p">])</span>
+
+                <span class="k">if</span> <span class="n">value</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="n">MetricType</span><span class="o">.</span><span class="n">CATEGORY</span><span class="p">:</span>
+                    <span class="c1"># Count the distribution</span>
+                    <span class="k">for</span> <span class="n">category</span><span class="p">,</span> <span class="n">task_ids</span> <span class="ow">in</span> <span class="n">value</span><span class="p">[</span><span class="s2">"distribution"</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                        <span class="n">value</span><span class="p">[</span><span class="s2">"aggregation"</span><span class="p">][</span><span class="n">category</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+                            <span class="nb">len</span><span class="p">(</span><span class="n">task_ids</span><span class="p">)</span> <span class="o">*</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">value</span><span class="p">[</span><span class="s2">"involved_tasks"</span><span class="p">]</span>
+                        <span class="p">)</span>
+
+                <span class="k">elif</span> <span class="n">value</span><span class="p">[</span><span class="s2">"type"</span><span class="p">]</span> <span class="o">==</span> <span class="n">MetricType</span><span class="o">.</span><span class="n">NUMERICAL</span><span class="p">:</span>
+                    <span class="n">scores</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">value</span><span class="p">[</span><span class="s2">"distribution"</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+                    <span class="n">value</span><span class="p">[</span><span class="s2">"aggregation"</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                        <span class="s2">"mean"</span><span class="p">:</span> <span class="nb">sum</span><span class="p">(</span><span class="n">scores</span><span class="p">)</span> <span class="o">/</span> <span class="n">value</span><span class="p">[</span><span class="s2">"involved_tasks"</span><span class="p">],</span>
+                        <span class="s2">"max"</span><span class="p">:</span> <span class="nb">max</span><span class="p">(</span><span class="n">scores</span><span class="p">),</span>
+                        <span class="s2">"min"</span><span class="p">:</span> <span class="nb">min</span><span class="p">(</span><span class="n">scores</span><span class="p">),</span>
+                    <span class="p">}</span>
+
+                <span class="nb">print</span><span class="p">(</span>
+                    <span class="s2">"</span><span class="se">\t\t</span><span class="s2">Aggregation:"</span><span class="p">,</span>
+                    <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span>
+                        <span class="n">value</span><span class="p">[</span><span class="s2">"aggregation"</span><span class="p">],</span>
+                        <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+                        <span class="n">ensure_ascii</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                    <span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">,</span> <span class="s2">"</span><span class="se">\n\t\t</span><span class="s2">"</span><span class="p">),</span>
+                <span class="p">)</span>
+
+            <span class="n">meta_info</span><span class="p">[</span><span class="s2">"repeats"</span><span class="p">][</span><span class="n">repeat_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">current_repeat</span>
+
+        <span class="c1"># save</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">save_aggregation_result</span><span class="p">(</span><span class="n">meta_info</span><span class="p">)</span></div>
+</div>
+
+</pre></div>
+        

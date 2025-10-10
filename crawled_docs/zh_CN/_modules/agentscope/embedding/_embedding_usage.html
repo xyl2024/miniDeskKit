@@ -1,0 +1,28 @@
+<!-- Title: agentscope.embedding._embedding_usage - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/embedding/_embedding_usage.html -->
+
+          <h1>agentscope.embedding._embedding_usage 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The embedding usage class in agentscope."""</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Literal</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._utils._mixin</span><span class="w"> </span><span class="kn">import</span> <span class="n">DictMixin</span>
+
+
+<div class="viewcode-block" id="EmbeddingUsage">
+<a class="viewcode-back" href="../../../api/agentscope.embedding.html#agentscope.embedding.EmbeddingUsage">[文档]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">EmbeddingUsage</span><span class="p">(</span><span class="n">DictMixin</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The usage of an embedding model API invocation."""</span>
+
+    <span class="n">time</span><span class="p">:</span> <span class="nb">float</span>
+<span class="w">    </span><span class="sd">"""The time used in seconds."""</span>
+
+    <span class="n">tokens</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="kc">None</span><span class="p">)</span>
+<span class="w">    </span><span class="sd">"""The number of tokens used, if available."""</span>
+
+    <span class="nb">type</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"embedding"</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="k">lambda</span><span class="p">:</span> <span class="s2">"embedding"</span><span class="p">)</span>
+<span class="w">    </span><span class="sd">"""The type of the usage, must be `embedding`."""</span></div>
+
+</pre></div>
+        

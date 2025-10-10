@@ -1,0 +1,177 @@
+<!-- Title: agentscope.pipeline._msghub - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/pipeline/_msghub.html -->
+
+          <h1>agentscope.pipeline._msghub 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""MsgHub is designed to share messages among a group of agents."""</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">shortuuid</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">..agent</span><span class="w"> </span><span class="kn">import</span> <span class="n">AgentBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..message</span><span class="w"> </span><span class="kn">import</span> <span class="n">Msg</span>
+
+
+<div class="viewcode-block" id="MsgHub">
+<a class="viewcode-back" href="../../../api/agentscope.pipeline.html#agentscope.pipeline.MsgHub">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MsgHub</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""MsgHub class that controls the subscription of the participated agents.</span>
+
+<span class="sd">    Example:</span>
+<span class="sd">        In the following example, the reply message from `agent1`, `agent2`,</span>
+<span class="sd">        and `agent3` will be broadcasted to all the other agents in the MsgHub.</span>
+
+<span class="sd">        .. code-block:: python</span>
+
+<span class="sd">            with MsgHub(participant=[agent1, agent2, agent3]):</span>
+<span class="sd">                agent1()</span>
+<span class="sd">                agent2()</span>
+
+<span class="sd">        Actually, it has the same effect as the following code, but much more</span>
+<span class="sd">        easy and elegant!</span>
+
+<span class="sd">        .. code-block:: python</span>
+
+<span class="sd">            x1 = agent1()</span>
+<span class="sd">            agent2.observe(x1)</span>
+<span class="sd">            agent3.observe(x1)</span>
+
+<span class="sd">            x2 = agent2()</span>
+<span class="sd">            agent1.observe(x2)</span>
+<span class="sd">            agent3.observe(x2)</span>
+
+<span class="sd">    """</span>
+
+<div class="viewcode-block" id="MsgHub.__init__">
+<a class="viewcode-back" href="../../../api/agentscope.pipeline.html#agentscope.pipeline.MsgHub.__init__">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">participants</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">AgentBase</span><span class="p">],</span>
+        <span class="n">announcement</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Msg</span><span class="p">]</span> <span class="o">|</span> <span class="n">Msg</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">enable_auto_broadcast</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize a MsgHub context manager.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            participants (`list[AgentBase]`):</span>
+<span class="sd">                A list of agents that participate in the MsgHub.</span>
+<span class="sd">            announcement （`list[Msg] | Msg | None`):</span>
+<span class="sd">                The message that will be broadcast to all participants when</span>
+<span class="sd">                entering the MsgHub.</span>
+<span class="sd">            enable_auto_broadcast (`bool`, defaults to `True`):</span>
+<span class="sd">                Whether to enable automatic broadcasting of the replied</span>
+<span class="sd">                message from any participant to all other participants. If</span>
+<span class="sd">                disabled, the MsgHub will only serve as a manual message</span>
+<span class="sd">                broadcaster with the `announcement` argument and the</span>
+<span class="sd">                `broadcast()` method.</span>
+<span class="sd">            name (`str | None`):</span>
+<span class="sd">                The name of this MsgHub. If not provided, a random ID</span>
+<span class="sd">                will be generated.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span> <span class="ow">or</span> <span class="n">shortuuid</span><span class="o">.</span><span class="n">uuid</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">participants</span> <span class="o">=</span> <span class="n">participants</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">announcement</span> <span class="o">=</span> <span class="n">announcement</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">enable_auto_broadcast</span> <span class="o">=</span> <span class="n">enable_auto_broadcast</span></div>
+
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="fm">__aenter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"MsgHub"</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Will be called when entering the MsgHub."""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_reset_subscriber</span><span class="p">()</span>
+
+        <span class="c1"># broadcast the input message to all participants</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">announcement</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">broadcast</span><span class="p">(</span><span class="n">msg</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">announcement</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="fm">__aexit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Will be called when exiting the MsgHub."""</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">enable_auto_broadcast</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">agent</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">participants</span><span class="p">:</span>
+                <span class="n">agent</span><span class="o">.</span><span class="n">remove_subscribers</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_reset_subscriber</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Reset the subscriber for agent in `self.participant`"""</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">enable_auto_broadcast</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">agent</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">participants</span><span class="p">:</span>
+                <span class="n">agent</span><span class="o">.</span><span class="n">reset_subscribers</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">participants</span><span class="p">)</span>
+
+<div class="viewcode-block" id="MsgHub.add">
+<a class="viewcode-back" href="../../../api/agentscope.pipeline.html#agentscope.pipeline.MsgHub.add">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">new_participant</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">AgentBase</span><span class="p">]</span> <span class="o">|</span> <span class="n">AgentBase</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Add new participant into this hub"""</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">new_participant</span><span class="p">,</span> <span class="n">AgentBase</span><span class="p">):</span>
+            <span class="n">new_participant</span> <span class="o">=</span> <span class="p">[</span><span class="n">new_participant</span><span class="p">]</span>
+
+        <span class="k">for</span> <span class="n">agent</span> <span class="ow">in</span> <span class="n">new_participant</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">agent</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">participants</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">participants</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">agent</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_reset_subscriber</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="MsgHub.delete">
+<a class="viewcode-back" href="../../../api/agentscope.pipeline.html#agentscope.pipeline.MsgHub.delete">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">delete</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">participant</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">AgentBase</span><span class="p">]</span> <span class="o">|</span> <span class="n">AgentBase</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Delete agents from participant."""</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">participant</span><span class="p">,</span> <span class="n">AgentBase</span><span class="p">):</span>
+            <span class="n">participant</span> <span class="o">=</span> <span class="p">[</span><span class="n">participant</span><span class="p">]</span>
+
+        <span class="k">for</span> <span class="n">agent</span> <span class="ow">in</span> <span class="n">participant</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">agent</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">participants</span><span class="p">:</span>
+                <span class="c1"># remove agent from self.participant</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">participants</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">participants</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">agent</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="s2">"Cannot find the agent with ID </span><span class="si">%s</span><span class="s2">, skip its deletion."</span><span class="p">,</span>
+                    <span class="n">agent</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                <span class="p">)</span>
+
+        <span class="c1"># Remove this agent from the subscriber of other agents</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_reset_subscriber</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="MsgHub.broadcast">
+<a class="viewcode-back" href="../../../api/agentscope.pipeline.html#agentscope.pipeline.MsgHub.broadcast">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">broadcast</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">msg</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Msg</span><span class="p">]</span> <span class="o">|</span> <span class="n">Msg</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Broadcast the message to all participants.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            msg (`list[Msg] | Msg`):</span>
+<span class="sd">                Message(s) to be broadcast among all participants.</span>
+<span class="sd">        """</span>
+        <span class="k">for</span> <span class="n">agent</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">participants</span><span class="p">:</span>
+            <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">observe</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="MsgHub.set_auto_broadcast">
+<a class="viewcode-back" href="../../../api/agentscope.pipeline.html#agentscope.pipeline.MsgHub.set_auto_broadcast">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_auto_broadcast</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">enable</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Enable automatic broadcasting of the replied message from any</span>
+<span class="sd">        participant to all other participants.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            enable (`bool`):</span>
+<span class="sd">                Whether to enable automatic broadcasting. If disabled, the</span>
+<span class="sd">                MsgHub will only serve as a manual message broadcaster with</span>
+<span class="sd">                the `announcement` argument and the `broadcast()` method.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">enable</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">enable_auto_broadcast</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_reset_subscriber</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">enable_auto_broadcast</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">for</span> <span class="n">agent</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">participants</span><span class="p">:</span>
+                <span class="n">agent</span><span class="o">.</span><span class="n">remove_subscribers</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span></div>
+</div>
+
+</pre></div>
+        

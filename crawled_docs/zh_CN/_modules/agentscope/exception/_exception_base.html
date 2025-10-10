@@ -1,0 +1,29 @@
+<!-- Title: agentscope.exception._exception_base - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/exception/_exception_base.html -->
+
+          <h1>agentscope.exception._exception_base 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The base exception class in agentscope."""</span>
+
+
+<div class="viewcode-block" id="AgentOrientedExceptionBase">
+<a class="viewcode-back" href="../../../api/agentscope.exception.html#agentscope.exception.AgentOrientedExceptionBase">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">AgentOrientedExceptionBase</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The base class for all agent-oriented exceptions. These exceptions are</span>
+<span class="sd">    expect to the captured and exposed to the agent during runtime, so that</span>
+<span class="sd">    agents can handle the error appropriately during the runtime.</span>
+<span class="sd">    """</span>
+
+<div class="viewcode-block" id="AgentOrientedExceptionBase.__init__">
+<a class="viewcode-back" href="../../../api/agentscope.exception.html#agentscope.exception.AgentOrientedExceptionBase.__init__">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">"""Initialize the exception with a message."""</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="n">message</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Return the string representation of the exception."""</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">message</span><span class="si">}</span><span class="s2">"</span></div>
+
+</pre></div>
+        

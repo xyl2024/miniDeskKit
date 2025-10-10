@@ -1,0 +1,315 @@
+<!-- Title: 智能体评测 - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/tutorial/task_eval.html -->
+
+          <div class="sphx-glr-download-link-note admonition note">
+<p class="admonition-title">备注</p>
+<p><a class="reference internal" href="#sphx-glr-download-tutorial-task-eval-py"><span class="std std-ref">Go to the end</span></a>
+to download the full example code.</p>
+</div>
+<section class="sphx-glr-example-title" id="eval">
+<span id="sphx-glr-tutorial-task-eval-py"></span><span id="id1"></span><h1>智能体评测<a class="headerlink" href="#eval" title="Link to this heading">¶</a></h1>
+<p>AgentScope 提供了一个内置的评测框架，用于评测智能体在不同任务和基准测试中的性能，主要特性包括：</p>
+<ul class="simple">
+<li><p>基于 <a class="reference external" href="https://github.com/ray-project/ray">Ray</a> 的并行和分布式评估</p></li>
+<li><p>支持中断后继续评估</p></li>
+<li><p>[开发中] 评估结果可视化</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>我们正在持续集成新的基准测试到 AgentScope 中：</p>
+<ul class="simple">
+<li><p>✅ <a class="reference external" href="https://github.com/ACEBench/ACEBench">ACEBench</a></p></li>
+<li><p>🚧 <a class="reference external" href="https://huggingface.co/datasets/gaia-benchmark/GAIA/tree/main">GAIA</a> 基准测试</p></li>
+</ul>
+</div>
+<section id="id2">
+<h2>概述<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h2>
+<p>AgentScope 评估框架由几个关键组件组成：</p>
+<ul class="simple">
+<li><dl class="simple">
+<dt><strong>基准测试 (Benchmark)</strong>: 用于系统性评估的任务集合</dt><dd><ul>
+<li><dl class="simple">
+<dt><strong>任务 (Task)</strong>: 包含输入、标准答案和指标的独立评估单元</dt><dd><ul>
+<li><p><strong>指标 (Metric)</strong>: 评估解决方案质量的测量函数</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><strong>评估器 (Evaluator)</strong>: 运行评估的引擎，聚合结果并分析性能</dt><dd><ul>
+<li><p><strong>评估器存储 (Evaluator Storage)</strong>: 用于记录和检索评估结果的持久化存储</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p><strong>解决方案 (Solution)</strong>: 用户定义的解决方案</p></li>
+</ul>
+<figure class="align-default" id="id6">
+<a class="reference internal image-reference" href="../_images/evaluation.png"><img alt="AgentScope 评估框架" src="../_images/evaluation.png" style="width: 90%;">
+</a>
+<figcaption>
+<p><span class="caption-text"><em>AgentScope 评估框架</em></span><a class="headerlink" href="#id6" title="Link to this image">¶</a></p>
+</figcaption>
+</figure>
+<p>AgentScope 当前的实现包括：</p>
+<ul class="simple">
+<li><dl class="simple">
+<dt>评估器：</dt><dd><ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">RayEvaluator</span></code>: 基于 ray 的评估器，支持并行和分布式评估。</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">GeneralEvaluator</span></code>: 通用评估器，按顺序运行任务，便于调试。</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>基准测试：</dt><dd><ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">ACEBench</span></code>: 用于评估智能体能力的基准测试。</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+<p>我们在 <a class="reference external" href="https://github.com/agentscope-ai/agentscope/tree/main/examples/evaluation/ace_bench">GitHub 仓库</a> 中提供了一个使用 <code class="docutils literal notranslate"><span class="pre">RayEvaluator</span></code> 和 ACEBench 中智能体多步骤任务的玩具示例。</p>
+</section>
+<section id="id3">
+<h2>核心组件<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h2>
+<p>我们将构建一个简单的玩学问题基准测试来演示如何使用 AgentScope 评估模块。</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">TOY_BENCHMARK</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="p">{</span>
+        <span class="s2">"id"</span><span class="p">:</span> <span class="s2">"math_problem_1"</span><span class="p">,</span>
+        <span class="s2">"question"</span><span class="p">:</span> <span class="s2">"What is 2 + 2?"</span><span class="p">,</span>
+        <span class="s2">"ground_truth"</span><span class="p">:</span> <span class="mf">4.0</span><span class="p">,</span>
+        <span class="s2">"tags"</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">"difficulty"</span><span class="p">:</span> <span class="s2">"easy"</span><span class="p">,</span>
+            <span class="s2">"category"</span><span class="p">:</span> <span class="s2">"math"</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">},</span>
+    <span class="p">{</span>
+        <span class="s2">"id"</span><span class="p">:</span> <span class="s2">"math_problem_2"</span><span class="p">,</span>
+        <span class="s2">"question"</span><span class="p">:</span> <span class="s2">"What is 12345 + 54321 + 6789 + 9876?"</span><span class="p">,</span>
+        <span class="s2">"ground_truth"</span><span class="p">:</span> <span class="mi">83331</span><span class="p">,</span>
+        <span class="s2">"tags"</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">"difficulty"</span><span class="p">:</span> <span class="s2">"medium"</span><span class="p">,</span>
+            <span class="s2">"category"</span><span class="p">:</span> <span class="s2">"math"</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">},</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+<section id="id4">
+<h3>从任务、解决方案和指标到基准测试<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h3>
+<ul class="simple">
+<li><p>一个 <code class="docutils literal notranslate"><span class="pre">SolutionOutput</span></code> (Agent解决方案输出) 包含智能体生成的所有信息，包括轨迹和最终输出。</p></li>
+<li><p>一个 <code class="docutils literal notranslate"><span class="pre">Metric</span></code> (评测指标) 代表一个单一的评估可调用实例，它将生成的解决方案（例如，轨迹或最终输出）与标准答案进行比较。</p></li>
+</ul>
+<p>在这个示例中，我们定义了一个指标，简单地检查解决方案中的 <code class="docutils literal notranslate"><span class="pre">output</span></code> 字段是否与标准答案匹配。</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.evaluate</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">SolutionOutput</span><span class="p">,</span>
+    <span class="n">MetricBase</span><span class="p">,</span>
+    <span class="n">MetricResult</span><span class="p">,</span>
+    <span class="n">MetricType</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">CheckEqual</span><span class="p">(</span><span class="n">MetricBase</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">ground_truth</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">"math check number equal"</span><span class="p">,</span>
+            <span class="n">metric_type</span><span class="o">=</span><span class="n">MetricType</span><span class="o">.</span><span class="n">NUMERICAL</span><span class="p">,</span>
+            <span class="n">description</span><span class="o">=</span><span class="s2">"Toy metric checking if two numbers are equal"</span><span class="p">,</span>
+            <span class="n">categories</span><span class="o">=</span><span class="p">[],</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ground_truth</span> <span class="o">=</span> <span class="n">ground_truth</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">solution</span><span class="p">:</span> <span class="n">SolutionOutput</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MetricResult</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">solution</span><span class="o">.</span><span class="n">output</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">ground_truth</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">MetricResult</span><span class="p">(</span>
+                <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                <span class="n">result</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+                <span class="n">message</span><span class="o">=</span><span class="s2">"Correct"</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">MetricResult</span><span class="p">(</span>
+                <span class="n">name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                <span class="n">result</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+                <span class="n">message</span><span class="o">=</span><span class="s2">"Incorrect"</span><span class="p">,</span>
+            <span class="p">)</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>一个 <code class="docutils literal notranslate"><span class="pre">Task</span></code> (任务) 是基准测试中的一个单元，包含智能体执行和评估所需的所有信息（例如，输入/查询及其标准答案）。</p></li>
+<li><p>一个 <code class="docutils literal notranslate"><span class="pre">Benchmark</span></code> (基准测试) 组织多个任务进行系统性评估。</p></li>
+</ul>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Generator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.evaluate</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Task</span><span class="p">,</span>
+    <span class="n">BenchmarkBase</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">ToyBenchmark</span><span class="p">(</span><span class="n">BenchmarkBase</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">"Toy bench"</span><span class="p">,</span>
+            <span class="n">description</span><span class="o">=</span><span class="s2">"A toy benchmark for demonstrating the evaluation module."</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dataset</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_data</span><span class="p">()</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_load_data</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Task</span><span class="p">]:</span>
+        <span class="n">dataset</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">TOY_BENCHMARK</span><span class="p">:</span>
+            <span class="n">dataset</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">Task</span><span class="p">(</span>
+                    <span class="nb">id</span><span class="o">=</span><span class="n">item</span><span class="p">[</span><span class="s2">"id"</span><span class="p">],</span>
+                    <span class="nb">input</span><span class="o">=</span><span class="n">item</span><span class="p">[</span><span class="s2">"question"</span><span class="p">],</span>
+                    <span class="n">ground_truth</span><span class="o">=</span><span class="n">item</span><span class="p">[</span><span class="s2">"ground_truth"</span><span class="p">],</span>
+                    <span class="n">tags</span><span class="o">=</span><span class="n">item</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"tags"</span><span class="p">,</span> <span class="p">{}),</span>
+                    <span class="n">metrics</span><span class="o">=</span><span class="p">[</span>
+                        <span class="n">CheckEqual</span><span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="s2">"ground_truth"</span><span class="p">]),</span>
+                    <span class="p">],</span>
+                    <span class="n">metadata</span><span class="o">=</span><span class="p">{},</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">dataset</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="n">Task</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""遍历基准测试。"""</span>
+        <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">dataset</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="n">task</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">index</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Task</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""根据索引获取任务。"""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">dataset</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""获取基准测试的长度。"""</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dataset</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="id5">
+<h3>评估器<a class="headerlink" href="#id5" title="Link to this heading">¶</a></h3>
+<p>评估器 (Evaluators) 管理评估过程。它们可以自动遍历
+基准测试中的任务，并将每个任务输入到解决方案生成函数中，
+开发者需要在其中定义运行智能体和检索
+执行结果和轨迹的逻辑。下面是一个
+使用我们的玩具基准测试运行 <code class="docutils literal notranslate"><span class="pre">GeneralEvaluator</span></code> (通用评估器) 的示例。如果有一个大型
+基准测试，开发者希望通过并行化更高效地进行评估，
+<code class="docutils literal notranslate"><span class="pre">RayEvaluator</span></code> (Ray评估器) 也可作为内置解决方案使用。</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseModel</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.message</span><span class="w"> </span><span class="kn">import</span> <span class="n">Msg</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.model</span><span class="w"> </span><span class="kn">import</span> <span class="n">DashScopeChatModel</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.formatter</span><span class="w"> </span><span class="kn">import</span> <span class="n">DashScopeChatFormatter</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.agent</span><span class="w"> </span><span class="kn">import</span> <span class="n">ReActAgent</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope.evaluate</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">GeneralEvaluator</span><span class="p">,</span>
+    <span class="n">FileEvaluatorStorage</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">ToyBenchAnswerFormat</span><span class="p">(</span><span class="n">BaseModel</span><span class="p">):</span>
+    <span class="n">answer_as_number</span><span class="p">:</span> <span class="nb">float</span>
+
+
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">toy_solution_generation</span><span class="p">(</span>
+    <span class="n">task</span><span class="p">:</span> <span class="n">Task</span><span class="p">,</span>
+    <span class="n">pre_hook</span><span class="p">:</span> <span class="n">Callable</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SolutionOutput</span><span class="p">:</span>
+    <span class="n">agent</span> <span class="o">=</span> <span class="n">ReActAgent</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">"Friday"</span><span class="p">,</span>
+        <span class="n">sys_prompt</span><span class="o">=</span><span class="s2">"You are a helpful assistant named Friday. "</span>
+        <span class="s2">"Your target is to solve the given task with your tools. "</span>
+        <span class="s2">"Try to solve the task as best as you can."</span><span class="p">,</span>
+        <span class="n">model</span><span class="o">=</span><span class="n">DashScopeChatModel</span><span class="p">(</span>
+            <span class="n">api_key</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"DASHSCOPE_API_KEY"</span><span class="p">),</span>
+            <span class="n">model_name</span><span class="o">=</span><span class="s2">"qwen-max"</span><span class="p">,</span>
+            <span class="n">stream</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="n">formatter</span><span class="o">=</span><span class="n">DashScopeChatFormatter</span><span class="p">(),</span>
+    <span class="p">)</span>
+    <span class="n">agent</span><span class="o">.</span><span class="n">register_instance_hook</span><span class="p">(</span>
+        <span class="s2">"pre_print"</span><span class="p">,</span>
+        <span class="s2">"save_logging"</span><span class="p">,</span>
+        <span class="n">pre_hook</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">msg_input</span> <span class="o">=</span> <span class="n">Msg</span><span class="p">(</span><span class="s2">"user"</span><span class="p">,</span> <span class="n">task</span><span class="o">.</span><span class="n">input</span><span class="p">,</span> <span class="n">role</span><span class="o">=</span><span class="s2">"user"</span><span class="p">)</span>
+    <span class="n">res</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="p">(</span>
+        <span class="n">msg_input</span><span class="p">,</span>
+        <span class="n">structured_model</span><span class="o">=</span><span class="n">ToyBenchAnswerFormat</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">SolutionOutput</span><span class="p">(</span>
+        <span class="n">success</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">output</span><span class="o">=</span><span class="n">res</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"answer_as_number"</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+        <span class="n">trajectory</span><span class="o">=</span><span class="p">[],</span>
+    <span class="p">)</span>
+
+
+<span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">evaluator</span> <span class="o">=</span> <span class="n">GeneralEvaluator</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">"Toy benchmark evaluation"</span><span class="p">,</span>
+        <span class="n">benchmark</span><span class="o">=</span><span class="n">ToyBenchmark</span><span class="p">(),</span>
+        <span class="c1"># 重复多少次</span>
+        <span class="n">n_repeat</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+        <span class="n">storage</span><span class="o">=</span><span class="n">FileEvaluatorStorage</span><span class="p">(</span>
+            <span class="n">save_dir</span><span class="o">=</span><span class="s2">"./results"</span><span class="p">,</span>
+        <span class="p">),</span>
+        <span class="c1"># 使用多少个工作进程</span>
+        <span class="n">n_workers</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="c1"># 运行评估</span>
+    <span class="k">await</span> <span class="n">evaluator</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">toy_solution_generation</span><span class="p">)</span>
+
+
+<span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
+</pre></div>
+</div>
+<div class="sphx-glr-script-out highlight-none notranslate"><div class="highlight"><pre><span></span>Friday: The sum of 2 + 2 is 4.
+Friday: The sum of 12345, 54321, 6789, and 9876 is 83331.
+Repeat ID: 0
+        Metric: math check number equal
+                Type: MetricType.NUMERICAL
+                Involved tasks: 2
+                Completed tasks: 2
+                Incomplete tasks: 0
+                Aggregation: {
+                    "mean": 1.0,
+                    "max": 1.0,
+                    "min": 1.0
+                }
+</pre></div>
+</div>
+<p class="sphx-glr-timing"><strong>Total running time of the script:</strong> (0 minutes 5.097 seconds)</p>
+<div class="sphx-glr-footer sphx-glr-footer-example docutils container" id="sphx-glr-download-tutorial-task-eval-py">
+<div class="sphx-glr-download sphx-glr-download-jupyter docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/c97c5fec6c05569e62f14d7f1ea7d164/task_eval.ipynb"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Jupyter</span> <span class="pre">notebook:</span> <span class="pre">task_eval.ipynb</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-python docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/998aaa0659544205261efdb1878e891e/task_eval.py"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">Python</span> <span class="pre">source</span> <span class="pre">code:</span> <span class="pre">task_eval.py</span></code></a></p>
+</div>
+<div class="sphx-glr-download sphx-glr-download-zip docutils container">
+<p><a class="reference download internal" download="" href="../_downloads/1fd291a1ee36ac43d21679a4d42f5703/task_eval.zip"><code class="xref download docutils literal notranslate"><span class="pre">Download</span> <span class="pre">zipped:</span> <span class="pre">task_eval.zip</span></code></a></p>
+</div>
+</div>
+<p class="sphx-glr-signature"><a class="reference external" href="https://sphinx-gallery.github.io">Gallery generated by Sphinx-Gallery</a></p>
+</section>
+</section>
+</section>
+
+        

@@ -1,0 +1,225 @@
+<!-- Title: agentscope.evaluate._evaluator._ray_evaluator - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/evaluate/_evaluator/_ray_evaluator.html -->
+
+          <h1>agentscope.evaluate._evaluator._ray_evaluator 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The evaluator base class in agentscope."""</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Awaitable</span><span class="p">,</span> <span class="n">Coroutine</span><span class="p">,</span> <span class="n">Any</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._benchmark_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">BenchmarkBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._evaluator._evaluator_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">EvaluatorBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._solution</span><span class="w"> </span><span class="kn">import</span> <span class="n">SolutionOutput</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._task</span><span class="w"> </span><span class="kn">import</span> <span class="n">Task</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._evaluator_storage</span><span class="w"> </span><span class="kn">import</span> <span class="n">EvaluatorStorageBase</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_check_ray_available</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Check if ray is available and raise ImportError if not."""</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">ray</span>  <span class="c1"># noqa  # pylint: disable=unused-import</span>
+    <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ImportError</span><span class="p">(</span>
+            <span class="s2">"Ray is not installed. Please install it with `pip install ray` "</span>
+            <span class="s2">"to use the RayEvaluator."</span><span class="p">,</span>
+        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+
+
+<span class="c1"># Create a conditional decorator for ray.remote</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_ray_remote_decorator</span><span class="p">(</span><span class="bp">cls</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Conditional ray.remote decorator that only applies when ray is available.</span>
+<span class="sd">    """</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">ray</span>
+
+        <span class="k">return</span> <span class="n">ray</span><span class="o">.</span><span class="n">remote</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">cls</span>
+
+
+<span class="nd">@_ray_remote_decorator</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">RayEvaluationActor</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Actor class for running evaluation with ray remote.</span>
+<span class="sd">    """</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span>
+        <span class="n">storage</span><span class="p">:</span> <span class="n">EvaluatorStorageBase</span><span class="p">,</span>
+        <span class="n">task</span><span class="p">:</span> <span class="n">Task</span><span class="p">,</span>
+        <span class="n">repeat_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">solution_output</span><span class="p">:</span> <span class="n">SolutionOutput</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""</span>
+<span class="sd">        Run the evaluation for a task and solution result.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            storage (EvaluatorStorageBase): Evaluator storage.</span>
+<span class="sd">            task (Task): Task to be evaluated.</span>
+<span class="sd">            repeat_id (str): Repeat ID</span>
+<span class="sd">            solution_output (SolutionOutput): output data after execute agents.</span>
+<span class="sd">        """</span>
+        <span class="n">evaluation_results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">task</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">solution_output</span><span class="p">)</span>
+        <span class="c1"># store the evaluation result</span>
+        <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">evaluation_results</span><span class="p">:</span>
+            <span class="n">storage</span><span class="o">.</span><span class="n">save_evaluation_result</span><span class="p">(</span>
+                <span class="n">task_id</span><span class="o">=</span><span class="n">task</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                <span class="n">repeat_id</span><span class="o">=</span><span class="n">repeat_id</span><span class="p">,</span>
+                <span class="n">evaluation</span><span class="o">=</span><span class="n">result</span><span class="p">,</span>
+            <span class="p">)</span>
+
+
+<span class="nd">@_ray_remote_decorator</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">RaySolutionActor</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Actor class for running agent solutions with ray remote.</span>
+<span class="sd">    """</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n_workers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">eval_actor</span> <span class="o">=</span> <span class="n">RayEvaluationActor</span><span class="o">.</span><span class="n">options</span><span class="p">(</span>
+            <span class="n">max_concurrency</span><span class="o">=</span><span class="n">n_workers</span><span class="p">,</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">remote</span><span class="p">()</span>
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">storage</span><span class="p">:</span> <span class="n">EvaluatorStorageBase</span><span class="p">,</span>
+        <span class="n">repeat_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">task</span><span class="p">:</span> <span class="n">Task</span><span class="p">,</span>
+        <span class="n">solution</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[</span>
+            <span class="p">[</span><span class="n">Task</span><span class="p">,</span> <span class="n">Callable</span><span class="p">],</span>
+            <span class="n">Coroutine</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">SolutionOutput</span><span class="p">],</span>
+        <span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Generate a solution to a task and evaluate.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            storage (EvaluatorStorageBase): Evaluator storage.</span>
+<span class="sd">            repeat_id (str): Repeat ID.</span>
+<span class="sd">            task (Task): Task to be evaluated.</span>
+<span class="sd">            solution</span>
+<span class="sd">                (Callable[[Task, Callable], Awaitable[SolutionOutput, Any]]):</span>
+<span class="sd">                callable function to execute agents and generate results.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">storage</span><span class="o">.</span><span class="n">solution_result_exists</span><span class="p">(</span><span class="n">task</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">repeat_id</span><span class="p">):</span>
+            <span class="c1"># Obtain from storage</span>
+            <span class="n">solution_result</span> <span class="o">=</span> <span class="n">storage</span><span class="o">.</span><span class="n">get_solution_result</span><span class="p">(</span>
+                <span class="n">task</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                <span class="n">repeat_id</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Run the solution</span>
+            <span class="n">solution_result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">solution</span><span class="p">(</span>
+                <span class="n">task</span><span class="p">,</span>
+                <span class="n">storage</span><span class="o">.</span><span class="n">get_agent_pre_print_hook</span><span class="p">(</span>
+                    <span class="n">task</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                    <span class="n">repeat_id</span><span class="p">,</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
+
+            <span class="n">storage</span><span class="o">.</span><span class="n">save_solution_result</span><span class="p">(</span>
+                <span class="n">task</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                <span class="n">repeat_id</span><span class="p">,</span>
+                <span class="n">solution_result</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Evaluate the solution with the</span>
+        <span class="n">futures</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">task</span><span class="o">.</span><span class="n">metrics</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">storage</span><span class="o">.</span><span class="n">evaluation_result_exists</span><span class="p">(</span>
+                <span class="n">task</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                <span class="n">repeat_id</span><span class="p">,</span>
+                <span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="p">):</span>
+                <span class="n">futures</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">eval_actor</span><span class="o">.</span><span class="n">run</span><span class="o">.</span><span class="n">remote</span><span class="p">(</span>
+                        <span class="n">storage</span><span class="p">,</span>
+                        <span class="n">task</span><span class="p">,</span>
+                        <span class="n">repeat_id</span><span class="p">,</span>
+                        <span class="n">solution_result</span><span class="p">,</span>
+                    <span class="p">),</span>
+                <span class="p">)</span>
+        <span class="k">if</span> <span class="n">futures</span><span class="p">:</span>
+            <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="o">*</span><span class="n">futures</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="RayEvaluator">
+<a class="viewcode-back" href="../../../../api/agentscope.evaluate.html#agentscope.evaluate.RayEvaluator">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">RayEvaluator</span><span class="p">(</span><span class="n">EvaluatorBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The ray-based evaluator that supports distributed and parallel</span>
+<span class="sd">    evaluation."""</span>
+
+<div class="viewcode-block" id="RayEvaluator.__init__">
+<a class="viewcode-back" href="../../../../api/agentscope.evaluate.html#agentscope.evaluate.RayEvaluator.__init__">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">benchmark</span><span class="p">:</span> <span class="n">BenchmarkBase</span><span class="p">,</span>
+        <span class="n">n_repeat</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">storage</span><span class="p">:</span> <span class="n">EvaluatorStorageBase</span><span class="p">,</span>
+        <span class="n">n_workers</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize the evaluator."""</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">benchmark</span><span class="o">=</span><span class="n">benchmark</span><span class="p">,</span>
+            <span class="n">n_repeat</span><span class="o">=</span><span class="n">n_repeat</span><span class="p">,</span>
+            <span class="n">storage</span><span class="o">=</span><span class="n">storage</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Check ray availability early</span>
+        <span class="n">_check_ray_available</span><span class="p">()</span>
+
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">benchmark</span><span class="p">,</span> <span class="n">BenchmarkBase</span><span class="p">)</span>
+
+        <span class="k">assert</span> <span class="n">n_repeat</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">"n_repeat must be at least 1"</span>
+
+        <span class="k">assert</span> <span class="n">n_workers</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">"n_workers must be at least 1"</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">benchmark</span> <span class="o">=</span> <span class="n">benchmark</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_repeat</span> <span class="o">=</span> <span class="n">n_repeat</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_workers</span> <span class="o">=</span> <span class="n">n_workers</span></div>
+
+
+<div class="viewcode-block" id="RayEvaluator.run">
+<a class="viewcode-back" href="../../../../api/agentscope.evaluate.html#agentscope.evaluate.RayEvaluator.run">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">solution</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[</span>
+            <span class="p">[</span><span class="n">Task</span><span class="p">,</span> <span class="n">Callable</span><span class="p">],</span>
+            <span class="n">Awaitable</span><span class="p">[</span><span class="n">SolutionOutput</span><span class="p">]</span> <span class="o">|</span> <span class="n">SolutionOutput</span><span class="p">,</span>
+        <span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Run the ray-based distributed and parallel evaluation, and get the</span>
+<span class="sd">        results.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            solution (`Callable[[Task], SolutionOutput]`):</span>
+<span class="sd">                A sync or async function that takes a `Task` instance as input</span>
+<span class="sd">                and returns a `SolutionOutput` instance.</span>
+<span class="sd">        """</span>
+
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_save_evaluation_meta</span><span class="p">()</span>
+
+        <span class="n">futures</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">solution_actor</span> <span class="o">=</span> <span class="n">RaySolutionActor</span><span class="o">.</span><span class="n">options</span><span class="p">(</span>
+            <span class="n">max_concurrency</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">n_workers</span><span class="p">,</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">remote</span><span class="p">(</span><span class="n">n_workers</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">n_workers</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">repeat_id</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_repeat</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">benchmark</span><span class="p">:</span>
+                <span class="n">futures</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">solution_actor</span><span class="o">.</span><span class="n">run</span><span class="o">.</span><span class="n">remote</span><span class="p">(</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="p">,</span>
+                        <span class="nb">str</span><span class="p">(</span><span class="n">repeat_id</span><span class="p">),</span>
+                        <span class="n">task</span><span class="p">,</span>
+                        <span class="n">solution</span><span class="p">,</span>
+                    <span class="p">),</span>
+                <span class="p">)</span>
+        <span class="k">if</span> <span class="n">futures</span><span class="p">:</span>
+            <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="o">*</span><span class="n">futures</span><span class="p">)</span>
+
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">aggregate</span><span class="p">()</span></div>
+</div>
+
+</pre></div>
+        

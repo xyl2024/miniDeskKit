@@ -1,0 +1,84 @@
+<!-- Title: agentscope.plan._in_memory_storage - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/plan/_in_memory_storage.html -->
+
+          <h1>agentscope.plan._in_memory_storage 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The in-memory plan storage class."""</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">._plan_model</span><span class="w"> </span><span class="kn">import</span> <span class="n">Plan</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">._storage_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">PlanStorageBase</span>
+
+
+<div class="viewcode-block" id="InMemoryPlanStorage">
+<a class="viewcode-back" href="../../../api/agentscope.plan.html#agentscope.plan.InMemoryPlanStorage">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">InMemoryPlanStorage</span><span class="p">(</span><span class="n">PlanStorageBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""In-memory plan storage."""</span>
+
+<div class="viewcode-block" id="InMemoryPlanStorage.__init__">
+<a class="viewcode-back" href="../../../api/agentscope.plan.html#agentscope.plan.InMemoryPlanStorage.__init__">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize the in-memory plan storage."""</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">plans</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="InMemoryPlanStorage.add_plan">
+<a class="viewcode-back" href="../../../api/agentscope.plan.html#agentscope.plan.InMemoryPlanStorage.add_plan">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">add_plan</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">plan</span><span class="p">:</span> <span class="n">Plan</span><span class="p">,</span> <span class="n">override</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Add a plan to the storage.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            plan (`Plan`):</span>
+<span class="sd">                The plan to be added.</span>
+<span class="sd">            override (`bool`, defaults to `True`):</span>
+<span class="sd">                Whether to override the existing plan with the same ID.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">plan</span><span class="o">.</span><span class="n">id</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">plans</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">override</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Plan with id </span><span class="si">{</span><span class="n">plan</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2"> already exists."</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">plans</span><span class="p">[</span><span class="n">plan</span><span class="o">.</span><span class="n">id</span><span class="p">]</span> <span class="o">=</span> <span class="n">plan</span></div>
+
+
+<div class="viewcode-block" id="InMemoryPlanStorage.delete_plan">
+<a class="viewcode-back" href="../../../api/agentscope.plan.html#agentscope.plan.InMemoryPlanStorage.delete_plan">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">delete_plan</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">plan_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Delete a plan from the storage.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            plan_id (`str`):</span>
+<span class="sd">                The ID of the plan to be deleted.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">plans</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">plan_id</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="InMemoryPlanStorage.get_plans">
+<a class="viewcode-back" href="../../../api/agentscope.plan.html#agentscope.plan.InMemoryPlanStorage.get_plans">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">get_plans</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Plan</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Get all plans from the storage.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `list[Plan]`:</span>
+<span class="sd">                A list of all plans in the storage.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">plans</span><span class="o">.</span><span class="n">values</span><span class="p">())</span></div>
+
+
+<div class="viewcode-block" id="InMemoryPlanStorage.get_plan">
+<a class="viewcode-back" href="../../../api/agentscope.plan.html#agentscope.plan.InMemoryPlanStorage.get_plan">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">get_plan</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">plan_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Plan</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Get a plan by its ID.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            plan_id (`str`):</span>
+<span class="sd">                The ID of the plan to be retrieved.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `Plan | None`:</span>
+<span class="sd">                The plan with the specified ID, or None if not found.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">plans</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">plan_id</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span></div>
+</div>
+
+</pre></div>
+        

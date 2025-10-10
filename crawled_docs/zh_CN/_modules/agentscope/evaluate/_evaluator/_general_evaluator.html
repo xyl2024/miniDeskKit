@@ -1,0 +1,147 @@
+<!-- Title: agentscope.evaluate._evaluator._general_evaluator - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/evaluate/_evaluator/_general_evaluator.html -->
+
+          <h1>agentscope.evaluate._evaluator._general_evaluator 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""General evaluator implementation in AgentScope, which is easy to debug</span>
+<span class="sd">compared to the RayEvaluator."""</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Awaitable</span><span class="p">,</span> <span class="n">Coroutine</span><span class="p">,</span> <span class="n">Any</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">._evaluator_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">EvaluatorBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._evaluator_storage</span><span class="w"> </span><span class="kn">import</span> <span class="n">EvaluatorStorageBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._task</span><span class="w"> </span><span class="kn">import</span> <span class="n">Task</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._solution</span><span class="w"> </span><span class="kn">import</span> <span class="n">SolutionOutput</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._benchmark_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">BenchmarkBase</span>
+
+
+<div class="viewcode-block" id="GeneralEvaluator">
+<a class="viewcode-back" href="../../../../api/agentscope.evaluate.html#agentscope.evaluate.GeneralEvaluator">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">GeneralEvaluator</span><span class="p">(</span><span class="n">EvaluatorBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The general evaluator that support users to debug their evaluation"""</span>
+
+<div class="viewcode-block" id="GeneralEvaluator.__init__">
+<a class="viewcode-back" href="../../../../api/agentscope.evaluate.html#agentscope.evaluate.GeneralEvaluator.__init__">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">benchmark</span><span class="p">:</span> <span class="n">BenchmarkBase</span><span class="p">,</span>
+        <span class="n">n_repeat</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">storage</span><span class="p">:</span> <span class="n">EvaluatorStorageBase</span><span class="p">,</span>
+        <span class="n">n_workers</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize the evaluator."""</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">benchmark</span><span class="o">=</span><span class="n">benchmark</span><span class="p">,</span>
+            <span class="n">n_repeat</span><span class="o">=</span><span class="n">n_repeat</span><span class="p">,</span>
+            <span class="n">storage</span><span class="o">=</span><span class="n">storage</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">benchmark</span><span class="p">,</span> <span class="n">BenchmarkBase</span><span class="p">)</span>
+
+        <span class="k">assert</span> <span class="n">n_repeat</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">"n_repeat must be at least 1"</span>
+
+        <span class="k">assert</span> <span class="n">n_workers</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">"n_workers must be at least 1"</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">benchmark</span> <span class="o">=</span> <span class="n">benchmark</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_repeat</span> <span class="o">=</span> <span class="n">n_repeat</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_workers</span> <span class="o">=</span> <span class="n">n_workers</span></div>
+
+
+<div class="viewcode-block" id="GeneralEvaluator.run_evaluation">
+<a class="viewcode-back" href="../../../../api/agentscope.evaluate.html#agentscope.evaluate.GeneralEvaluator.run_evaluation">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">run_evaluation</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">task</span><span class="p">:</span> <span class="n">Task</span><span class="p">,</span>
+        <span class="n">repeat_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">solution_output</span><span class="p">:</span> <span class="n">SolutionOutput</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Run the evaluation for a task and solution result."""</span>
+        <span class="n">evaluation_results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">task</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">solution_output</span><span class="p">)</span>
+        <span class="c1"># store the evaluation result</span>
+        <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">evaluation_results</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">save_evaluation_result</span><span class="p">(</span>
+                <span class="n">task_id</span><span class="o">=</span><span class="n">task</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                <span class="n">repeat_id</span><span class="o">=</span><span class="n">repeat_id</span><span class="p">,</span>
+                <span class="n">evaluation</span><span class="o">=</span><span class="n">result</span><span class="p">,</span>
+            <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="GeneralEvaluator.run_solution">
+<a class="viewcode-back" href="../../../../api/agentscope.evaluate.html#agentscope.evaluate.GeneralEvaluator.run_solution">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">run_solution</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">repeat_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">task</span><span class="p">:</span> <span class="n">Task</span><span class="p">,</span>
+        <span class="n">solution</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Task</span><span class="p">,</span> <span class="n">Callable</span><span class="p">],</span> <span class="n">Awaitable</span><span class="p">[</span><span class="n">SolutionOutput</span><span class="p">]],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Generate a solution to a task and evaluate."""</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">solution_result_exists</span><span class="p">(</span><span class="n">task</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">repeat_id</span><span class="p">):</span>
+            <span class="c1"># Obtain from storage</span>
+            <span class="n">solution_result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">get_solution_result</span><span class="p">(</span>
+                <span class="n">task</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                <span class="n">repeat_id</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Run the solution</span>
+            <span class="n">solution_result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">solution</span><span class="p">(</span>
+                <span class="n">task</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">get_agent_pre_print_hook</span><span class="p">(</span>
+                    <span class="n">task</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                    <span class="n">repeat_id</span><span class="p">,</span>
+                <span class="p">),</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">save_solution_result</span><span class="p">(</span>
+                <span class="n">task</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                <span class="n">repeat_id</span><span class="p">,</span>
+                <span class="n">solution_result</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Evaluate the solution with the</span>
+        <span class="k">for</span> <span class="n">metric</span> <span class="ow">in</span> <span class="n">task</span><span class="o">.</span><span class="n">metrics</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">evaluation_result_exists</span><span class="p">(</span>
+                <span class="n">task</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                <span class="n">repeat_id</span><span class="p">,</span>
+                <span class="n">metric</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="p">):</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_evaluation</span><span class="p">(</span>
+                    <span class="n">task</span><span class="p">,</span>
+                    <span class="n">repeat_id</span><span class="p">,</span>
+                    <span class="n">solution_result</span><span class="p">,</span>
+                <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="GeneralEvaluator.run">
+<a class="viewcode-back" href="../../../../api/agentscope.evaluate.html#agentscope.evaluate.GeneralEvaluator.run">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">solution</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[</span>
+            <span class="p">[</span><span class="n">Task</span><span class="p">,</span> <span class="n">Callable</span><span class="p">],</span>
+            <span class="n">Coroutine</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">SolutionOutput</span><span class="p">],</span>
+        <span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Run the ray-based distributed and parallel evaluation, and get the</span>
+<span class="sd">        results.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            solution (`Callable[[Task, Callable], Coroutine[Any, Any, \</span>
+<span class="sd">            SolutionOutput]]`):</span>
+<span class="sd">                A async function that takes a `Task` instance and a pre-print</span>
+<span class="sd">                hook function as input, returns a `SolutionOutput` instance.</span>
+<span class="sd">        """</span>
+
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_save_evaluation_meta</span><span class="p">()</span>
+
+        <span class="k">for</span> <span class="n">repeat_id</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_repeat</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">task</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">benchmark</span><span class="p">:</span>
+                <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">run_solution</span><span class="p">(</span>
+                    <span class="nb">str</span><span class="p">(</span><span class="n">repeat_id</span><span class="p">),</span>
+                    <span class="n">task</span><span class="p">,</span>
+                    <span class="n">solution</span><span class="p">,</span>
+                <span class="p">)</span>
+
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">aggregate</span><span class="p">()</span></div>
+</div>
+
+</pre></div>
+        

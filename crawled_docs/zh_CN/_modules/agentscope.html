@@ -1,0 +1,141 @@
+<!-- Title: agentscope - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope.html -->
+
+          <h1>agentscope 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The agentscope serialization module"""</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">requests</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">exception</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">module</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">message</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">model</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">tool</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">formatter</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">memory</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">agent</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">session</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">embedding</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">token</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">evaluate</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">pipeline</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">tracing</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">rag</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">._logging</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">logger</span><span class="p">,</span>
+    <span class="n">setup_logger</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.hooks</span><span class="w"> </span><span class="kn">import</span> <span class="n">_equip_as_studio_hooks</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">._version</span><span class="w"> </span><span class="kn">import</span> <span class="n">__version__</span>
+
+
+<div class="viewcode-block" id="init">
+<a class="viewcode-back" href="../api/agentscope.html#agentscope.init">[文档]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">init</span><span class="p">(</span>
+    <span class="n">project</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">logging_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">logging_level</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"INFO"</span><span class="p">,</span>
+    <span class="n">studio_url</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">tracing_url</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Initialize the agentscope library.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        project (`str | None`, optional):</span>
+<span class="sd">            The project name.</span>
+<span class="sd">        name (`str | None`, optional):</span>
+<span class="sd">            The name of the run.</span>
+<span class="sd">        logging_path (`str | None`, optional):</span>
+<span class="sd">            The path to saving the log file. If not provided, logs will not be</span>
+<span class="sd">            saved.</span>
+<span class="sd">        logging_level (`str | None`, optional):</span>
+<span class="sd">            The logging level. Defaults to "INFO".</span>
+<span class="sd">        studio_url (`str | None`, optional):</span>
+<span class="sd">            The URL of the AgentScope Studio to connect to.</span>
+<span class="sd">        tracing_url (`str | None`, optional):</span>
+<span class="sd">            The URL of the tracing endpoint, which can connect to third-party</span>
+<span class="sd">            OpenTelemetry tracing platforms like Arize-Phoenix and Langfuse.</span>
+<span class="sd">            If not provided and `studio_url` is provided, it will send traces</span>
+<span class="sd">            to the AgentScope Studio's tracing endpoint.</span>
+<span class="sd">    """</span>
+
+    <span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">_config</span>
+
+    <span class="k">if</span> <span class="n">project</span><span class="p">:</span>
+        <span class="n">_config</span><span class="o">.</span><span class="n">project</span> <span class="o">=</span> <span class="n">project</span>
+
+    <span class="k">if</span> <span class="n">name</span><span class="p">:</span>
+        <span class="n">_config</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+
+    <span class="n">setup_logger</span><span class="p">(</span><span class="n">logging_level</span><span class="p">,</span> <span class="n">logging_path</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">studio_url</span><span class="p">:</span>
+        <span class="c1"># Register the run</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"id"</span><span class="p">:</span> <span class="n">_config</span><span class="o">.</span><span class="n">run_id</span><span class="p">,</span>
+            <span class="s2">"project"</span><span class="p">:</span> <span class="n">_config</span><span class="o">.</span><span class="n">project</span><span class="p">,</span>
+            <span class="s2">"name"</span><span class="p">:</span> <span class="n">_config</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="s2">"timestamp"</span><span class="p">:</span> <span class="n">_config</span><span class="o">.</span><span class="n">created_at</span><span class="p">,</span>
+            <span class="s2">"pid"</span><span class="p">:</span> <span class="n">os</span><span class="o">.</span><span class="n">getpid</span><span class="p">(),</span>
+            <span class="s2">"status"</span><span class="p">:</span> <span class="s2">"running"</span><span class="p">,</span>
+            <span class="c1"># Deprecated fields</span>
+            <span class="s2">"run_dir"</span><span class="p">:</span> <span class="s2">""</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span>
+            <span class="n">url</span><span class="o">=</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">studio_url</span><span class="si">}</span><span class="s2">/trpc/registerRun"</span><span class="p">,</span>
+            <span class="n">json</span><span class="o">=</span><span class="n">data</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">response</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
+
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.agent</span><span class="w"> </span><span class="kn">import</span> <span class="n">UserAgent</span><span class="p">,</span> <span class="n">StudioUserInput</span>
+
+        <span class="n">UserAgent</span><span class="o">.</span><span class="n">override_class_input_method</span><span class="p">(</span>
+            <span class="n">StudioUserInput</span><span class="p">(</span>
+                <span class="n">studio_url</span><span class="o">=</span><span class="n">studio_url</span><span class="p">,</span>
+                <span class="n">run_id</span><span class="o">=</span><span class="n">_config</span><span class="o">.</span><span class="n">run_id</span><span class="p">,</span>
+                <span class="n">max_retries</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+
+        <span class="n">_equip_as_studio_hooks</span><span class="p">(</span><span class="n">studio_url</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">tracing_url</span><span class="p">:</span>
+        <span class="n">endpoint</span> <span class="o">=</span> <span class="n">tracing_url</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">endpoint</span> <span class="o">=</span> <span class="n">studio_url</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s2">"/"</span><span class="p">)</span> <span class="o">+</span> <span class="s2">"/v1/traces"</span> <span class="k">if</span> <span class="n">studio_url</span> <span class="k">else</span> <span class="kc">None</span>
+
+    <span class="k">if</span> <span class="n">endpoint</span><span class="p">:</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">.tracing</span><span class="w"> </span><span class="kn">import</span> <span class="n">setup_tracing</span>
+
+        <span class="n">setup_tracing</span><span class="p">(</span><span class="n">endpoint</span><span class="o">=</span><span class="n">endpoint</span><span class="p">)</span></div>
+
+
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="c1"># modules</span>
+    <span class="s2">"exception"</span><span class="p">,</span>
+    <span class="s2">"module"</span><span class="p">,</span>
+    <span class="s2">"message"</span><span class="p">,</span>
+    <span class="s2">"model"</span><span class="p">,</span>
+    <span class="s2">"tool"</span><span class="p">,</span>
+    <span class="s2">"formatter"</span><span class="p">,</span>
+    <span class="s2">"memory"</span><span class="p">,</span>
+    <span class="s2">"agent"</span><span class="p">,</span>
+    <span class="s2">"session"</span><span class="p">,</span>
+    <span class="s2">"logger"</span><span class="p">,</span>
+    <span class="s2">"embedding"</span><span class="p">,</span>
+    <span class="s2">"token"</span><span class="p">,</span>
+    <span class="s2">"evaluate"</span><span class="p">,</span>
+    <span class="s2">"pipeline"</span><span class="p">,</span>
+    <span class="s2">"tracing"</span><span class="p">,</span>
+    <span class="s2">"rag"</span><span class="p">,</span>
+    <span class="c1"># functions</span>
+    <span class="s2">"init"</span><span class="p">,</span>
+    <span class="s2">"setup_logger"</span><span class="p">,</span>
+    <span class="s2">"__version__"</span><span class="p">,</span>
+<span class="p">]</span>
+</pre></div>
+        

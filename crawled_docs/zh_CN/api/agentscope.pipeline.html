@@ -1,0 +1,334 @@
+<!-- Title: agentscope.pipeline - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/api/agentscope.pipeline.html -->
+
+          <section id="module-agentscope.pipeline">
+<span id="agentscope-pipeline"></span><h1>agentscope.pipeline<a class="headerlink" href="#module-agentscope.pipeline" title="Link to this heading">¶</a></h1>
+<p>The pipeline module in AgentScope, that provides syntactic sugar for
+complex workflows and multi-agent conversations.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.pipeline.MsgHub">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">MsgHub</span></span><a class="reference internal" href="../_modules/agentscope/pipeline/_msghub.html#MsgHub"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.pipeline.MsgHub" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>MsgHub class that controls the subscription of the participated agents.</p>
+<p class="rubric">示例</p>
+<p>In the following example, the reply message from <cite>agent1</cite>, <cite>agent2</cite>,
+and <cite>agent3</cite> will be broadcasted to all the other agents in the MsgHub.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">with</span> <span class="n">MsgHub</span><span class="p">(</span><span class="n">participant</span><span class="o">=</span><span class="p">[</span><span class="n">agent1</span><span class="p">,</span> <span class="n">agent2</span><span class="p">,</span> <span class="n">agent3</span><span class="p">]):</span>
+    <span class="n">agent1</span><span class="p">()</span>
+    <span class="n">agent2</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Actually, it has the same effect as the following code, but much more
+easy and elegant!</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">x1</span> <span class="o">=</span> <span class="n">agent1</span><span class="p">()</span>
+<span class="n">agent2</span><span class="o">.</span><span class="n">observe</span><span class="p">(</span><span class="n">x1</span><span class="p">)</span>
+<span class="n">agent3</span><span class="o">.</span><span class="n">observe</span><span class="p">(</span><span class="n">x1</span><span class="p">)</span>
+
+<span class="n">x2</span> <span class="o">=</span> <span class="n">agent2</span><span class="p">()</span>
+<span class="n">agent1</span><span class="o">.</span><span class="n">observe</span><span class="p">(</span><span class="n">x2</span><span class="p">)</span>
+<span class="n">agent3</span><span class="o">.</span><span class="n">observe</span><span class="p">(</span><span class="n">x2</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.pipeline.MsgHub.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">participants</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">announcement</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_auto_broadcast</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/pipeline/_msghub.html#MsgHub.__init__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.pipeline.MsgHub.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize a MsgHub context manager.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>participants</strong> (<cite>list[AgentBase]</cite>) -- A list of agents that participate in the MsgHub.</p></li>
+<li><p><strong>None</strong><strong>)</strong> (<em>announcement （list</em><em>[</em><a class="reference internal" href="agentscope.message.html#agentscope.message.Msg" title="agentscope.message.Msg"><em>Msg</em></a><em>] </em><em>| </em><a class="reference internal" href="agentscope.message.html#agentscope.message.Msg" title="agentscope.message.Msg"><em>Msg</em></a><em> |</em>) -- The message that will be broadcast to all participants when
+entering the MsgHub.</p></li>
+<li><p><strong>enable_auto_broadcast</strong> (<cite>bool</cite>, defaults to <cite>True</cite>) -- Whether to enable automatic broadcasting of the replied
+message from any participant to all other participants. If
+disabled, the MsgHub will only serve as a manual message
+broadcaster with the <cite>announcement</cite> argument and the
+<cite>broadcast()</cite> method.</p></li>
+<li><p><strong>name</strong> (<cite>str | None</cite>) -- The name of this MsgHub. If not provided, a random ID
+will be generated.</p></li>
+<li><p><strong>announcement</strong> (<a class="reference internal" href="agentscope.message.html#agentscope.message.Msg" title="agentscope.message._message_base.Msg"><em>Msg</em></a><em> | </em><em>list</em><em>[</em><a class="reference internal" href="agentscope.message.html#agentscope.message.Msg" title="agentscope.message._message_base.Msg"><em>Msg</em></a><em>] </em><em>| </em><em>None</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.pipeline.MsgHub.add">
+<span class="sig-name descname"><span class="pre">add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">new_participant</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/pipeline/_msghub.html#MsgHub.add"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.pipeline.MsgHub.add" title="Link to this definition">¶</a></dt>
+<dd><p>Add new participant into this hub</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>new_participant</strong> (<em>list</em><em>[</em><a class="reference internal" href="agentscope.agent.html#agentscope.agent.AgentBase" title="agentscope.agent._agent_base.AgentBase"><em>AgentBase</em></a><em>] </em><em>| </em><a class="reference internal" href="agentscope.agent.html#agentscope.agent.AgentBase" title="agentscope.agent._agent_base.AgentBase"><em>AgentBase</em></a>)</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.pipeline.MsgHub.delete">
+<span class="sig-name descname"><span class="pre">delete</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">participant</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/pipeline/_msghub.html#MsgHub.delete"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.pipeline.MsgHub.delete" title="Link to this definition">¶</a></dt>
+<dd><p>Delete agents from participant.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>participant</strong> (<em>list</em><em>[</em><a class="reference internal" href="agentscope.agent.html#agentscope.agent.AgentBase" title="agentscope.agent._agent_base.AgentBase"><em>AgentBase</em></a><em>] </em><em>| </em><a class="reference internal" href="agentscope.agent.html#agentscope.agent.AgentBase" title="agentscope.agent._agent_base.AgentBase"><em>AgentBase</em></a>)</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.pipeline.MsgHub.broadcast">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">broadcast</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msg</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/pipeline/_msghub.html#MsgHub.broadcast"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.pipeline.MsgHub.broadcast" title="Link to this definition">¶</a></dt>
+<dd><p>Broadcast the message to all participants.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>msg</strong> (<cite>list[Msg] | Msg</cite>) -- Message(s) to be broadcast among all participants.</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.pipeline.MsgHub.set_auto_broadcast">
+<span class="sig-name descname"><span class="pre">set_auto_broadcast</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">enable</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/pipeline/_msghub.html#MsgHub.set_auto_broadcast"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.pipeline.MsgHub.set_auto_broadcast" title="Link to this definition">¶</a></dt>
+<dd><p>Enable automatic broadcasting of the replied message from any
+participant to all other participants.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>enable</strong> (<cite>bool</cite>) -- Whether to enable automatic broadcasting. If disabled, the
+MsgHub will only serve as a manual message broadcaster with
+the <cite>announcement</cite> argument and the <cite>broadcast()</cite> method.</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.pipeline.SequentialPipeline">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">SequentialPipeline</span></span><a class="reference internal" href="../_modules/agentscope/pipeline/_class.html#SequentialPipeline"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.pipeline.SequentialPipeline" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>An async sequential pipeline class, which executes a sequence of
+agents sequentially. Compared with functional pipeline, this class
+can be re-used.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.pipeline.SequentialPipeline.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">agents</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/pipeline/_class.html#SequentialPipeline.__init__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.pipeline.SequentialPipeline.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize a sequential pipeline class</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>agents</strong> (<cite>list[AgentBase]</cite>) -- A list of agents.</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.pipeline.SequentialPipeline.__call__">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/pipeline/_class.html#SequentialPipeline.__call__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.pipeline.SequentialPipeline.__call__" title="Link to this definition">¶</a></dt>
+<dd><p>Execute the sequential pipeline</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>msg</strong> (<cite>Msg | list[Msg] | None</cite>, defaults to <cite>None</cite>) -- The initial input that will be passed to the first agent.</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="agentscope.message.html#agentscope.message.Msg" title="agentscope.message._message_base.Msg"><em>Msg</em></a> | list[<a class="reference internal" href="agentscope.message.html#agentscope.message.Msg" title="agentscope.message._message_base.Msg"><em>Msg</em></a>] | None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="agentscope.pipeline.sequential_pipeline">
+<em class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">sequential_pipeline</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">agents</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">msg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/pipeline/_functional.html#sequential_pipeline"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.pipeline.sequential_pipeline" title="Link to this definition">¶</a></dt>
+<dd><p>An async syntactic sugar pipeline that executes a sequence of agents
+sequentially. The output of the previous agent will be passed as the
+input to the next agent. The final output will be the output of the
+last agent.</p>
+<p class="rubric">示例</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">agent1</span> <span class="o">=</span> <span class="n">ReActAgent</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+<span class="n">agent2</span> <span class="o">=</span> <span class="n">ReActAgent</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+<span class="n">agent3</span> <span class="o">=</span> <span class="n">ReActAgent</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+
+<span class="n">msg_input</span> <span class="o">=</span> <span class="n">Msg</span><span class="p">(</span><span class="s2">"user"</span><span class="p">,</span> <span class="s2">"Hello"</span><span class="p">,</span> <span class="s2">"user"</span><span class="p">)</span>
+
+<span class="n">msg_output</span> <span class="o">=</span> <span class="k">await</span> <span class="n">sequential_pipeline</span><span class="p">(</span>
+    <span class="p">[</span><span class="n">agent1</span><span class="p">,</span> <span class="n">agent2</span><span class="p">,</span> <span class="n">agent3</span><span class="p">],</span>
+    <span class="n">msg_input</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>agents</strong> (<cite>list[AgentBase]</cite>) -- A list of agents.</p></li>
+<li><p><strong>msg</strong> (<cite>Msg | list[Msg] | None</cite>, defaults to <cite>None</cite>) -- The initial input that will be passed to the first agent.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回<span class="colon">:</span></dt>
+<dd class="field-even"><p>The output of the last agent in the sequence.</p>
+</dd>
+<dt class="field-odd">返回类型<span class="colon">:</span></dt>
+<dd class="field-odd"><p><cite>Msg | list[Msg] | None</cite></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.pipeline.FanoutPipeline">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">FanoutPipeline</span></span><a class="reference internal" href="../_modules/agentscope/pipeline/_class.html#FanoutPipeline"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.pipeline.FanoutPipeline" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>An async fanout pipeline class, which distributes the same input to
+multiple agents. Compared with functional pipeline, this class can be
+re-used and configured with default parameters.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.pipeline.FanoutPipeline.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">agents</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_gather</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/pipeline/_class.html#FanoutPipeline.__init__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.pipeline.FanoutPipeline.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize a fanout pipeline class</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>agents</strong> (<cite>list[AgentBase]</cite>) -- A list of agents to execute.</p></li>
+<li><p><strong>enable_gather</strong> (<cite>bool</cite>, defaults to <cite>True</cite>) -- Whether to execute agents concurrently
+using <cite>asyncio.gather()</cite>. If False, agents are executed
+sequentially.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.pipeline.FanoutPipeline.__call__">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">msg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/pipeline/_class.html#FanoutPipeline.__call__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.pipeline.FanoutPipeline.__call__" title="Link to this definition">¶</a></dt>
+<dd><p>Execute the fanout pipeline</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>msg</strong> (<cite>Msg | list[Msg] | None</cite>, defaults to <cite>None</cite>) -- The input message that will be distributed to all agents.</p></li>
+<li><p><strong>**kwargs</strong> (<cite>Any</cite>) -- Additional keyword arguments passed to each agent during
+execution.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回<span class="colon">:</span></dt>
+<dd class="field-even"><p>A list of output messages from all agents.</p>
+</dd>
+<dt class="field-odd">返回类型<span class="colon">:</span></dt>
+<dd class="field-odd"><p><cite>list[Msg]</cite></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="agentscope.pipeline.fanout_pipeline">
+<em class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">fanout_pipeline</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">agents</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">msg</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable_gather</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/pipeline/_functional.html#fanout_pipeline"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.pipeline.fanout_pipeline" title="Link to this definition">¶</a></dt>
+<dd><p>A fanout pipeline that distributes the same input to multiple agents.
+This pipeline sends the same message (or a deep copy of it) to all agents
+and collects their responses. Agents can be executed either concurrently
+using asyncio.gather() or sequentially depending on the enable_gather
+parameter.</p>
+<p class="rubric">示例</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">agent1</span> <span class="o">=</span> <span class="n">ReActAgent</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+<span class="n">agent2</span> <span class="o">=</span> <span class="n">ReActAgent</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+<span class="n">agent3</span> <span class="o">=</span> <span class="n">ReActAgent</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+
+<span class="n">msg_input</span> <span class="o">=</span> <span class="n">Msg</span><span class="p">(</span><span class="s2">"user"</span><span class="p">,</span> <span class="s2">"Hello"</span><span class="p">,</span> <span class="s2">"user"</span><span class="p">)</span>
+
+<span class="c1"># Concurrent execution (default)</span>
+<span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">fanout_pipeline</span><span class="p">(</span>
+    <span class="p">[</span><span class="n">agent1</span><span class="p">,</span> <span class="n">agent2</span><span class="p">,</span> <span class="n">agent3</span><span class="p">],</span>
+    <span class="n">msg_input</span>
+<span class="p">)</span>
+
+<span class="c1"># Sequential execution</span>
+<span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">fanout_pipeline</span><span class="p">(</span>
+    <span class="p">[</span><span class="n">agent1</span><span class="p">,</span> <span class="n">agent2</span><span class="p">,</span> <span class="n">agent3</span><span class="p">],</span>
+    <span class="n">msg_input</span><span class="p">,</span>
+    <span class="n">enable_gather</span><span class="o">=</span><span class="kc">False</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>agents</strong> (<cite>list[AgentBase]</cite>) -- A list of agents.</p></li>
+<li><p><strong>msg</strong> (<cite>Msg | list[Msg] | None</cite>, defaults to <cite>None</cite>) -- The initial input that will be passed to all agents.</p></li>
+<li><p><strong>enable_gather</strong> (<cite>bool</cite>, defaults to <cite>True</cite>) -- Whether to execute agents concurrently using <cite>asyncio.gather()</cite>.
+If False, agents are executed sequentially.</p></li>
+<li><p><strong>**kwargs</strong> (<cite>Any</cite>) -- Additional keyword arguments passed to each agent during execution.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回<span class="colon">:</span></dt>
+<dd class="field-even"><p>A list of response messages from each agent.</p>
+</dd>
+<dt class="field-odd">返回类型<span class="colon">:</span></dt>
+<dd class="field-odd"><p><cite>list[Msg]</cite></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="agentscope.pipeline.stream_printing_messages">
+<em class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">stream_printing_messages</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">agents</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coroutine_task</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end_signal</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'[END]'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/pipeline/_functional.html#stream_printing_messages"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.pipeline.stream_printing_messages" title="Link to this definition">¶</a></dt>
+<dd><p>This pipeline will gather the printing messages from agents when
+execute the given coroutine task, and yield them one by one.
+Only the messages that are printed by <cite>await self.print(msg)</cite> in the agent
+will be forwarded to the message queue and yielded by this pipeline.</p>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>The boolean in the yielded tuple indicates whether the message
+is the last <strong>chunk</strong> for a streaming message, not the last message
+returned by the agent. That means, there'll be multiple tuples with
+<cite>is_last_chunk=True</cite> if the agent prints multiple messages.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>The messages with the same <code class="docutils literal notranslate"><span class="pre">id</span></code> is considered as the same
+message, e.g., the chunks of a streaming message.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>agents</strong> (<cite>list[AgentBase]</cite>) -- A list of agents whose printing messages will be gathered and
+yielded.</p></li>
+<li><p><strong>coroutine_task</strong> (<cite>Coroutine</cite>) -- The coroutine task to be executed. This task should involve the
+execution of the provided agents, so that their printing messages
+can be captured and yielded.</p></li>
+<li><p><strong>end_signal</strong> (<cite>str</cite>, defaults to <cite>"[END]"</cite>) -- A special signal to indicate the end of message streaming. When
+this signal is received from the message queue, the generator will
+stop yielding messages and exit the loop.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回<span class="colon">:</span></dt>
+<dd class="field-even"><p>An async generator that yields tuples of (message, is_last_chunk).
+The <cite>is_last_chunk</cite> boolean indicates whether the message is the
+last chunk in a streaming message.</p>
+</dd>
+<dt class="field-odd">返回类型<span class="colon">:</span></dt>
+<dd class="field-odd"><p><cite>AsyncGenerator[Tuple[Msg, bool], None]</cite></p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+        

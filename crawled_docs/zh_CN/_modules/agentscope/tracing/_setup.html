@@ -1,0 +1,35 @@
+<!-- Title: agentscope.tracing._setup - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/tracing/_setup.html -->
+
+          <h1>agentscope.tracing._setup 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The tracing interface class in agentscope."""</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">agentscope</span><span class="w"> </span><span class="kn">import</span> <span class="n">_config</span>
+
+
+<div class="viewcode-block" id="setup_tracing">
+<a class="viewcode-back" href="../../../api/agentscope.tracing.html#agentscope.tracing.setup_tracing">[文档]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">setup_tracing</span><span class="p">(</span><span class="n">endpoint</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Set up the AgentScope tracing by configuring the endpoint URL.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        endpoint (`str`):</span>
+<span class="sd">            The endpoint URL for the tracing exporter.</span>
+<span class="sd">    """</span>
+    <span class="c1"># Lazy import</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">opentelemetry.sdk.trace</span><span class="w"> </span><span class="kn">import</span> <span class="n">TracerProvider</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">opentelemetry.sdk.trace.export</span><span class="w"> </span><span class="kn">import</span> <span class="n">BatchSpanProcessor</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">opentelemetry.exporter.otlp.proto.http.trace_exporter</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+        <span class="n">OTLPSpanExporter</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">opentelemetry</span><span class="w"> </span><span class="kn">import</span> <span class="n">trace</span>
+
+    <span class="n">tracer_provider</span> <span class="o">=</span> <span class="n">TracerProvider</span><span class="p">()</span>
+    <span class="n">exporter</span> <span class="o">=</span> <span class="n">OTLPSpanExporter</span><span class="p">(</span><span class="n">endpoint</span><span class="o">=</span><span class="n">endpoint</span><span class="p">)</span>
+    <span class="n">span_processor</span> <span class="o">=</span> <span class="n">BatchSpanProcessor</span><span class="p">(</span><span class="n">exporter</span><span class="p">)</span>
+    <span class="n">tracer_provider</span><span class="o">.</span><span class="n">add_span_processor</span><span class="p">(</span><span class="n">span_processor</span><span class="p">)</span>
+    <span class="n">trace</span><span class="o">.</span><span class="n">set_tracer_provider</span><span class="p">(</span><span class="n">tracer_provider</span><span class="p">)</span>
+
+    <span class="n">_config</span><span class="o">.</span><span class="n">trace_enabled</span> <span class="o">=</span> <span class="kc">True</span></div>
+
+</pre></div>
+        

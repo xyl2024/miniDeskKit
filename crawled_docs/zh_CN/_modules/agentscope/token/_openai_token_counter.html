@@ -1,0 +1,398 @@
+<!-- Title: agentscope.token._openai_token_counter - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/token/_openai_token_counter.html -->
+
+          <h1>agentscope.token._openai_token_counter 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The OpenAI token counting class. The token calculation of vision models</span>
+<span class="sd">follows</span>
+<span class="sd">https://platform.openai.com/docs/guides/images-vision?api-mode=chat#calculating-costs</span>
+<span class="sd">"""</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">base64</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">io</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">http</span><span class="w"> </span><span class="kn">import</span> <span class="n">HTTPStatus</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">requests</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">._token_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">TokenCounterBase</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_calculate_tokens_for_high_quality_image</span><span class="p">(</span>
+    <span class="n">base_tokens</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">tile_tokens</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">width</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">height</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Calculate the number of tokens for a high-quality image, which follows</span>
+<span class="sd">    https://platform.openai.com/docs/guides/images-vision?api-mode=chat#calculating-costs</span>
+<span class="sd">    """</span>
+    <span class="c1"># Step1: scale to fit within a 2048x2048 box</span>
+    <span class="k">if</span> <span class="n">width</span> <span class="o">&gt;</span> <span class="mi">2048</span> <span class="ow">or</span> <span class="n">height</span> <span class="o">&gt;</span> <span class="mi">2048</span><span class="p">:</span>
+        <span class="n">ratio</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="mi">2048</span> <span class="o">/</span> <span class="n">width</span><span class="p">,</span> <span class="mi">2048</span> <span class="o">/</span> <span class="n">height</span><span class="p">)</span>
+        <span class="n">width</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">width</span> <span class="o">*</span> <span class="n">ratio</span><span class="p">)</span>
+        <span class="n">height</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">height</span> <span class="o">*</span> <span class="n">ratio</span><span class="p">)</span>
+
+    <span class="c1"># Step2: Scale to make the shortest side 768 pixels</span>
+    <span class="n">shortest_side</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">shortest_side</span> <span class="o">!=</span> <span class="mi">768</span><span class="p">:</span>
+        <span class="n">ratio</span> <span class="o">=</span> <span class="mi">768</span> <span class="o">/</span> <span class="n">shortest_side</span>
+        <span class="n">width</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">width</span> <span class="o">*</span> <span class="n">ratio</span><span class="p">)</span>
+        <span class="n">height</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">height</span> <span class="o">*</span> <span class="n">ratio</span><span class="p">)</span>
+
+    <span class="c1"># Step3: Calculate how many 512px tiles are needed</span>
+    <span class="n">tiles_width</span> <span class="o">=</span> <span class="p">(</span><span class="n">width</span> <span class="o">+</span> <span class="mi">511</span><span class="p">)</span> <span class="o">//</span> <span class="mi">512</span>
+    <span class="n">tiles_height</span> <span class="o">=</span> <span class="p">(</span><span class="n">height</span> <span class="o">+</span> <span class="mi">511</span><span class="p">)</span> <span class="o">//</span> <span class="mi">512</span>
+    <span class="n">total_tiles</span> <span class="o">=</span> <span class="n">tiles_width</span> <span class="o">*</span> <span class="n">tiles_height</span>
+
+    <span class="c1"># Step4: Calculate the total tokens</span>
+    <span class="n">total_tokens</span> <span class="o">=</span> <span class="p">(</span><span class="n">total_tiles</span> <span class="o">*</span> <span class="n">tile_tokens</span><span class="p">)</span> <span class="o">+</span> <span class="n">base_tokens</span>
+
+    <span class="k">return</span> <span class="n">total_tokens</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_size_of_image_url</span><span class="p">(</span><span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Get the size of an image from the given URL.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        url (`str`):</span>
+<span class="sd">            A web URL or base64 encoded image URL.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        `tuple[int, int]`:</span>
+<span class="sd">            A tuple containing the width and height of the image.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="n">url</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"data:image/"</span><span class="p">):</span>
+        <span class="n">base64_data</span> <span class="o">=</span> <span class="n">url</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">"base64,"</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">image_data</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">b64decode</span><span class="p">(</span><span class="n">base64_data</span><span class="p">)</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">response</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="n">HTTPStatus</span><span class="o">.</span><span class="n">OK</span><span class="p">:</span>
+                <span class="k">break</span>
+        <span class="n">response</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
+        <span class="n">image_data</span> <span class="o">=</span> <span class="n">response</span><span class="o">.</span><span class="n">content</span>
+
+    <span class="kn">from</span><span class="w"> </span><span class="nn">PIL</span><span class="w"> </span><span class="kn">import</span> <span class="n">Image</span>
+
+    <span class="n">image</span> <span class="o">=</span> <span class="n">Image</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">io</span><span class="o">.</span><span class="n">BytesIO</span><span class="p">(</span><span class="n">image_data</span><span class="p">))</span>
+    <span class="n">width</span><span class="p">,</span> <span class="n">height</span> <span class="o">=</span> <span class="n">image</span><span class="o">.</span><span class="n">size</span>
+    <span class="k">return</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_base_and_tile_tokens</span><span class="p">(</span><span class="n">model_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""Get the base and tile tokens for the given OpenAI model.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model_name (`str`):</span>
+<span class="sd">            The name of the model.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        `tuple[int, int]`:</span>
+<span class="sd">            A tuple containing the base tokens and tile tokens.</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="nb">any</span><span class="p">(</span>
+        <span class="n">model_name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">_</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="p">[</span>
+            <span class="s2">"gpt-4o"</span><span class="p">,</span>
+            <span class="s2">"gpt-4.1"</span><span class="p">,</span>
+            <span class="s2">"gpt-4.5"</span><span class="p">,</span>
+        <span class="p">]</span>
+    <span class="p">):</span>
+        <span class="k">return</span> <span class="mi">85</span><span class="p">,</span> <span class="mi">170</span>
+
+    <span class="k">if</span> <span class="nb">any</span><span class="p">(</span>
+        <span class="n">model_name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">_</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="p">[</span>
+            <span class="s2">"o1"</span><span class="p">,</span>
+            <span class="s2">"o1-pro"</span><span class="p">,</span>
+            <span class="s2">"o3"</span><span class="p">,</span>
+        <span class="p">]</span>
+    <span class="p">):</span>
+        <span class="k">return</span> <span class="mi">75</span><span class="p">,</span> <span class="mi">150</span>
+
+    <span class="k">if</span> <span class="n">model_name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"4o-mini"</span><span class="p">):</span>
+        <span class="k">return</span> <span class="mi">2833</span><span class="p">,</span> <span class="mi">5667</span>
+
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">"Unsupported OpenAI model </span><span class="si">{</span><span class="n">model_name</span><span class="si">}</span><span class="s2"> for token counting. "</span><span class="p">,</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_calculate_tokens_for_tools</span><span class="p">(</span>
+    <span class="n">model_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">tools</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">],</span>
+    <span class="n">encoding</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Calculate the tokens for the given tools JSON schema, which follows the</span>
+<span class="sd">    OpenAI cookbook</span>
+<span class="sd">    https://github.com/openai/openai-cookbook/blob/6dfb7920b59a45291f7df4ea41338d1faf9ef1e8/examples/How_to_count_tokens_with_tiktoken.ipynb</span>
+<span class="sd">    """</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">tools</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mi">0</span>
+
+    <span class="n">func_init</span> <span class="o">=</span> <span class="mi">10</span>
+    <span class="n">prop_init</span> <span class="o">=</span> <span class="mi">3</span>
+    <span class="n">prop_key</span> <span class="o">=</span> <span class="mi">3</span>
+    <span class="n">enum_init</span> <span class="o">=</span> <span class="o">-</span><span class="mi">3</span>
+    <span class="n">enum_item</span> <span class="o">=</span> <span class="mi">3</span>
+    <span class="n">func_end</span> <span class="o">=</span> <span class="mi">12</span>
+
+    <span class="k">if</span> <span class="n">model_name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"gpt-4o"</span><span class="p">):</span>
+        <span class="n">func_init</span> <span class="o">=</span> <span class="mi">7</span>
+
+    <span class="n">func_token_count</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">tools</span><span class="p">:</span>
+        <span class="n">func_token_count</span> <span class="o">+=</span> <span class="n">func_init</span>
+        <span class="n">function</span> <span class="o">=</span> <span class="n">f</span><span class="p">[</span><span class="s2">"function"</span><span class="p">]</span>
+        <span class="n">f_name</span> <span class="o">=</span> <span class="n">function</span><span class="p">[</span><span class="s2">"name"</span><span class="p">]</span>
+        <span class="n">f_desc</span> <span class="o">=</span> <span class="n">function</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"description"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span><span class="o">.</span><span class="n">removesuffix</span><span class="p">(</span><span class="s2">"."</span><span class="p">)</span>
+        <span class="n">func_token_count</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">encoding</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">f_name</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">f_desc</span><span class="si">}</span><span class="s2">"</span><span class="p">))</span>
+
+        <span class="n">properties</span> <span class="o">=</span> <span class="n">function</span><span class="p">[</span><span class="s2">"parameters"</span><span class="p">][</span><span class="s2">"properties"</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">properties</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">func_token_count</span> <span class="o">+=</span> <span class="n">prop_init</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">properties</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="n">func_token_count</span> <span class="o">+=</span> <span class="n">prop_key</span>
+                <span class="n">p_name</span> <span class="o">=</span> <span class="n">key</span>
+                <span class="n">p_type</span> <span class="o">=</span> <span class="n">properties</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="s2">"type"</span><span class="p">]</span>
+                <span class="n">p_desc</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">properties</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"description"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span><span class="o">.</span><span class="n">removesuffix</span><span class="p">(</span><span class="s2">"."</span><span class="p">)</span>
+                <span class="p">)</span>
+
+                <span class="k">if</span> <span class="s2">"enum"</span> <span class="ow">in</span> <span class="n">properties</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                    <span class="n">func_token_count</span> <span class="o">+=</span> <span class="n">enum_init</span>
+                    <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">properties</span><span class="p">[</span><span class="n">key</span><span class="p">][</span><span class="s2">"enum"</span><span class="p">]:</span>
+                        <span class="n">func_token_count</span> <span class="o">+=</span> <span class="n">enum_item</span>
+                        <span class="n">func_token_count</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">encoding</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">item</span><span class="p">))</span>
+
+                <span class="n">func_token_count</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span>
+                    <span class="n">encoding</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">p_name</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">p_type</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">p_desc</span><span class="si">}</span><span class="s2">"</span><span class="p">),</span>
+                <span class="p">)</span>
+    <span class="n">func_token_count</span> <span class="o">+=</span> <span class="n">func_end</span>
+
+    <span class="k">return</span> <span class="n">func_token_count</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_count_content_tokens_for_openai_vision_model</span><span class="p">(</span>
+    <span class="n">model_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">content</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">],</span>
+    <span class="n">encoding</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Yield the number of tokens for the content of an OpenAI vision model.</span>
+<span class="sd">    Implemented according to https://platform.openai.com/docs/guides/vision.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model_name (`str`):</span>
+<span class="sd">            The name of the model.</span>
+<span class="sd">        content (`list[dict]`):</span>
+<span class="sd">            A list of dictionaries.</span>
+<span class="sd">        encoding (`Any`):</span>
+<span class="sd">            The encoding object.</span>
+
+<span class="sd">    Example:</span>
+<span class="sd">        .. code-block:: python</span>
+
+<span class="sd">            _yield_tokens_for_openai_vision_model(</span>
+<span class="sd">                [</span>
+<span class="sd">                    {</span>
+<span class="sd">                        "type": "text",</span>
+<span class="sd">                        "text": "xxx",</span>
+<span class="sd">                    },</span>
+<span class="sd">                    {</span>
+<span class="sd">                        "type": "image_url",</span>
+<span class="sd">                        "image_url": {</span>
+<span class="sd">                            "url": "xxx",</span>
+<span class="sd">                            "detail": "auto",</span>
+<span class="sd">                        }</span>
+<span class="sd">                    },</span>
+<span class="sd">                    # ...</span>
+<span class="sd">                ]</span>
+<span class="sd">            )</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        `Generator[int, None, None]`: Generate the number of tokens in a</span>
+<span class="sd">        generator.</span>
+<span class="sd">    """</span>
+
+    <span class="n">num_tokens</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">content</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="nb">dict</span><span class="p">),</span> <span class="p">(</span>
+            <span class="s2">"The content field should be a list of dictionaries, but got "</span>
+            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">item</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span>
+        <span class="p">)</span>
+
+        <span class="n">typ</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"type"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">typ</span> <span class="o">==</span> <span class="s2">"text"</span><span class="p">:</span>
+            <span class="n">num_tokens</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span>
+                <span class="n">encoding</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="s2">"text"</span><span class="p">]),</span>
+            <span class="p">)</span>
+
+        <span class="k">elif</span> <span class="n">typ</span> <span class="o">==</span> <span class="s2">"image_url"</span><span class="p">:</span>
+            <span class="n">width</span><span class="p">,</span> <span class="n">height</span> <span class="o">=</span> <span class="n">_get_size_of_image_url</span><span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="s2">"image_url"</span><span class="p">][</span><span class="s2">"url"</span><span class="p">])</span>
+
+            <span class="c1"># Different counting logic for different models</span>
+            <span class="k">if</span> <span class="nb">any</span><span class="p">(</span>
+                <span class="n">model_name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">_</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="p">[</span>
+                    <span class="s2">"gpt-4.1-mini"</span><span class="p">,</span>
+                    <span class="s2">"gpt-4.1-nano"</span><span class="p">,</span>
+                    <span class="s2">"o4-mini"</span><span class="p">,</span>
+                <span class="p">]</span>
+            <span class="p">):</span>
+                <span class="n">patches</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span>
+                    <span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">width</span> <span class="o">/</span> <span class="mi">32</span><span class="p">)</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">height</span> <span class="o">/</span> <span class="mi">32</span><span class="p">),</span>
+                    <span class="mi">1536</span><span class="p">,</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="n">model_name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"gpt-4.1-mini"</span><span class="p">):</span>
+                    <span class="n">num_tokens</span> <span class="o">+=</span> <span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">patches</span> <span class="o">*</span> <span class="mf">1.62</span><span class="p">)</span>
+
+                <span class="k">elif</span> <span class="n">model_name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"gpt-4.1-nano"</span><span class="p">):</span>
+                    <span class="n">num_tokens</span> <span class="o">+=</span> <span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">patches</span> <span class="o">*</span> <span class="mf">2.46</span><span class="p">)</span>
+
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">num_tokens</span> <span class="o">+=</span> <span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">patches</span> <span class="o">*</span> <span class="mf">1.72</span><span class="p">)</span>
+
+            <span class="k">elif</span> <span class="nb">any</span><span class="p">(</span>
+                <span class="n">model_name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">_</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="p">[</span>
+                    <span class="s2">"gpt-4o"</span><span class="p">,</span>
+                    <span class="s2">"gpt-4.1"</span><span class="p">,</span>
+                    <span class="s2">"gpt-4o-mini"</span><span class="p">,</span>
+                    <span class="s2">"o"</span><span class="p">,</span>
+                <span class="p">]</span>
+            <span class="p">):</span>
+                <span class="n">base_tokens</span><span class="p">,</span> <span class="n">tile_tokens</span> <span class="o">=</span> <span class="n">_get_base_and_tile_tokens</span><span class="p">(</span>
+                    <span class="n">model_name</span><span class="p">,</span>
+                <span class="p">)</span>
+
+                <span class="c1"># By default, we use high here to avoid undercounting tokens</span>
+                <span class="n">detail</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"image_url"</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"detail"</span><span class="p">,</span> <span class="s2">"high"</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">detail</span> <span class="o">==</span> <span class="s2">"low"</span><span class="p">:</span>
+                    <span class="n">num_tokens</span> <span class="o">+=</span> <span class="n">base_tokens</span>
+
+                <span class="k">elif</span> <span class="n">detail</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"auto"</span><span class="p">,</span> <span class="s2">"high"</span><span class="p">]:</span>
+                    <span class="n">num_tokens</span> <span class="o">+=</span> <span class="n">_calculate_tokens_for_high_quality_image</span><span class="p">(</span>
+                        <span class="n">base_tokens</span><span class="p">,</span>
+                        <span class="n">tile_tokens</span><span class="p">,</span>
+                        <span class="n">width</span><span class="p">,</span>
+                        <span class="n">height</span><span class="p">,</span>
+                    <span class="p">)</span>
+
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">"Unsupported image detail </span><span class="si">{</span><span class="n">detail</span><span class="si">}</span><span class="s2">, expected "</span>
+                        <span class="sa">f</span><span class="s2">"one of ['low', 'auto', 'high']."</span><span class="p">,</span>
+                    <span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"The type field currently only supports 'text' "</span>
+                <span class="sa">f</span><span class="s2">"and 'image_url', but got </span><span class="si">{</span><span class="n">typ</span><span class="si">}</span><span class="s2">."</span><span class="p">,</span>
+            <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">num_tokens</span>
+
+
+<div class="viewcode-block" id="OpenAITokenCounter">
+<a class="viewcode-back" href="../../../api/agentscope.token.html#agentscope.token.OpenAITokenCounter">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">OpenAITokenCounter</span><span class="p">(</span><span class="n">TokenCounterBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The OpenAI token counting class."""</span>
+
+<div class="viewcode-block" id="OpenAITokenCounter.__init__">
+<a class="viewcode-back" href="../../../api/agentscope.token.html#agentscope.token.OpenAITokenCounter.__init__">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize the OpenAI token counter.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            model_name (`str`):</span>
+<span class="sd">                The name of the OpenAI model to use for token counting.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span> <span class="o">=</span> <span class="n">model_name</span></div>
+
+
+<div class="viewcode-block" id="OpenAITokenCounter.count">
+<a class="viewcode-back" href="../../../api/agentscope.token.html#agentscope.token.OpenAITokenCounter.count">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">count</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">messages</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span>
+        <span class="n">tools</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Count the token numbers of the given messages.</span>
+
+<span class="sd">        .. note:: OpenAI hasn't provided an official guide for counting tokens</span>
+<span class="sd">         with tools. If you have any ideas, please open an issue on</span>
+<span class="sd">         our GitHub repository.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            messages (`list[dict[str, Any]]`):</span>
+<span class="sd">                A list of dictionaries, where `role` and `content` fields are</span>
+<span class="sd">                required.</span>
+<span class="sd">            tools (`list[dict]`, defaults to `None`):</span>
+<span class="sd">        """</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">tiktoken</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">encoding</span> <span class="o">=</span> <span class="n">tiktoken</span><span class="o">.</span><span class="n">encoding_for_model</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+            <span class="n">encoding</span> <span class="o">=</span> <span class="n">tiktoken</span><span class="o">.</span><span class="n">get_encoding</span><span class="p">(</span><span class="s2">"o200k_base"</span><span class="p">)</span>
+
+        <span class="n">tokens_per_message</span> <span class="o">=</span> <span class="mi">3</span>
+        <span class="n">tokens_per_name</span> <span class="o">=</span> <span class="mi">1</span>
+
+        <span class="c1"># every reply is primed with &lt;|start|&gt;assistant&lt;|message|&gt;</span>
+        <span class="n">num_tokens</span> <span class="o">=</span> <span class="mi">3</span>
+        <span class="k">for</span> <span class="n">message</span> <span class="ow">in</span> <span class="n">messages</span><span class="p">:</span>
+            <span class="n">num_tokens</span> <span class="o">+=</span> <span class="n">tokens_per_message</span>
+            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">message</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="c1"># Considering vision models</span>
+                <span class="k">if</span> <span class="n">key</span> <span class="o">==</span> <span class="s2">"content"</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+                    <span class="n">num_tokens</span> <span class="o">+=</span> <span class="p">(</span>
+                        <span class="n">_count_content_tokens_for_openai_vision_model</span><span class="p">(</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">,</span>
+                            <span class="n">value</span><span class="p">,</span>
+                            <span class="n">encoding</span><span class="p">,</span>
+                        <span class="p">)</span>
+                    <span class="p">)</span>
+
+                <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+                    <span class="n">num_tokens</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">encoding</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">value</span><span class="p">))</span>
+
+                <span class="k">elif</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">continue</span>
+
+                <span class="k">elif</span> <span class="n">key</span> <span class="o">==</span> <span class="s2">"tool_calls"</span><span class="p">:</span>
+                    <span class="c1"># TODO: This is only a temporary solution, since OpenAI</span>
+                    <span class="c1"># hasn't provided an official guide for counting tokens</span>
+                    <span class="c1"># with tool results.</span>
+                    <span class="n">num_tokens</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span>
+                        <span class="n">encoding</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span>
+                            <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">ensure_ascii</span><span class="o">=</span><span class="kc">False</span><span class="p">),</span>
+                        <span class="p">),</span>
+                    <span class="p">)</span>
+
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">"Invalid type </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="si">}</span><span class="s2"> in the </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2"> field: "</span>
+                        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                    <span class="p">)</span>
+
+                <span class="k">if</span> <span class="n">key</span> <span class="o">==</span> <span class="s2">"name"</span><span class="p">:</span>
+                    <span class="n">num_tokens</span> <span class="o">+=</span> <span class="n">tokens_per_name</span>
+
+        <span class="k">if</span> <span class="n">tools</span><span class="p">:</span>
+            <span class="n">num_tokens</span> <span class="o">+=</span> <span class="n">_calculate_tokens_for_tools</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">model_name</span><span class="p">,</span>
+                <span class="n">tools</span><span class="p">,</span>
+                <span class="n">encoding</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">num_tokens</span></div>
+</div>
+
+</pre></div>
+        

@@ -1,0 +1,882 @@
+<!-- Title: agentscope.plan._plan_notebook - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/plan/_plan_notebook.html -->
+
+          <h1>agentscope.plan._plan_notebook 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The plan notebook class, used to manage the plan, providing hints and</span>
+<span class="sd">tool functions to the agent."""</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">Coroutine</span><span class="p">,</span> <span class="n">Any</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">._in_memory_storage</span><span class="w"> </span><span class="kn">import</span> <span class="n">InMemoryPlanStorage</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">._plan_model</span><span class="w"> </span><span class="kn">import</span> <span class="n">SubTask</span><span class="p">,</span> <span class="n">Plan</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">._storage_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">PlanStorageBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.._utils._common</span><span class="w"> </span><span class="kn">import</span> <span class="n">_execute_async_or_sync_func</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..message</span><span class="w"> </span><span class="kn">import</span> <span class="n">TextBlock</span><span class="p">,</span> <span class="n">Msg</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..module</span><span class="w"> </span><span class="kn">import</span> <span class="n">StateModule</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..tool</span><span class="w"> </span><span class="kn">import</span> <span class="n">ToolResponse</span>
+
+
+<div class="viewcode-block" id="DefaultPlanToHint">
+<a class="viewcode-back" href="../../../api/agentscope.plan.html#agentscope.plan.DefaultPlanToHint">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">DefaultPlanToHint</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""The default function to generate the hint message based on the current</span>
+<span class="sd">    plan to guide the agent on next steps."""</span>
+
+    <span class="n">hint_prefix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"&lt;system-hint&gt;"</span>
+    <span class="n">hint_suffix</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"&lt;/system-hint&gt;"</span>
+
+    <span class="n">no_plan</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="s2">"If the user's query is complex (e.g. programming a website, game or "</span>
+        <span class="s2">"app), or requires a long chain of steps to complete (e.g. conduct "</span>
+        <span class="s2">"research on a certain topic from different sources), you NEED to "</span>
+        <span class="s2">"create a plan first by calling 'create_plan'. Otherwise, you can "</span>
+        <span class="s2">"directly execute the user's query without planning."</span>
+    <span class="p">)</span>
+
+    <span class="n">at_the_beginning</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="s2">"The current plan:</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"```</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"</span><span class="si">{plan}</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"```</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"Your options include:</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"- Mark the first subtask as 'in_progress' by calling "</span>
+        <span class="s2">"'update_subtask_state' with subtask_idx=0 and state='in_progress', "</span>
+        <span class="s2">"and start executing it.</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"- If the first subtask is not executable, analyze why and what you "</span>
+        <span class="s2">"can do to advance the plan, e.g. ask user for more information, "</span>
+        <span class="s2">"revise the plan by calling 'revise_current_plan'.</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"- If the user asks you to do something unrelated to the plan, "</span>
+        <span class="s2">"prioritize the completion of user's query first, and then return "</span>
+        <span class="s2">"to the plan afterward.</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"- If the user no longer wants to perform the current plan, confirm "</span>
+        <span class="s2">"with the user and call the 'finish_plan' function.</span><span class="se">\n</span><span class="s2">"</span>
+    <span class="p">)</span>
+
+    <span class="n">when_a_subtask_in_progress</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="s2">"The current plan:</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"```</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"</span><span class="si">{plan}</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"```</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"Now the subtask at index </span><span class="si">{subtask_idx}</span><span class="s2">, named '</span><span class="si">{subtask_name}</span><span class="s2">', is "</span>
+        <span class="s2">"'in_progress'. Its details are as follows:</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"```</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"</span><span class="si">{subtask}</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"```</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"Your options include:</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"- Go on execute the subtask and get the outcome.</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"- Call 'finish_subtask' with the specific outcome if the subtask is "</span>
+        <span class="s2">"finished.</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"- Ask the user for more information if you need.</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"- Revise the plan by calling 'revise_current_plan' if necessary.</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"- If the user asks you to do something unrelated to the plan, "</span>
+        <span class="s2">"prioritize the completion of user's query first, and then return to "</span>
+        <span class="s2">"the plan afterward."</span>
+    <span class="p">)</span>
+
+    <span class="n">when_no_subtask_in_progress</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="s2">"The current plan:</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"```</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"</span><span class="si">{plan}</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"```</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"The first </span><span class="si">{index}</span><span class="s2"> subtasks are done, and there is no subtask "</span>
+        <span class="s2">"'in_progress'. Now Your options include:</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"- Mark the next subtask as 'in_progress' by calling "</span>
+        <span class="s2">"'update_subtask_state', and start executing it.</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"- Ask the user for more information if you need.</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"- Revise the plan by calling 'revise_current_plan' if necessary.</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"- If the user asks you to do something unrelated to the plan, "</span>
+        <span class="s2">"prioritize the completion of user's query first, and then return to "</span>
+        <span class="s2">"the plan afterward."</span>
+    <span class="p">)</span>
+
+    <span class="n">at_the_end</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="s2">"The current plan:</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"```</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"</span><span class="si">{plan}</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"```</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"All the subtasks are done. Now your options are:</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"- Finish the plan by calling 'finish_plan' with the specific "</span>
+        <span class="s2">"outcome, and summarize the whole process and outcome to the user.</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"- Revise the plan by calling 'revise_current_plan' if necessary.</span><span class="se">\n</span><span class="s2">"</span>
+        <span class="s2">"- If the user asks you to do something unrelated to the plan, "</span>
+        <span class="s2">"prioritize the completion of user's query first, and then return to "</span>
+        <span class="s2">"the plan afterward."</span>
+    <span class="p">)</span>
+
+<div class="viewcode-block" id="DefaultPlanToHint.__call__">
+<a class="viewcode-back" href="../../../api/agentscope.plan.html#agentscope.plan.DefaultPlanToHint.__call__">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">plan</span><span class="p">:</span> <span class="n">Plan</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Generate the hint message based on the input plan to guide the</span>
+<span class="sd">        agent on next steps.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            plan (`Plan | None`):</span>
+<span class="sd">                The current plan, used to generate the hint message.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `str | None`:</span>
+<span class="sd">                The generated hint message, or None if the plan is None or</span>
+<span class="sd">                there is no relevant hint.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">plan</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">hint</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">no_plan</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Count the number of subtasks in each state</span>
+            <span class="n">n_todo</span><span class="p">,</span> <span class="n">n_in_progress</span><span class="p">,</span> <span class="n">n_done</span><span class="p">,</span> <span class="n">n_abandoned</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span>
+            <span class="n">in_progress_subtask_idx</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">subtask</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">plan</span><span class="o">.</span><span class="n">subtasks</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">subtask</span><span class="o">.</span><span class="n">state</span> <span class="o">==</span> <span class="s2">"todo"</span><span class="p">:</span>
+                    <span class="n">n_todo</span> <span class="o">+=</span> <span class="mi">1</span>
+
+                <span class="k">elif</span> <span class="n">subtask</span><span class="o">.</span><span class="n">state</span> <span class="o">==</span> <span class="s2">"in_progress"</span><span class="p">:</span>
+                    <span class="n">n_in_progress</span> <span class="o">+=</span> <span class="mi">1</span>
+                    <span class="n">in_progress_subtask_idx</span> <span class="o">=</span> <span class="n">idx</span>
+
+                <span class="k">elif</span> <span class="n">subtask</span><span class="o">.</span><span class="n">state</span> <span class="o">==</span> <span class="s2">"done"</span><span class="p">:</span>
+                    <span class="n">n_done</span> <span class="o">+=</span> <span class="mi">1</span>
+
+                <span class="k">elif</span> <span class="n">subtask</span><span class="o">.</span><span class="n">state</span> <span class="o">==</span> <span class="s2">"abandoned"</span><span class="p">:</span>
+                    <span class="n">n_abandoned</span> <span class="o">+=</span> <span class="mi">1</span>
+
+            <span class="n">hint</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="k">if</span> <span class="n">n_in_progress</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">n_done</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="c1"># All subtasks are todo</span>
+                <span class="n">hint</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">at_the_beginning</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">plan</span><span class="o">=</span><span class="n">plan</span><span class="o">.</span><span class="n">to_markdown</span><span class="p">(),</span>
+                <span class="p">)</span>
+
+            <span class="k">elif</span> <span class="n">n_in_progress</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">in_progress_subtask_idx</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="c1"># One subtask is in_progress</span>
+                <span class="n">hint</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">when_a_subtask_in_progress</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">plan</span><span class="o">=</span><span class="n">plan</span><span class="o">.</span><span class="n">to_markdown</span><span class="p">(),</span>
+                    <span class="n">subtask_idx</span><span class="o">=</span><span class="n">in_progress_subtask_idx</span><span class="p">,</span>
+                    <span class="n">subtask_name</span><span class="o">=</span><span class="n">plan</span><span class="o">.</span><span class="n">subtasks</span><span class="p">[</span><span class="n">in_progress_subtask_idx</span><span class="p">]</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                    <span class="n">subtask</span><span class="o">=</span><span class="n">plan</span><span class="o">.</span><span class="n">subtasks</span><span class="p">[</span><span class="n">in_progress_subtask_idx</span><span class="p">]</span><span class="o">.</span><span class="n">to_markdown</span><span class="p">(</span>
+                        <span class="n">detailed</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                    <span class="p">),</span>
+                <span class="p">)</span>
+
+            <span class="k">elif</span> <span class="n">n_in_progress</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">n_done</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="c1"># No subtask is in_progress, and some subtasks are done</span>
+                <span class="n">hint</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">when_no_subtask_in_progress</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">plan</span><span class="o">=</span><span class="n">plan</span><span class="o">.</span><span class="n">to_markdown</span><span class="p">(),</span>
+                    <span class="n">index</span><span class="o">=</span><span class="n">n_done</span><span class="p">,</span>
+                <span class="p">)</span>
+
+            <span class="k">elif</span> <span class="n">n_done</span> <span class="o">+</span> <span class="n">n_abandoned</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">plan</span><span class="o">.</span><span class="n">subtasks</span><span class="p">):</span>
+                <span class="c1"># All subtasks are done or abandoned</span>
+                <span class="n">hint</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">at_the_end</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">plan</span><span class="o">=</span><span class="n">plan</span><span class="o">.</span><span class="n">to_markdown</span><span class="p">(),</span>
+                <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">hint</span><span class="p">:</span>
+            <span class="k">return</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">hint_prefix</span><span class="si">}{</span><span class="n">hint</span><span class="si">}{</span><span class="bp">self</span><span class="o">.</span><span class="n">hint_suffix</span><span class="si">}</span><span class="s2">"</span>
+
+        <span class="k">return</span> <span class="n">hint</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="PlanNotebook">
+<a class="viewcode-back" href="../../../api/agentscope.plan.html#agentscope.plan.PlanNotebook">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">PlanNotebook</span><span class="p">(</span><span class="n">StateModule</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The plan notebook to manage the plan, providing hints and plan related</span>
+<span class="sd">    tool functions to the agent."""</span>
+
+    <span class="n">_plan_change_hooks</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Callable</span><span class="p">[[</span><span class="s2">"PlanNotebook"</span><span class="p">,</span> <span class="n">Plan</span><span class="p">],</span> <span class="kc">None</span><span class="p">]]</span>
+<span class="w">    </span><span class="sd">"""The hooks that will be triggered when the plan is changed. For example,</span>
+<span class="sd">    used to display the plan on the frontend."""</span>
+
+    <span class="n">description</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="s2">"The plan-related tools. Activate this tool when you need to execute "</span>
+        <span class="s2">"complex task, e.g. building a website or a game. Once activated, "</span>
+        <span class="s2">"you'll enter the plan mode, where you will be guided to complete "</span>
+        <span class="s2">"the given query by creating and following a plan, and hint message "</span>
+        <span class="s2">"wrapped by &lt;system-hint&gt;&lt;/system-hint&gt; will guide you to complete "</span>
+        <span class="s2">"the task. If you think the user no longer wants to perform the "</span>
+        <span class="s2">"current task, you need to confirm with the user and call the "</span>
+        <span class="s2">"'finish_plan' function."</span>
+    <span class="p">)</span>
+
+<div class="viewcode-block" id="PlanNotebook.__init__">
+<a class="viewcode-back" href="../../../api/agentscope.plan.html#agentscope.plan.PlanNotebook.__init__">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">max_subtasks</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">plan_to_hint</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Plan</span> <span class="o">|</span> <span class="kc">None</span><span class="p">],</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">storage</span><span class="p">:</span> <span class="n">PlanStorageBase</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize the plan notebook.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            max_subtasks (`int | None`, optional):</span>
+<span class="sd">                The maximum number of subtasks in a plan.</span>
+<span class="sd">            plan_to_hint (`Callable[[Plan | None], str | None] | None`, \</span>
+<span class="sd">             optional):</span>
+<span class="sd">                The function to generate the hint message based on the</span>
+<span class="sd">                current plan. If not provided, a default `DefaultPlanToHint`</span>
+<span class="sd">                object will be used.</span>
+<span class="sd">            storage (`PlanStorageBase | None`, optional):</span>
+<span class="sd">                The plan storage. If not provided, an in-memory storage will</span>
+<span class="sd">                be used.</span>
+<span class="sd">        """</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_tasks</span> <span class="o">=</span> <span class="n">max_subtasks</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">plan_to_hint</span> <span class="o">=</span> <span class="n">plan_to_hint</span> <span class="ow">or</span> <span class="n">DefaultPlanToHint</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">storage</span> <span class="o">=</span> <span class="n">storage</span> <span class="ow">or</span> <span class="n">InMemoryPlanStorage</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">current_plan</span><span class="p">:</span> <span class="n">Plan</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_plan_change_hooks</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+
+        <span class="c1"># Register the current_plan state for state management</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">register_state</span><span class="p">(</span>
+            <span class="s2">"current_plan"</span><span class="p">,</span>
+            <span class="n">custom_to_json</span><span class="o">=</span><span class="k">lambda</span> <span class="n">_</span><span class="p">:</span> <span class="n">_</span><span class="o">.</span><span class="n">model_dump</span><span class="p">()</span> <span class="k">if</span> <span class="n">_</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">custom_from_json</span><span class="o">=</span><span class="k">lambda</span> <span class="n">_</span><span class="p">:</span> <span class="n">Plan</span><span class="o">.</span><span class="n">model_validate</span><span class="p">(</span><span class="n">_</span><span class="p">)</span> <span class="k">if</span> <span class="n">_</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="PlanNotebook.create_plan">
+<a class="viewcode-back" href="../../../api/agentscope.plan.html#agentscope.plan.PlanNotebook.create_plan">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">create_plan</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">description</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">expected_outcome</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">subtasks</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">SubTask</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ToolResponse</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Create a plan by given name and sub-tasks.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            name (`str`):</span>
+<span class="sd">                The plan name, should be concise, descriptive and not exceed</span>
+<span class="sd">                10 words.</span>
+<span class="sd">            description (`str`):</span>
+<span class="sd">                The plan description, including the constraints, target and</span>
+<span class="sd">                outcome to be achieved. The description should be clear,</span>
+<span class="sd">                specific and concise, and all the constraints, target and</span>
+<span class="sd">                outcome should be specific and measurable.</span>
+<span class="sd">            expected_outcome (`str`):</span>
+<span class="sd">                The expected outcome of the plan, which should be specific,</span>
+<span class="sd">                concrete and measurable.</span>
+<span class="sd">            subtasks (`list[SubTask]`):</span>
+<span class="sd">                A list of sequential sub-tasks that make up the plan.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `ToolResponse`:</span>
+<span class="sd">                The response of the tool call.</span>
+<span class="sd">        """</span>
+        <span class="n">plan</span> <span class="o">=</span> <span class="n">Plan</span><span class="p">(</span>
+            <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">description</span><span class="o">=</span><span class="n">description</span><span class="p">,</span>
+            <span class="n">expected_outcome</span><span class="o">=</span><span class="n">expected_outcome</span><span class="p">,</span>
+            <span class="n">subtasks</span><span class="o">=</span><span class="n">subtasks</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_plan</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="n">ToolResponse</span><span class="p">(</span>
+                <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+                    <span class="n">TextBlock</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                        <span class="n">text</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Plan '</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">' created successfully."</span><span class="p">,</span>
+                    <span class="p">),</span>
+                <span class="p">],</span>
+            <span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="n">ToolResponse</span><span class="p">(</span>
+                <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+                    <span class="n">TextBlock</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                        <span class="n">text</span><span class="o">=</span><span class="p">(</span>
+                            <span class="s2">"The current plan named "</span>
+                            <span class="sa">f</span><span class="s2">"'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">current_plan</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">' is replaced by the "</span>
+                            <span class="sa">f</span><span class="s2">"newly created plan named '</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">'."</span>
+                        <span class="p">),</span>
+                    <span class="p">),</span>
+                <span class="p">],</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">current_plan</span> <span class="o">=</span> <span class="n">plan</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trigger_plan_change_hooks</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">res</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_current_plan</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Validate the current plan."""</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_plan</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">"The current plan is None, you need to create a plan by "</span>
+                <span class="s2">"calling create_plan() first."</span><span class="p">,</span>
+            <span class="p">)</span>
+
+<div class="viewcode-block" id="PlanNotebook.revise_current_plan">
+<a class="viewcode-back" href="../../../api/agentscope.plan.html#agentscope.plan.PlanNotebook.revise_current_plan">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">revise_current_plan</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">subtask_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">action</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"add"</span><span class="p">,</span> <span class="s2">"revise"</span><span class="p">,</span> <span class="s2">"delete"</span><span class="p">],</span>
+        <span class="n">subtask</span><span class="p">:</span> <span class="n">SubTask</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ToolResponse</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Revise the current plan by adding, revising or deleting a sub-task.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            subtask_idx (`int`):</span>
+<span class="sd">                The index of the sub-task to be revised, starting from 0.</span>
+<span class="sd">            action (`Literal["add", "revise", "delete"]`):</span>
+<span class="sd">                The action to be performed on the sub-task. If "add", the</span>
+<span class="sd">                sub-task will be inserted before the given index. If "revise",</span>
+<span class="sd">                the sub-task at the given index will be revised. If "delete",</span>
+<span class="sd">                the sub-task at the given index will be deleted.</span>
+<span class="sd">            subtask (`SubTask | None`, optional):</span>
+<span class="sd">                The sub-task to be added or revised. Required if action is</span>
+<span class="sd">                "add" or "revise".</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            `ValueError`:</span>
+<span class="sd">                If the current plan is `None`, `ValueError` will be raised.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `ToolResponse`:</span>
+<span class="sd">                The response of the tool call.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">action</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"add"</span><span class="p">,</span> <span class="s2">"revise"</span><span class="p">,</span> <span class="s2">"delete"</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+                <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+                    <span class="n">TextBlock</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                        <span class="n">text</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Invalid action '</span><span class="si">{</span><span class="n">action</span><span class="si">}</span><span class="s2">'. Must be one of "</span>
+                        <span class="s2">"'add', 'revise', 'delete'."</span><span class="p">,</span>
+                    <span class="p">),</span>
+                <span class="p">],</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">action</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"add"</span><span class="p">,</span> <span class="s2">"revise"</span><span class="p">]</span> <span class="ow">and</span> <span class="n">subtask</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+                <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+                    <span class="n">TextBlock</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                        <span class="n">text</span><span class="o">=</span><span class="sa">f</span><span class="s2">"The subtask must be provided when action is "</span>
+                        <span class="sa">f</span><span class="s2">"'</span><span class="si">{</span><span class="n">action</span><span class="si">}</span><span class="s2">', but got None."</span><span class="p">,</span>
+                    <span class="p">),</span>
+                <span class="p">],</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_current_plan</span><span class="p">()</span>
+
+        <span class="c1"># validate subtask_idx</span>
+        <span class="k">if</span> <span class="n">subtask_idx</span> <span class="o">&gt;=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">current_plan</span><span class="o">.</span><span class="n">subtasks</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+                <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+                    <span class="n">TextBlock</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                        <span class="n">text</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Invalid subtask_idx '</span><span class="si">{</span><span class="n">subtask_idx</span><span class="si">}</span><span class="s2">'. Must "</span>
+                        <span class="sa">f</span><span class="s2">"be between 0 and "</span>
+                        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">current_plan</span><span class="o">.</span><span class="n">subtasks</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">."</span><span class="p">,</span>
+                    <span class="p">),</span>
+                <span class="p">],</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">action</span> <span class="o">==</span> <span class="s2">"delete"</span><span class="p">:</span>
+            <span class="n">subtask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_plan</span><span class="o">.</span><span class="n">subtasks</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">subtask_idx</span><span class="p">)</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trigger_plan_change_hooks</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+                <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+                    <span class="n">TextBlock</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                        <span class="n">text</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Subtask (named '</span><span class="si">{</span><span class="n">subtask</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">') at index "</span>
+                        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">subtask_idx</span><span class="si">}</span><span class="s2"> is deleted successfully."</span><span class="p">,</span>
+                    <span class="p">),</span>
+                <span class="p">],</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">action</span> <span class="o">==</span> <span class="s2">"add"</span> <span class="ow">and</span> <span class="n">subtask</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">current_plan</span><span class="o">.</span><span class="n">subtasks</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="n">subtask_idx</span><span class="p">,</span> <span class="n">subtask</span><span class="p">)</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trigger_plan_change_hooks</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+                <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+                    <span class="n">TextBlock</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                        <span class="n">text</span><span class="o">=</span><span class="sa">f</span><span class="s2">"New subtask is added successfully at index "</span>
+                        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">subtask_idx</span><span class="si">}</span><span class="s2">."</span><span class="p">,</span>
+                    <span class="p">),</span>
+                <span class="p">],</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">current_plan</span><span class="o">.</span><span class="n">subtasks</span><span class="p">[</span><span class="n">subtask_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">subtask</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trigger_plan_change_hooks</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+            <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+                <span class="n">TextBlock</span><span class="p">(</span>
+                    <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                    <span class="n">text</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Subtask at index </span><span class="si">{</span><span class="n">subtask_idx</span><span class="si">}</span><span class="s2"> is revised "</span>
+                    <span class="sa">f</span><span class="s2">"successfully."</span><span class="p">,</span>
+                <span class="p">),</span>
+            <span class="p">],</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="PlanNotebook.update_subtask_state">
+<a class="viewcode-back" href="../../../api/agentscope.plan.html#agentscope.plan.PlanNotebook.update_subtask_state">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">update_subtask_state</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">subtask_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">state</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"todo"</span><span class="p">,</span> <span class="s2">"in_progress"</span><span class="p">,</span> <span class="s2">"deprecated"</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ToolResponse</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Update the state of a subtask by given index and state. Note if you</span>
+<span class="sd">        want to mark a subtask as done, you SHOULD call `finish_subtask`</span>
+<span class="sd">        instead with the specific outcome.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            subtask_idx (`int`):</span>
+<span class="sd">                The index of the subtask to be updated, starting from 0.</span>
+<span class="sd">            state (`Literal["todo", "in_progress", "abandoned"]`):</span>
+<span class="sd">                The new state of the subtask. If you want to mark a subtask</span>
+<span class="sd">                as done, you SHOULD call `finish_subtask` instead with the</span>
+<span class="sd">                specific outcome.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_current_plan</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">subtask_idx</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">current_plan</span><span class="o">.</span><span class="n">subtasks</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+                <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+                    <span class="n">TextBlock</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                        <span class="n">text</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Invalid subtask_idx '</span><span class="si">{</span><span class="n">subtask_idx</span><span class="si">}</span><span class="s2">'. Must "</span>
+                        <span class="sa">f</span><span class="s2">"be between 0 and "</span>
+                        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">current_plan</span><span class="o">.</span><span class="n">subtasks</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">."</span><span class="p">,</span>
+                    <span class="p">),</span>
+                <span class="p">],</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">state</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"todo"</span><span class="p">,</span> <span class="s2">"in_progress"</span><span class="p">,</span> <span class="s2">"abandoned"</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+                <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+                    <span class="n">TextBlock</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                        <span class="n">text</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Invalid state '</span><span class="si">{</span><span class="n">state</span><span class="si">}</span><span class="s2">'. Must be one of "</span>
+                        <span class="s2">"'todo', 'in_progress', 'abandoned'."</span><span class="p">,</span>
+                    <span class="p">),</span>
+                <span class="p">],</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Only one subtask can be in_progress at a time</span>
+        <span class="k">if</span> <span class="n">state</span> <span class="o">==</span> <span class="s2">"in_progress"</span><span class="p">:</span>
+            <span class="c1"># Check only one subtask is in_progress</span>
+            <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">subtask</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">current_plan</span><span class="o">.</span><span class="n">subtasks</span><span class="p">):</span>
+                <span class="c1"># Check all previous subtasks are done or deprecated</span>
+                <span class="k">if</span> <span class="n">idx</span> <span class="o">&lt;</span> <span class="n">subtask_idx</span> <span class="ow">and</span> <span class="n">subtask</span><span class="o">.</span><span class="n">state</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span>
+                    <span class="s2">"done"</span><span class="p">,</span>
+                    <span class="s2">"deprecated"</span><span class="p">,</span>
+                <span class="p">]:</span>
+                    <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+                        <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+                            <span class="n">TextBlock</span><span class="p">(</span>
+                                <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                                <span class="n">text</span><span class="o">=</span><span class="p">(</span>
+                                    <span class="sa">f</span><span class="s2">"Subtask (at index </span><span class="si">{</span><span class="n">idx</span><span class="si">}</span><span class="s2">) named "</span>
+                                    <span class="sa">f</span><span class="s2">"'</span><span class="si">{</span><span class="n">subtask</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">' is not done yet. You "</span>
+                                    <span class="s2">"should finish the previous subtasks "</span>
+                                    <span class="s2">"first."</span>
+                                <span class="p">),</span>
+                            <span class="p">),</span>
+                        <span class="p">],</span>
+                    <span class="p">)</span>
+
+                <span class="c1"># Check no other subtask is in_progress</span>
+                <span class="k">if</span> <span class="n">subtask</span><span class="o">.</span><span class="n">state</span> <span class="o">==</span> <span class="s2">"in_progress"</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+                        <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+                            <span class="n">TextBlock</span><span class="p">(</span>
+                                <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                                <span class="n">text</span><span class="o">=</span><span class="p">(</span>
+                                    <span class="sa">f</span><span class="s2">"Subtask (at index </span><span class="si">{</span><span class="n">idx</span><span class="si">}</span><span class="s2">) named "</span>
+                                    <span class="sa">f</span><span class="s2">"'</span><span class="si">{</span><span class="n">subtask</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">' is already "</span>
+                                    <span class="s2">"'in_progress'. You should finish it "</span>
+                                    <span class="s2">"first before starting another subtask."</span>
+                                <span class="p">),</span>
+                            <span class="p">),</span>
+                        <span class="p">],</span>
+                    <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">current_plan</span><span class="o">.</span><span class="n">subtasks</span><span class="p">[</span><span class="n">subtask_idx</span><span class="p">]</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="n">state</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trigger_plan_change_hooks</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+            <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+                <span class="n">TextBlock</span><span class="p">(</span>
+                    <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                    <span class="n">text</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Subtask at index </span><span class="si">{</span><span class="n">subtask_idx</span><span class="si">}</span><span class="s2">, named "</span>
+                    <span class="sa">f</span><span class="s2">"'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">current_plan</span><span class="o">.</span><span class="n">subtasks</span><span class="p">[</span><span class="n">subtask_idx</span><span class="p">]</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">' "</span>
+                    <span class="sa">f</span><span class="s2">"is marked as '</span><span class="si">{</span><span class="n">state</span><span class="si">}</span><span class="s2">' successfully."</span><span class="p">,</span>
+                <span class="p">),</span>
+            <span class="p">],</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="PlanNotebook.finish_subtask">
+<a class="viewcode-back" href="../../../api/agentscope.plan.html#agentscope.plan.PlanNotebook.finish_subtask">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">finish_subtask</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">subtask_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">subtask_outcome</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ToolResponse</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Label the subtask as done by given index and outcome.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            subtask_idx (`int`):</span>
+<span class="sd">                The index of the sub-task to be marked as done, starting</span>
+<span class="sd">                from 0.</span>
+<span class="sd">            subtask_outcome (`str`):</span>
+<span class="sd">                The specific outcome of the sub-task, should exactly match the</span>
+<span class="sd">                expected outcome in the sub-task description. SHOULDN't be</span>
+<span class="sd">                what you did or general description, e.g. "I have searched</span>
+<span class="sd">                xxx", "I have written the code for xxx", etc. It SHOULD be</span>
+<span class="sd">                the specific data, information, or path to the file, e.g.</span>
+<span class="sd">                "There are 5 articles about xxx, they are\n- xxx\n- xxx\n..."</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_current_plan</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">subtask_idx</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">current_plan</span><span class="o">.</span><span class="n">subtasks</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+                <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+                    <span class="n">TextBlock</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                        <span class="n">text</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Invalid subtask_idx '</span><span class="si">{</span><span class="n">subtask_idx</span><span class="si">}</span><span class="s2">'. Must "</span>
+                        <span class="sa">f</span><span class="s2">"be between 0 and "</span>
+                        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">current_plan</span><span class="o">.</span><span class="n">subtasks</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">."</span><span class="p">,</span>
+                    <span class="p">),</span>
+                <span class="p">],</span>
+            <span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">subtask</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">current_plan</span><span class="o">.</span><span class="n">subtasks</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">subtask_idx</span><span class="p">],</span>
+        <span class="p">):</span>
+            <span class="k">if</span> <span class="n">subtask</span><span class="o">.</span><span class="n">state</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"done"</span><span class="p">,</span> <span class="s2">"deprecated"</span><span class="p">]:</span>
+                <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+                    <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+                        <span class="n">TextBlock</span><span class="p">(</span>
+                            <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                            <span class="n">text</span><span class="o">=</span><span class="p">(</span>
+                                <span class="s2">"Cannot finish subtask at index "</span>
+                                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">subtask_idx</span><span class="si">}</span><span class="s2"> because the previous "</span>
+                                <span class="sa">f</span><span class="s2">"subtask (at index </span><span class="si">{</span><span class="n">idx</span><span class="si">}</span><span class="s2">) named "</span>
+                                <span class="sa">f</span><span class="s2">"'</span><span class="si">{</span><span class="n">subtask</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">' is not done yet. You "</span>
+                                <span class="s2">"should finish the previous subtasks first."</span>
+                            <span class="p">),</span>
+                        <span class="p">),</span>
+                    <span class="p">],</span>
+                <span class="p">)</span>
+
+        <span class="c1"># Label the subtask as done</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">current_plan</span><span class="o">.</span><span class="n">subtasks</span><span class="p">[</span><span class="n">subtask_idx</span><span class="p">]</span><span class="o">.</span><span class="n">finish</span><span class="p">(</span><span class="n">subtask_outcome</span><span class="p">)</span>
+        <span class="c1"># Auto activate the next subtask if exists</span>
+        <span class="k">if</span> <span class="n">subtask_idx</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">current_plan</span><span class="o">.</span><span class="n">subtasks</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">current_plan</span><span class="o">.</span><span class="n">subtasks</span><span class="p">[</span><span class="n">subtask_idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">state</span> <span class="o">=</span> <span class="s2">"in_progress"</span>
+            <span class="n">next_subtask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_plan</span><span class="o">.</span><span class="n">subtasks</span><span class="p">[</span><span class="n">subtask_idx</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trigger_plan_change_hooks</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+                <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+                    <span class="n">TextBlock</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                        <span class="n">text</span><span class="o">=</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">"Subtask (at index </span><span class="si">{</span><span class="n">subtask_idx</span><span class="si">}</span><span class="s2">) named "</span>
+                            <span class="sa">f</span><span class="s2">"'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">current_plan</span><span class="o">.</span><span class="n">subtasks</span><span class="p">[</span><span class="n">subtask_idx</span><span class="p">]</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">'"</span>
+                            <span class="s2">" is marked as done successfully. The next "</span>
+                            <span class="sa">f</span><span class="s2">"subtask named '</span><span class="si">{</span><span class="n">next_subtask</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">' is "</span>
+                            <span class="sa">f</span><span class="s2">"activated."</span>
+                        <span class="p">),</span>
+                    <span class="p">),</span>
+                <span class="p">],</span>
+            <span class="p">)</span>
+
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trigger_plan_change_hooks</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+            <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+                <span class="n">TextBlock</span><span class="p">(</span>
+                    <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                    <span class="n">text</span><span class="o">=</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">"Subtask (at index </span><span class="si">{</span><span class="n">subtask_idx</span><span class="si">}</span><span class="s2">) named "</span>
+                        <span class="sa">f</span><span class="s2">"'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">current_plan</span><span class="o">.</span><span class="n">subtasks</span><span class="p">[</span><span class="n">subtask_idx</span><span class="p">]</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">'"</span>
+                        <span class="s2">" is marked as done successfully. "</span>
+                    <span class="p">),</span>
+                <span class="p">),</span>
+            <span class="p">],</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="PlanNotebook.view_subtasks">
+<a class="viewcode-back" href="../../../api/agentscope.plan.html#agentscope.plan.PlanNotebook.view_subtasks">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">view_subtasks</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subtask_idx</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">ToolResponse</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""View the details of the sub-tasks by given indexes.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            subtask_idx (`list[int]`):</span>
+<span class="sd">                The indexes of the sub-tasks to be viewed, starting from 0.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_current_plan</span><span class="p">()</span>
+
+        <span class="n">gathered_strs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">invalid_subtask_idx</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">subtask_idx</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">idx</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">current_plan</span><span class="o">.</span><span class="n">subtasks</span><span class="p">):</span>
+                <span class="n">invalid_subtask_idx</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span>
+                <span class="k">continue</span>
+
+            <span class="n">subtask_markdown</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_plan</span><span class="o">.</span><span class="n">subtasks</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span><span class="o">.</span><span class="n">to_markdown</span><span class="p">(</span>
+                <span class="n">detailed</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">gathered_strs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Subtask at index </span><span class="si">{</span><span class="n">idx</span><span class="si">}</span><span class="s2">:</span><span class="se">\n</span><span class="s2">"</span>
+                <span class="s2">"```</span><span class="se">\n</span><span class="s2">"</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">subtask_markdown</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span>
+                <span class="s2">"```</span><span class="se">\n</span><span class="s2">"</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">invalid_subtask_idx</span><span class="p">:</span>
+            <span class="n">gathered_strs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Invalid subtask_idx '</span><span class="si">{</span><span class="n">invalid_subtask_idx</span><span class="si">}</span><span class="s2">'. Must be "</span>
+                <span class="sa">f</span><span class="s2">"between 0 and </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">current_plan</span><span class="o">.</span><span class="n">subtasks</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">."</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+            <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+                <span class="n">TextBlock</span><span class="p">(</span>
+                    <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                    <span class="n">text</span><span class="o">=</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">gathered_strs</span><span class="p">),</span>
+                <span class="p">),</span>
+            <span class="p">],</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="PlanNotebook.finish_plan">
+<a class="viewcode-back" href="../../../api/agentscope.plan.html#agentscope.plan.PlanNotebook.finish_plan">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">finish_plan</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">state</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"done"</span><span class="p">,</span> <span class="s2">"abandoned"</span><span class="p">],</span>
+        <span class="n">outcome</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ToolResponse</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Finish the current plan by given outcome, or abandon it with the</span>
+<span class="sd">        given reason if the user no longer wants to perform it. Note that you</span>
+<span class="sd">        SHOULD confirm with the user before abandoning the plan.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            state (`Literal["done", "abandoned"]`):</span>
+<span class="sd">                The state to finish the plan. If "done", the plan will be</span>
+<span class="sd">                marked as done with the given outcome. If "abandoned", the</span>
+<span class="sd">                plan will be abandoned with the given reason.</span>
+<span class="sd">            outcome (`str`):</span>
+<span class="sd">                The specific outcome of the plan if state is "done", or the</span>
+<span class="sd">                reason for abandoning the plan if state is "abandoned".</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_plan</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+                <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+                    <span class="n">TextBlock</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                        <span class="n">text</span><span class="o">=</span><span class="s2">"There is no plan to finish."</span><span class="p">,</span>
+                    <span class="p">),</span>
+                <span class="p">],</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">current_plan</span><span class="o">.</span><span class="n">finish</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">outcome</span><span class="p">)</span>
+
+        <span class="c1"># Store the finished plan into history</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">add_plan</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">current_plan</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">current_plan</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_trigger_plan_change_hooks</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+            <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+                <span class="n">TextBlock</span><span class="p">(</span>
+                    <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                    <span class="n">text</span><span class="o">=</span><span class="sa">f</span><span class="s2">"The current plan is finished successfully as "</span>
+                    <span class="sa">f</span><span class="s2">"'</span><span class="si">{</span><span class="n">state</span><span class="si">}</span><span class="s2">'."</span><span class="p">,</span>
+                <span class="p">),</span>
+            <span class="p">],</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="PlanNotebook.view_historical_plans">
+<a class="viewcode-back" href="../../../api/agentscope.plan.html#agentscope.plan.PlanNotebook.view_historical_plans">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">view_historical_plans</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ToolResponse</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""View the historical plans."""</span>
+        <span class="n">historical_plans</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">get_plans</span><span class="p">()</span>
+
+        <span class="n">plans_str</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="sa">f</span><span class="s2">"""Plan named '</span><span class="si">{</span><span class="n">_</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">':</span>
+<span class="s2">- ID: </span><span class="si">{</span><span class="n">_</span><span class="o">.</span><span class="n">id</span><span class="si">}</span>
+<span class="s2">- Created at: </span><span class="si">{</span><span class="n">_</span><span class="o">.</span><span class="n">created_at</span><span class="si">}</span>
+<span class="s2">- Description: </span><span class="si">{</span><span class="n">_</span><span class="o">.</span><span class="n">description</span><span class="si">}</span>
+<span class="s2">- State: </span><span class="si">{</span><span class="n">_</span><span class="o">.</span><span class="n">state</span><span class="si">}</span>
+<span class="s2">"""</span>
+            <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">historical_plans</span>
+        <span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+            <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+                <span class="n">TextBlock</span><span class="p">(</span>
+                    <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                    <span class="n">text</span><span class="o">=</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">plans_str</span><span class="p">),</span>
+                <span class="p">),</span>
+            <span class="p">],</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="PlanNotebook.recover_historical_plan">
+<a class="viewcode-back" href="../../../api/agentscope.plan.html#agentscope.plan.PlanNotebook.recover_historical_plan">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">recover_historical_plan</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">plan_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ToolResponse</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Recover a historical plan by given plan ID, the plan ID can be</span>
+<span class="sd">        obtained by calling `view_historical_plans`. Note the recover</span>
+<span class="sd">        operation will override the current plan if exists.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            plan_id (`str`):</span>
+<span class="sd">                The ID of the historical plan to be recovered.</span>
+<span class="sd">        """</span>
+        <span class="n">historical_plan</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">get_plan</span><span class="p">(</span><span class="n">plan_id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">historical_plan</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+                <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+                    <span class="n">TextBlock</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                        <span class="n">text</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Cannot find the plan with ID '</span><span class="si">{</span><span class="n">plan_id</span><span class="si">}</span><span class="s2">'."</span><span class="p">,</span>
+                    <span class="p">),</span>
+                <span class="p">],</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Store the current plan into history if exists</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_plan</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_plan</span><span class="o">.</span><span class="n">state</span> <span class="o">!=</span> <span class="s2">"done"</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">current_plan</span><span class="o">.</span><span class="n">finish</span><span class="p">(</span>
+                    <span class="s2">"abandoned"</span><span class="p">,</span>
+                    <span class="sa">f</span><span class="s2">"The plan execution is interrupted by a new plan "</span>
+                    <span class="sa">f</span><span class="s2">"with ID '</span><span class="si">{</span><span class="n">historical_plan</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2">'."</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">storage</span><span class="o">.</span><span class="n">add_plan</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">current_plan</span><span class="p">)</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="n">ToolResponse</span><span class="p">(</span>
+                <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+                    <span class="n">TextBlock</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                        <span class="n">text</span><span class="o">=</span><span class="p">(</span>
+                            <span class="s2">"The current plan named "</span>
+                            <span class="sa">f</span><span class="s2">"'</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">current_plan</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">' is replaced by the "</span>
+                            <span class="sa">f</span><span class="s2">"historical plan named '</span><span class="si">{</span><span class="n">historical_plan</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">' "</span>
+                            <span class="sa">f</span><span class="s2">"with ID '</span><span class="si">{</span><span class="n">historical_plan</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2">'."</span>
+                        <span class="p">),</span>
+                    <span class="p">),</span>
+                <span class="p">],</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="n">ToolResponse</span><span class="p">(</span>
+                <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+                    <span class="n">TextBlock</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                        <span class="n">text</span><span class="o">=</span><span class="p">(</span>
+                            <span class="sa">f</span><span class="s2">"Historical plan named '</span><span class="si">{</span><span class="n">historical_plan</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">' "</span>
+                            <span class="sa">f</span><span class="s2">"with ID '</span><span class="si">{</span><span class="n">historical_plan</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2">' is recovered "</span>
+                            <span class="s2">"successfully."</span>
+                        <span class="p">),</span>
+                    <span class="p">),</span>
+                <span class="p">],</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">current_plan</span> <span class="o">=</span> <span class="n">historical_plan</span>
+        <span class="k">return</span> <span class="n">res</span></div>
+
+
+<div class="viewcode-block" id="PlanNotebook.list_tools">
+<a class="viewcode-back" href="../../../api/agentscope.plan.html#agentscope.plan.PlanNotebook.list_tools">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">list_tools</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">Coroutine</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">ToolResponse</span><span class="p">]]]:</span>
+<span class="w">        </span><span class="sd">"""List all tool functions provided to agent</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `list[Callable[..., ToolResponse]]`:</span>
+<span class="sd">                A list of all tool functions provided by the plan notebook to</span>
+<span class="sd">                the agent.</span>
+<span class="sd">        """</span>
+        <span class="k">return</span> <span class="p">[</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">view_subtasks</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">update_subtask_state</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">finish_subtask</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">create_plan</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">revise_current_plan</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">finish_plan</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">view_historical_plans</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">recover_historical_plan</span><span class="p">,</span>
+        <span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="PlanNotebook.get_current_hint">
+<a class="viewcode-back" href="../../../api/agentscope.plan.html#agentscope.plan.PlanNotebook.get_current_hint">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">get_current_hint</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Msg</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Get the hint message based on the current plan and subtasks states.</span>
+<span class="sd">        This function will call the `plan_to_hint` function to generate the</span>
+<span class="sd">        hint message.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `Msg | None`:</span>
+<span class="sd">                The hint message wrapped by &lt;system-hint&gt;&lt;/system-hint&gt;, or</span>
+<span class="sd">                None if there is no relevant hint.</span>
+<span class="sd">        """</span>
+        <span class="n">hint_content</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">plan_to_hint</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">current_plan</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">hint_content</span><span class="p">:</span>
+            <span class="n">msg</span> <span class="o">=</span> <span class="n">Msg</span><span class="p">(</span>
+                <span class="s2">"user"</span><span class="p">,</span>
+                <span class="n">hint_content</span><span class="p">,</span>
+                <span class="s2">"user"</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">msg</span>
+
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="PlanNotebook.register_plan_change_hook">
+<a class="viewcode-back" href="../../../api/agentscope.plan.html#agentscope.plan.PlanNotebook.register_plan_change_hook">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">register_plan_change_hook</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">hook_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">hook</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="s2">"PlanNotebook"</span><span class="p">,</span> <span class="n">Plan</span><span class="p">],</span> <span class="kc">None</span><span class="p">],</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Register a plan hook that will be triggered when the plan is</span>
+<span class="sd">        changed.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            hook_name (`str`):</span>
+<span class="sd">                The name of the hook, should be unique.</span>
+<span class="sd">            hook (`Callable[[Plan], None]`):</span>
+<span class="sd">                The hook function, which takes the current plan as input and</span>
+<span class="sd">                returns nothing.</span>
+<span class="sd">        """</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_plan_change_hooks</span><span class="p">[</span><span class="n">hook_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">hook</span></div>
+
+
+<div class="viewcode-block" id="PlanNotebook.remove_plan_change_hook">
+<a class="viewcode-back" href="../../../api/agentscope.plan.html#agentscope.plan.PlanNotebook.remove_plan_change_hook">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">remove_plan_change_hook</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hook_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Remove a plan change hook by given name.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            hook_name (`str`):</span>
+<span class="sd">                The name of the hook to be removed.</span>
+<span class="sd">        """</span>
+        <span class="k">if</span> <span class="n">hook_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_plan_change_hooks</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_plan_change_hooks</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">hook_name</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Hook '</span><span class="si">{</span><span class="n">hook_name</span><span class="si">}</span><span class="s2">' not found."</span><span class="p">)</span></div>
+
+
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_trigger_plan_change_hooks</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Trigger all the plan change hooks."""</span>
+        <span class="k">for</span> <span class="n">hook</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_plan_change_hooks</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+            <span class="k">await</span> <span class="n">_execute_async_or_sync_func</span><span class="p">(</span>
+                <span class="n">hook</span><span class="p">,</span>
+                <span class="bp">self</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">current_plan</span><span class="p">,</span>
+            <span class="p">)</span></div>
+
+</pre></div>
+        

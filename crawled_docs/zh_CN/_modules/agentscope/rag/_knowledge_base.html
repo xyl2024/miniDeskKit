@@ -1,0 +1,150 @@
+<!-- Title: agentscope.rag._knowledge_base - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/rag/_knowledge_base.html -->
+
+          <h1>agentscope.rag._knowledge_base 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The knowledge base abstraction for retrieval-augmented generation (RAG)."""</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">abstractmethod</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">._reader</span><span class="w"> </span><span class="kn">import</span> <span class="n">Document</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..embedding</span><span class="w"> </span><span class="kn">import</span> <span class="n">EmbeddingModelBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">._store</span><span class="w"> </span><span class="kn">import</span> <span class="n">VDBStoreBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..message</span><span class="w"> </span><span class="kn">import</span> <span class="n">TextBlock</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..tool</span><span class="w"> </span><span class="kn">import</span> <span class="n">ToolResponse</span>
+
+
+<div class="viewcode-block" id="KnowledgeBase">
+<a class="viewcode-back" href="../../../api/agentscope.rag.html#agentscope.rag.KnowledgeBase">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">KnowledgeBase</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""The knowledge base abstraction for retrieval-augmented generation</span>
+<span class="sd">    (RAG).</span>
+
+<span class="sd">    The ``retrieve`` and ``add_documents`` methods need to be implemented</span>
+<span class="sd">    in the subclasses. We also provide a quick method ``retrieve_knowledge``</span>
+<span class="sd">    that enables the agent to retrieve knowledge easily.</span>
+<span class="sd">    """</span>
+
+    <span class="n">embedding_store</span><span class="p">:</span> <span class="n">VDBStoreBase</span>
+<span class="w">    </span><span class="sd">"""The embedding store for the knowledge base."""</span>
+
+    <span class="n">embedding_model</span><span class="p">:</span> <span class="n">EmbeddingModelBase</span>
+<span class="w">    </span><span class="sd">"""The embedding model for the knowledge base."""</span>
+
+<div class="viewcode-block" id="KnowledgeBase.__init__">
+<a class="viewcode-back" href="../../../api/agentscope.rag.html#agentscope.rag.KnowledgeBase.__init__">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">embedding_store</span><span class="p">:</span> <span class="n">VDBStoreBase</span><span class="p">,</span>
+        <span class="n">embedding_model</span><span class="p">:</span> <span class="n">EmbeddingModelBase</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize the knowledge base."""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">embedding_store</span> <span class="o">=</span> <span class="n">embedding_store</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">embedding_model</span> <span class="o">=</span> <span class="n">embedding_model</span></div>
+
+
+<div class="viewcode-block" id="KnowledgeBase.retrieve">
+<a class="viewcode-back" href="../../../api/agentscope.rag.html#agentscope.rag.KnowledgeBase.retrieve">[文档]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">retrieve</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">query</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">limit</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
+        <span class="n">score_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Document</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""Retrieve relevant documents by the given query.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            query (`str`):</span>
+<span class="sd">                The query string to retrieve relevant documents.</span>
+<span class="sd">            limit (`int`, defaults to 5):</span>
+<span class="sd">                The number of relevant documents to retrieve.</span>
+<span class="sd">            score_threshold (`float | None`, defaults to `None`):</span>
+<span class="sd">                The score threshold to filter the retrieved documents. If</span>
+<span class="sd">                provided, only documents with a score higher than the</span>
+<span class="sd">                threshold will be returned.</span>
+<span class="sd">            **kwargs (`Any`):</span>
+<span class="sd">                Other keyword arguments for the vector database search API.</span>
+<span class="sd">        """</span></div>
+
+
+<div class="viewcode-block" id="KnowledgeBase.add_documents">
+<a class="viewcode-back" href="../../../api/agentscope.rag.html#agentscope.rag.KnowledgeBase.add_documents">[文档]</a>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">add_documents</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">documents</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Document</span><span class="p">],</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Add documents to the knowledge base, which will embed the documents</span>
+<span class="sd">        and store them in the embedding store.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            documents (`list[Document]`):</span>
+<span class="sd">                A list of documents to add.</span>
+<span class="sd">        """</span></div>
+
+
+    <span class="c1"># A quick method that enable the agent to retrieve knowledge</span>
+    <span class="c1"># Developers can wrap the `retrieve` method by themselves to support</span>
+    <span class="c1"># more flexible usage</span>
+<div class="viewcode-block" id="KnowledgeBase.retrieve_knowledge">
+<a class="viewcode-back" href="../../../api/agentscope.rag.html#agentscope.rag.KnowledgeBase.retrieve_knowledge">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">retrieve_knowledge</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">query</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">limit</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
+        <span class="n">score_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ToolResponse</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Retrieve relevant documents from the knowledge base. Note the</span>
+<span class="sd">        `query` parameter is directly related to the retrieval quality, and</span>
+<span class="sd">        for the same question, you can try many different queries to get the</span>
+<span class="sd">        best results. Adjust the `limit` and `score_threshold` parameters</span>
+<span class="sd">        to get more or fewer results.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            query (`str`):</span>
+<span class="sd">                The query string, which should be specific and concise. For</span>
+<span class="sd">                example, you should provide the specific name instead of</span>
+<span class="sd">                "you", "my", "he", "she", etc.</span>
+<span class="sd">            limit (`int`, defaults to 3):</span>
+<span class="sd">                The number of relevant documents to retrieve.</span>
+<span class="sd">            score_threshold (`float`, defaults to 0.8):</span>
+<span class="sd">                A threshold in [0, 1] and only the relevance score above this</span>
+<span class="sd">                threshold will be returned. Reduce this value to get more</span>
+<span class="sd">                results.</span>
+<span class="sd">        """</span>
+
+        <span class="n">docs</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">retrieve</span><span class="p">(</span>
+            <span class="n">query</span><span class="o">=</span><span class="n">query</span><span class="p">,</span>
+            <span class="n">limit</span><span class="o">=</span><span class="n">limit</span><span class="p">,</span>
+            <span class="n">score_threshold</span><span class="o">=</span><span class="n">score_threshold</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">docs</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+                <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+                    <span class="n">TextBlock</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                        <span class="n">text</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Score: </span><span class="si">{</span><span class="n">_</span><span class="o">.</span><span class="n">score</span><span class="si">}</span><span class="s2">, "</span>
+                        <span class="sa">f</span><span class="s2">"Content: </span><span class="si">{</span><span class="n">_</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">content</span><span class="p">[</span><span class="s1">'text'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+                    <span class="p">)</span>
+                    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">docs</span>
+                <span class="p">],</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">ToolResponse</span><span class="p">(</span>
+            <span class="n">content</span><span class="o">=</span><span class="p">[</span>
+                <span class="n">TextBlock</span><span class="p">(</span>
+                    <span class="nb">type</span><span class="o">=</span><span class="s2">"text"</span><span class="p">,</span>
+                    <span class="n">text</span><span class="o">=</span><span class="s2">"No relevant documents found. TRY to reduce the "</span>
+                    <span class="s2">"`score_threshold` parameter to get "</span>
+                    <span class="s2">"more results."</span><span class="p">,</span>
+                <span class="p">),</span>
+            <span class="p">],</span>
+        <span class="p">)</span></div>
+</div>
+
+</pre></div>
+        

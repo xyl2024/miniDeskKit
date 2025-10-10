@@ -1,0 +1,410 @@
+<!-- Title: agentscope.mcp - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/api/agentscope.mcp.html -->
+
+          <section id="module-agentscope.mcp">
+<span id="agentscope-mcp"></span><h1>agentscope.mcp<a class="headerlink" href="#module-agentscope.mcp" title="Link to this heading">¶</a></h1>
+<p>The MCP module in AgentScope, that provides fine-grained control over
+the MCP servers.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.mcp.MCPToolFunction">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">MCPToolFunction</span></span><a class="reference internal" href="../_modules/agentscope/mcp/_mcp_function.html#MCPToolFunction"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.mcp.MCPToolFunction" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>An MCP tool function class that can be called directly.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.mcp.MCPToolFunction.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mcp_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tool</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">wrap_tool_result</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">client_gen</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">session</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/mcp/_mcp_function.html#MCPToolFunction.__init__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.mcp.MCPToolFunction.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize the MCP function.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>mcp_name</strong> (<em>str</em>)</p></li>
+<li><p><strong>tool</strong> (<em>Tool</em>)</p></li>
+<li><p><strong>wrap_tool_result</strong> (<em>bool</em>)</p></li>
+<li><p><strong>client_gen</strong> (<em>Callable</em><em>[</em><em>[</em><em>...</em><em>]</em><em>, </em><em>_AsyncGeneratorContextManager</em><em>[</em><em>Any</em><em>]</em><em>] </em><em>| </em><em>None</em>)</p></li>
+<li><p><strong>session</strong> (<em>ClientSession</em><em> | </em><em>None</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.mcp.MCPToolFunction.name">
+<span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#agentscope.mcp.MCPToolFunction.name" title="Link to this definition">¶</a></dt>
+<dd><p>The name of the tool function.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.mcp.MCPToolFunction.description">
+<span class="sig-name descname"><span class="pre">description</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></em><a class="headerlink" href="#agentscope.mcp.MCPToolFunction.description" title="Link to this definition">¶</a></dt>
+<dd><p>The description of the tool function.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.mcp.MCPToolFunction.json_schema">
+<span class="sig-name descname"><span class="pre">json_schema</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#agentscope.mcp.MCPToolFunction.json_schema" title="Link to this definition">¶</a></dt>
+<dd><p>JSON schema of the tool function</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.mcp.MCPToolFunction.__call__">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/mcp/_mcp_function.html#MCPToolFunction.__call__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.mcp.MCPToolFunction.__call__" title="Link to this definition">¶</a></dt>
+<dd><p>Call the MCP tool function with the given arguments, and return
+the result.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>kwargs</strong> (<em>Any</em>)</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>CallToolResult</em> | <a class="reference internal" href="agentscope.tool.html#agentscope.tool.ToolResponse" title="agentscope.tool._response.ToolResponse"><em>ToolResponse</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.mcp.MCPClientBase">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">MCPClientBase</span></span><a class="reference internal" href="../_modules/agentscope/mcp/_client_base.html#MCPClientBase"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.mcp.MCPClientBase" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Base class for MCP clients.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.mcp.MCPClientBase.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/mcp/_client_base.html#MCPClientBase.__init__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.mcp.MCPClientBase.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize the MCP client with a name.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>name</strong> (<cite>str</cite>) -- The name to identify the MCP server, which should be unique
+across the MCP servers.</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.mcp.MCPClientBase.get_callable_function">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_callable_function</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">func_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">wrap_tool_result</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/mcp/_client_base.html#MCPClientBase.get_callable_function"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.mcp.MCPClientBase.get_callable_function" title="Link to this definition">¶</a></dt>
+<dd><p>Get a tool function by its name.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>func_name</strong> (<em>str</em>)</p></li>
+<li><p><strong>wrap_tool_result</strong> (<em>bool</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>Callable</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.mcp.StatefulClientBase">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">StatefulClientBase</span></span><a class="reference internal" href="../_modules/agentscope/mcp/_stateful_client_base.html#StatefulClientBase"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.mcp.StatefulClientBase" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<a class="reference internal" href="#agentscope.mcp.MCPClientBase" title="agentscope.mcp._client_base.MCPClientBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">MCPClientBase</span></code></a>, <code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></p>
+<p>The base class for stateful MCP clients in AgentScope, which maintains
+the session state across multiple tool calls.</p>
+<p>The developers should use <cite>connect()</cite> and <cite>close()</cite> methods to manage
+the client lifecycle.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.mcp.StatefulClientBase.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/mcp/_stateful_client_base.html#StatefulClientBase.__init__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.mcp.StatefulClientBase.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize the stateful MCP client.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>name</strong> (<cite>str</cite>) -- The name to identify the MCP server, which should be unique
+across the MCP servers.</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.mcp.StatefulClientBase.is_connected">
+<span class="sig-name descname"><span class="pre">is_connected</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><a class="headerlink" href="#agentscope.mcp.StatefulClientBase.is_connected" title="Link to this definition">¶</a></dt>
+<dd><p>If connected to the MCP server</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.mcp.StatefulClientBase.connect">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">connect</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/mcp/_stateful_client_base.html#StatefulClientBase.connect"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.mcp.StatefulClientBase.connect" title="Link to this definition">¶</a></dt>
+<dd><p>Connect to MCP server.</p>
+<dl class="field-list simple">
+<dt class="field-odd">返回类型<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.mcp.StatefulClientBase.close">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">close</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/mcp/_stateful_client_base.html#StatefulClientBase.close"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.mcp.StatefulClientBase.close" title="Link to this definition">¶</a></dt>
+<dd><p>Clean up the MCP client resources. You must call this method when
+your application is done.</p>
+<dl class="field-list simple">
+<dt class="field-odd">返回类型<span class="colon">:</span></dt>
+<dd class="field-odd"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.mcp.StatefulClientBase.list_tools">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">list_tools</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/mcp/_stateful_client_base.html#StatefulClientBase.list_tools"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.mcp.StatefulClientBase.list_tools" title="Link to this definition">¶</a></dt>
+<dd><p>Get all available tools from the server.</p>
+<dl class="field-list simple">
+<dt class="field-odd">返回<span class="colon">:</span></dt>
+<dd class="field-odd"><p>A list of available MCP tools.</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p><cite>mcp.types.ListToolsResult</cite></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.mcp.StatefulClientBase.get_callable_function">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_callable_function</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">func_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">wrap_tool_result</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/mcp/_stateful_client_base.html#StatefulClientBase.get_callable_function"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.mcp.StatefulClientBase.get_callable_function" title="Link to this definition">¶</a></dt>
+<dd><p>Get an async tool function from the MCP server by its name, so
+that you can call it directly, wrap it into your own function, or
+anyway you like.</p>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>Currently, only the text, image, and audio results are
+supported in this function.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>func_name</strong> (<cite>str</cite>) -- The name of the tool function to get.</p></li>
+<li><p><strong>wrap_tool_result</strong> (<cite>bool</cite>) -- Whether to wrap the tool result into agentscope's
+<cite>ToolResponse</cite> object. If <cite>False</cite>, the raw result type
+<cite>mcp.types.CallToolResult</cite> will be returned.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回<span class="colon">:</span></dt>
+<dd class="field-even"><p>A callable async function that returns either
+<cite>mcp.types.CallToolResult</cite> or <cite>ToolResponse</cite> when called.</p>
+</dd>
+<dt class="field-odd">返回类型<span class="colon">:</span></dt>
+<dd class="field-odd"><p><cite>MCPToolFunction</cite></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.mcp.StdIOStatefulClient">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">StdIOStatefulClient</span></span><a class="reference internal" href="../_modules/agentscope/mcp/_stdio_stateful_client.html#StdIOStatefulClient"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.mcp.StdIOStatefulClient" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<a class="reference internal" href="#agentscope.mcp.StatefulClientBase" title="agentscope.mcp._stateful_client_base.StatefulClientBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">StatefulClientBase</span></code></a></p>
+<p>A client class that sets up and manage StdIO MCP server connections, and
+provides function-level fine-grained control over the MCP servers.</p>
+<div class="admonition tip">
+<p class="admonition-title">小技巧</p>
+<p>The stateful client is recommended for MCP servers that need to
+maintain session states, e.g. web browsers or other interactive
+MCP servers.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>The stateful client will maintain one session across multiple
+tool calls, until the client is closed by explicitly calling the
+<cite>close()</cite> method.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>When multiple StdIOStatefulClient instances are connected,
+they should be closed following the Last In First Out (LIFO) principle
+to avoid potential errors. Always close the most recently registered
+client first, then work backwards to the first one.
+For more details, please refer to this <a class="reference external" href="https://github.com/modelcontextprotocol/python-sdk/issues/577">issue</a>.</p>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.mcp.StdIOStatefulClient.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">command</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">args</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">env</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cwd</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">encoding</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'utf-8'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">encoding_error_handler</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'strict'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/mcp/_stdio_stateful_client.html#StdIOStatefulClient.__init__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.mcp.StdIOStatefulClient.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize the MCP server with std IO.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>name</strong> (<cite>str</cite>) -- The name to identify the MCP server, which should be unique
+across the MCP servers.</p></li>
+<li><p><strong>command</strong> (<cite>str</cite>) -- The executable to run to start the server.</p></li>
+<li><p><strong>args</strong> (<cite>list[str] | None</cite>, optional) -- Command line arguments to pass to the executable.</p></li>
+<li><p><strong>env</strong> (<cite>dict[str, str] | None</cite>, optional) -- The environment to use when spawning the process.</p></li>
+<li><p><strong>cwd</strong> (<cite>str | None</cite>, optional) -- The working directory to use when spawning the process.</p></li>
+<li><p><strong>encoding</strong> (<cite>str</cite>, optional) -- The text encoding used when sending/receiving messages to the
+server. Defaults to "utf-8".</p></li>
+<li><p><strong>encoding_error_handler</strong> (<cite>Literal["strict", "ignore", "replace"]</cite>,              defaults to "strict") -- The text encoding error handler.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.mcp.HttpStatelessClient">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">HttpStatelessClient</span></span><a class="reference internal" href="../_modules/agentscope/mcp/_http_stateless_client.html#HttpStatelessClient"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.mcp.HttpStatelessClient" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<a class="reference internal" href="#agentscope.mcp.MCPClientBase" title="agentscope.mcp._client_base.MCPClientBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">MCPClientBase</span></code></a></p>
+<p>The sse/streamable HTTP MCP client implementation in AgentScope.</p>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>Note this client is stateless, meaning it won't maintain the
+session state across multiple tool calls. Each tool call will start a
+new session and close it after the call is done.</p>
+</div>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="agentscope.mcp.HttpStatelessClient.stateful">
+<span class="sig-name descname"><span class="pre">stateful</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">False</span></em><a class="headerlink" href="#agentscope.mcp.HttpStatelessClient.stateful" title="Link to this definition">¶</a></dt>
+<dd><p>Whether the MCP server is stateful, meaning it will maintain the
+session state across multiple tool calls, or stateless, meaning it
+will start a new session for each tool call.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.mcp.HttpStatelessClient.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">transport</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">url</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">headers</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sse_read_timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">300</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">client_kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/mcp/_http_stateless_client.html#HttpStatelessClient.__init__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.mcp.HttpStatelessClient.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize the streamable HTTP MCP server.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>name</strong> (<cite>str</cite>) -- The name to identify the MCP server, which should be unique
+across the MCP servers.</p></li>
+<li><p><strong>transport</strong> (<cite>Literal["streamable_http", "sse"]</cite>) -- The transport type of MCP server. Generally, the URL of sse
+transport should end with <cite>/sse</cite>, while the streamable HTTP
+URL ends with <cite>/mcp</cite>.</p></li>
+<li><p><strong>url</strong> (<cite>str</cite>) -- The URL of the MCP server.</p></li>
+<li><p><strong>headers</strong> (<cite>dict[str, str] | None</cite>, optional) -- Additional headers to include in the HTTP request.</p></li>
+<li><p><strong>timeout</strong> (<cite>float</cite>, optional) -- The timeout for the HTTP request in seconds. Defaults to 30.</p></li>
+<li><p><strong>sse_read_timeout</strong> (<cite>float</cite>, optional) -- The timeout for reading Server-Sent Events (SSE) in seconds.
+Defaults to 300 (5 minutes).</p></li>
+<li><p><strong>**client_kwargs</strong> (<cite>Any</cite>) -- The additional keyword arguments to pass to the streamable
+HTTP client.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.mcp.HttpStatelessClient.get_client">
+<span class="sig-name descname"><span class="pre">get_client</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/mcp/_http_stateless_client.html#HttpStatelessClient.get_client"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.mcp.HttpStatelessClient.get_client" title="Link to this definition">¶</a></dt>
+<dd><p>The disposable MCP client object, which is a context manager.</p>
+<dl class="field-list simple">
+<dt class="field-odd">返回类型<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>_AsyncGeneratorContextManager</em>[<em>Any</em>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.mcp.HttpStatelessClient.get_callable_function">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_callable_function</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">func_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">wrap_tool_result</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/mcp/_http_stateless_client.html#HttpStatelessClient.get_callable_function"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.mcp.HttpStatelessClient.get_callable_function" title="Link to this definition">¶</a></dt>
+<dd><p>Get a tool function by its name.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>func_name</strong> (<cite>str</cite>) -- The name of the tool function.</p></li>
+<li><p><strong>wrap_tool_result</strong> (<cite>bool</cite>, defaults to <cite>True</cite>) -- Whether to wrap the tool result into agentscope's
+<cite>ToolResponse</cite> object. If <cite>False</cite>, the raw result type
+<cite>mcp.types.CallToolResult</cite> will be returned.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回<span class="colon">:</span></dt>
+<dd class="field-even"><p>An async tool function that returns either
+<cite>mcp.types.CallToolResult</cite> or <cite>ToolResponse</cite> when called.</p>
+</dd>
+<dt class="field-odd">返回类型<span class="colon">:</span></dt>
+<dd class="field-odd"><p><cite>Callable[..., Awaitable[mcp.types.CallToolResult |             ToolResponse]]</cite></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.mcp.HttpStatelessClient.list_tools">
+<em class="property"><span class="pre">async</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">list_tools</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/mcp/_http_stateless_client.html#HttpStatelessClient.list_tools"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.mcp.HttpStatelessClient.list_tools" title="Link to this definition">¶</a></dt>
+<dd><p>List all tools available on the MCP server.</p>
+<dl class="field-list simple">
+<dt class="field-odd">返回<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The result containing the list of tools.</p>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p><cite>mcp.types.ListToolsResult</cite></p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="agentscope.mcp.HttpStatefulClient">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">HttpStatefulClient</span></span><a class="reference internal" href="../_modules/agentscope/mcp/_http_stateful_client.html#HttpStatefulClient"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.mcp.HttpStatefulClient" title="Link to this definition">¶</a></dt>
+<dd><p>基类：<a class="reference internal" href="#agentscope.mcp.StatefulClientBase" title="agentscope.mcp._stateful_client_base.StatefulClientBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">StatefulClientBase</span></code></a></p>
+<p>The stateful sse/streamable HTTP MCP client implementation in
+AgentScope.</p>
+<div class="admonition tip">
+<p class="admonition-title">小技巧</p>
+<p>The stateful client is recommended for MCP servers that need to
+maintain session states, e.g. web browsers or other interactive
+MCP servers.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>The stateful client will maintain one session across multiple
+tool calls, until the client is closed by explicitly calling the
+<cite>close()</cite> method.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">备注</p>
+<p>When multiple HttpStatefulClient instances are connected,
+they should be closed following the Last In First Out (LIFO) principle
+to avoid potential errors. Always close the most recently registered
+client first, then work backwards to the first one.
+For more details, please refer to this <a class="reference external" href="https://github.com/modelcontextprotocol/python-sdk/issues/577">issue</a>.</p>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="agentscope.mcp.HttpStatefulClient.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">transport</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">url</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">headers</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">30</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sse_read_timeout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">300</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">client_kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/agentscope/mcp/_http_stateful_client.html#HttpStatefulClient.__init__"><span class="viewcode-link"><span class="pre">[源代码]</span></span></a><a class="headerlink" href="#agentscope.mcp.HttpStatefulClient.__init__" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize the streamable HTTP MCP client.</p>
+<dl class="field-list simple">
+<dt class="field-odd">参数<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>name</strong> (<cite>str</cite>) -- The name to identify the MCP server, which should be unique
+across the MCP servers.</p></li>
+<li><p><strong>transport</strong> (<cite>Literal["streamable_http", "sse"]</cite>) -- The transport type of MCP server. Generally, the URL of sse
+transport should end with <cite>/sse</cite>, while the streamable HTTP
+URL ends with <cite>/mcp</cite>.</p></li>
+<li><p><strong>url</strong> (<cite>str</cite>) -- The URL to the MCP server.</p></li>
+<li><p><strong>headers</strong> (<cite>dict[str, str] | None</cite>, optional) -- Additional headers to include in the HTTP request.</p></li>
+<li><p><strong>timeout</strong> (<cite>float</cite>, optional) -- The timeout for the HTTP request in seconds. Defaults to 30.</p></li>
+<li><p><strong>sse_read_timeout</strong> (<cite>float</cite>, optional) -- The timeout for reading Server-Sent Events (SSE) in seconds.
+Defaults to 300 (5 minutes).</p></li>
+<li><p><strong>**client_kwargs</strong> (<cite>Any</cite>) -- The additional keyword arguments to pass to the streamable
+HTTP client.</p></li>
+</ul>
+</dd>
+<dt class="field-even">返回类型<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+        

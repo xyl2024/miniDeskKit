@@ -1,0 +1,171 @@
+<!-- Title: agentscope.module._state_module - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/module/_state_module.html -->
+
+          <h1>agentscope.module._state_module 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The state module in agentscope."""</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">OrderedDict</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">..types</span><span class="w"> </span><span class="kn">import</span> <span class="n">JSONSerializableObject</span>
+
+
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">_JSONSerializeFunction</span><span class="p">:</span>
+    <span class="n">to_json</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="n">Any</span><span class="p">],</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="w">    </span><span class="sd">"""The function converting the original data to JSON data."""</span>
+    <span class="n">load_json</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="n">Any</span><span class="p">],</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="w">    </span><span class="sd">"""The function converting the JSON data to original data."""</span>
+
+
+<div class="viewcode-block" id="StateModule">
+<a class="viewcode-back" href="../../../api/agentscope.module.html#agentscope.module.StateModule">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">StateModule</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""The state module class in agentscope to support nested state</span>
+<span class="sd">    serialization and deserialization."""</span>
+
+<div class="viewcode-block" id="StateModule.__init__">
+<a class="viewcode-back" href="../../../api/agentscope.module.html#agentscope.module.StateModule.__init__">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize the state module."""</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_module_dict</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_attribute_dict</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Set attributes and record state modules."""</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">StateModule</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"_module_dict"</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"Call the super().__init__() method within the "</span>
+                    <span class="sa">f</span><span class="s2">"constructor of </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> before setting "</span>
+                    <span class="sa">f</span><span class="s2">"any attributes."</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_module_dict</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__delattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Delete attributes and remove from state modules."""</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_module_dict</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_module_dict</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_attribute_dict</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_attribute_dict</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__delattr__</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+
+<div class="viewcode-block" id="StateModule.state_dict">
+<a class="viewcode-back" href="../../../api/agentscope.module.html#agentscope.module.StateModule.state_dict">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">state_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Get the state dictionary of the module, including the nested</span>
+<span class="sd">        state modules and registered attributes.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `dict`:</span>
+<span class="sd">                A dictionary that keys are attribute names and values are</span>
+<span class="sd">                the state of the attribute.</span>
+<span class="sd">        """</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_module_dict</span><span class="p">:</span>
+            <span class="n">attr</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">attr</span><span class="p">,</span> <span class="n">StateModule</span><span class="p">):</span>
+                <span class="n">state</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">attr</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span>
+
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_attribute_dict</span><span class="p">:</span>
+            <span class="n">attr</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+            <span class="n">to_json_function</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_attribute_dict</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">to_json</span>
+            <span class="k">if</span> <span class="n">to_json_function</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">state</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">to_json_function</span><span class="p">(</span><span class="n">attr</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">state</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">attr</span>
+
+        <span class="k">return</span> <span class="n">state</span></div>
+
+
+<div class="viewcode-block" id="StateModule.load_state_dict">
+<a class="viewcode-back" href="../../../api/agentscope.module.html#agentscope.module.StateModule.load_state_dict">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load_state_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">strict</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Load the state dictionary into the module.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            state_dict (`dict`):</span>
+<span class="sd">                The state dictionary to load.</span>
+<span class="sd">            strict (`bool`, defaults to `True`):</span>
+<span class="sd">                If `True`, raises an error if any key in the module is not</span>
+<span class="sd">                found in the state_dict. If `False`, skips missing keys.</span>
+<span class="sd">        """</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_module_dict</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">state_dict</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">strict</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">"Key '</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">' not found in state_dict. Ensure that "</span>
+                        <span class="sa">f</span><span class="s2">"the state_dict contains all required keys."</span><span class="p">,</span>
+                    <span class="p">)</span>
+                <span class="k">continue</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_module_dict</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">state_dict</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_attribute_dict</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">state_dict</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">strict</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">"Key '</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">' not found in state_dict. Ensure that "</span>
+                        <span class="sa">f</span><span class="s2">"the state_dict contains all required keys."</span><span class="p">,</span>
+                    <span class="p">)</span>
+                <span class="k">continue</span>
+            <span class="n">from_json_func</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_attribute_dict</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">load_json</span>
+            <span class="k">if</span> <span class="n">from_json_func</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">from_json_func</span><span class="p">(</span><span class="n">state_dict</span><span class="p">[</span><span class="n">key</span><span class="p">]))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">state_dict</span><span class="p">[</span><span class="n">key</span><span class="p">])</span></div>
+
+
+<div class="viewcode-block" id="StateModule.register_state">
+<a class="viewcode-back" href="../../../api/agentscope.module.html#agentscope.module.StateModule.register_state">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">register_state</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">attr_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">custom_to_json</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Any</span><span class="p">],</span> <span class="n">JSONSerializableObject</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">custom_from_json</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">JSONSerializableObject</span><span class="p">],</span> <span class="n">Any</span><span class="p">]</span>
+        <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Register an attribute to be tracked as a state variable.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            attr_name (`str`):</span>
+<span class="sd">                The name of the attribute to register.</span>
+<span class="sd">            custom_to_json (`Callable[[Any], JSONSerializableObject] | None`, \</span>
+<span class="sd">            optional):</span>
+<span class="sd">                A custom function to convert the attribute to a</span>
+<span class="sd">                JSON-serializable format. If not provided, `json.dumps` will</span>
+<span class="sd">                be used.</span>
+<span class="sd">            custom_from_json (`Callable[[JSONSerializableObject], Any] | None`\</span>
+<span class="sd">            , defaults to `None`):</span>
+<span class="sd">                A custom function to convert the JSON dictionary back to the</span>
+<span class="sd">                original attribute format.</span>
+<span class="sd">        """</span>
+        <span class="n">attr</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attr_name</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">custom_to_json</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Make sure the attribute is JSON serializable natively</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">attr</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"Attribute '</span><span class="si">{</span><span class="n">attr_name</span><span class="si">}</span><span class="s2">' is not JSON serializable. "</span>
+                    <span class="s2">"Please provide a custom function to convert the "</span>
+                    <span class="s2">"attribute to a JSON-serializable format."</span><span class="p">,</span>
+                <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+
+        <span class="k">if</span> <span class="n">attr_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_module_dict</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Attribute `</span><span class="si">{</span><span class="n">attr_name</span><span class="si">}</span><span class="s2">` is already registered as a module. "</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_attribute_dict</span><span class="p">[</span><span class="n">attr_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">_JSONSerializeFunction</span><span class="p">(</span>
+            <span class="n">to_json</span><span class="o">=</span><span class="n">custom_to_json</span><span class="p">,</span>
+            <span class="n">load_json</span><span class="o">=</span><span class="n">custom_from_json</span><span class="p">,</span>
+        <span class="p">)</span></div>
+</div>
+
+</pre></div>
+        

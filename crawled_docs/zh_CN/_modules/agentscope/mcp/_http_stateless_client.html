@@ -1,0 +1,168 @@
+<!-- Title: agentscope.mcp._http_stateless_client - AgentScope -->
+<!-- URL: https://doc.agentscope.io/zh_CN/_modules/agentscope/mcp/_http_stateless_client.html -->
+
+          <h1>agentscope.mcp._http_stateless_client 源代码</h1><div class="highlight"><pre><span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="sd">"""The MCP streamable HTTP server."""</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">contextlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">_AsyncGeneratorContextManager</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Awaitable</span><span class="p">,</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">List</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">mcp.types</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">ClientSession</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mcp.client.sse</span><span class="w"> </span><span class="kn">import</span> <span class="n">sse_client</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">mcp.client.streamable_http</span><span class="w"> </span><span class="kn">import</span> <span class="n">streamablehttp_client</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">MCPToolFunction</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">._client_base</span><span class="w"> </span><span class="kn">import</span> <span class="n">MCPClientBase</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..tool</span><span class="w"> </span><span class="kn">import</span> <span class="n">ToolResponse</span>
+
+
+<div class="viewcode-block" id="HttpStatelessClient">
+<a class="viewcode-back" href="../../../api/agentscope.mcp.html#agentscope.mcp.HttpStatelessClient">[文档]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">HttpStatelessClient</span><span class="p">(</span><span class="n">MCPClientBase</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">"""The sse/streamable HTTP MCP client implementation in AgentScope.</span>
+
+<span class="sd">    .. note:: Note this client is stateless, meaning it won't maintain the</span>
+<span class="sd">     session state across multiple tool calls. Each tool call will start a</span>
+<span class="sd">     new session and close it after the call is done.</span>
+
+<span class="sd">    """</span>
+
+    <span class="n">stateful</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="w">    </span><span class="sd">"""Whether the MCP server is stateful, meaning it will maintain the</span>
+<span class="sd">    session state across multiple tool calls, or stateless, meaning it</span>
+<span class="sd">    will start a new session for each tool call."""</span>
+
+<div class="viewcode-block" id="HttpStatelessClient.__init__">
+<a class="viewcode-back" href="../../../api/agentscope.mcp.html#agentscope.mcp.HttpStatelessClient.__init__">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">transport</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"streamable_http"</span><span class="p">,</span> <span class="s2">"sse"</span><span class="p">],</span>
+        <span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">headers</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">30</span><span class="p">,</span>
+        <span class="n">sse_read_timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">60</span> <span class="o">*</span> <span class="mi">5</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">client_kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Initialize the streamable HTTP MCP server.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            name (`str`):</span>
+<span class="sd">                The name to identify the MCP server, which should be unique</span>
+<span class="sd">                across the MCP servers.</span>
+<span class="sd">            transport (`Literal["streamable_http", "sse"]`):</span>
+<span class="sd">                The transport type of MCP server. Generally, the URL of sse</span>
+<span class="sd">                transport should end with `/sse`, while the streamable HTTP</span>
+<span class="sd">                URL ends with `/mcp`.</span>
+<span class="sd">            url (`str`):</span>
+<span class="sd">                The URL of the MCP server.</span>
+<span class="sd">            headers (`dict[str, str] | None`, optional):</span>
+<span class="sd">                Additional headers to include in the HTTP request.</span>
+<span class="sd">            timeout (`float`, optional):</span>
+<span class="sd">                The timeout for the HTTP request in seconds. Defaults to 30.</span>
+<span class="sd">            sse_read_timeout (`float`, optional):</span>
+<span class="sd">                The timeout for reading Server-Sent Events (SSE) in seconds.</span>
+<span class="sd">                Defaults to 300 (5 minutes).</span>
+<span class="sd">            **client_kwargs (`Any`):</span>
+<span class="sd">                The additional keyword arguments to pass to the streamable</span>
+<span class="sd">                HTTP client.</span>
+<span class="sd">        """</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+
+        <span class="k">assert</span> <span class="n">transport</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">"streamable_http"</span><span class="p">,</span> <span class="s2">"sse"</span><span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">transport</span> <span class="o">=</span> <span class="n">transport</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">client_config</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">"url"</span><span class="p">:</span> <span class="n">url</span><span class="p">,</span>
+            <span class="s2">"headers"</span><span class="p">:</span> <span class="n">headers</span> <span class="ow">or</span> <span class="p">{},</span>
+            <span class="s2">"timeout"</span><span class="p">:</span> <span class="n">timeout</span><span class="p">,</span>
+            <span class="s2">"sse_read_timeout"</span><span class="p">:</span> <span class="n">sse_read_timeout</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">client_kwargs</span><span class="p">,</span>
+        <span class="p">}</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_tools</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="HttpStatelessClient.get_client">
+<a class="viewcode-back" href="../../../api/agentscope.mcp.html#agentscope.mcp.HttpStatelessClient.get_client">[文档]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_client</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_AsyncGeneratorContextManager</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""The disposable MCP client object, which is a context manager."""</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">transport</span> <span class="o">==</span> <span class="s2">"sse"</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">sse_client</span><span class="p">(</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">client_config</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">transport</span> <span class="o">==</span> <span class="s2">"streamable_http"</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">streamablehttp_client</span><span class="p">(</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">client_config</span><span class="p">)</span>
+
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">"Unsupported transport type: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">transport</span><span class="si">}</span><span class="s2">. "</span>
+            <span class="s2">"Supported types are 'sse' and 'streamable_http'."</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="HttpStatelessClient.get_callable_function">
+<a class="viewcode-back" href="../../../api/agentscope.mcp.html#agentscope.mcp.HttpStatelessClient.get_callable_function">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">get_callable_function</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">func_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">wrap_tool_result</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">Awaitable</span><span class="p">[</span><span class="n">mcp</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">CallToolResult</span> <span class="o">|</span> <span class="n">ToolResponse</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">"""Get a tool function by its name.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            func_name (`str`):</span>
+<span class="sd">                The name of the tool function.</span>
+<span class="sd">            wrap_tool_result (`bool`, defaults to `True`):</span>
+<span class="sd">                Whether to wrap the tool result into agentscope's</span>
+<span class="sd">                `ToolResponse` object. If `False`, the raw result type</span>
+<span class="sd">                `mcp.types.CallToolResult` will be returned.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `Callable[..., Awaitable[mcp.types.CallToolResult | \</span>
+<span class="sd">            ToolResponse]]`:</span>
+<span class="sd">                An async tool function that returns either</span>
+<span class="sd">                `mcp.types.CallToolResult` or `ToolResponse` when called.</span>
+<span class="sd">        """</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tools</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">list_tools</span><span class="p">()</span>
+
+        <span class="n">target_tool</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">tool</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tools</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">tool</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">func_name</span><span class="p">:</span>
+                <span class="n">target_tool</span> <span class="o">=</span> <span class="n">tool</span>
+                <span class="k">break</span>
+
+        <span class="k">if</span> <span class="n">target_tool</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"Tool '</span><span class="si">{</span><span class="n">func_name</span><span class="si">}</span><span class="s2">' not found in the MCP server "</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">MCPToolFunction</span><span class="p">(</span>
+            <span class="n">mcp_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">tool</span><span class="o">=</span><span class="n">target_tool</span><span class="p">,</span>
+            <span class="n">wrap_tool_result</span><span class="o">=</span><span class="n">wrap_tool_result</span><span class="p">,</span>
+            <span class="n">client_gen</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">get_client</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="HttpStatelessClient.list_tools">
+<a class="viewcode-back" href="../../../api/agentscope.mcp.html#agentscope.mcp.HttpStatelessClient.list_tools">[文档]</a>
+    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">list_tools</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">mcp</span><span class="o">.</span><span class="n">types</span><span class="o">.</span><span class="n">Tool</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""List all tools available on the MCP server.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            `mcp.types.ListToolsResult`:</span>
+<span class="sd">                The result containing the list of tools.</span>
+<span class="sd">        """</span>
+        <span class="k">async</span> <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_client</span><span class="p">()</span> <span class="k">as</span> <span class="n">cli</span><span class="p">:</span>
+            <span class="n">read_stream</span><span class="p">,</span> <span class="n">write_stream</span> <span class="o">=</span> <span class="n">cli</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">cli</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">async</span> <span class="k">with</span> <span class="n">ClientSession</span><span class="p">(</span><span class="n">read_stream</span><span class="p">,</span> <span class="n">write_stream</span><span class="p">)</span> <span class="k">as</span> <span class="n">session</span><span class="p">:</span>
+                <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">initialize</span><span class="p">()</span>
+                <span class="n">res</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">list_tools</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_tools</span> <span class="o">=</span> <span class="n">res</span><span class="o">.</span><span class="n">tools</span>
+                <span class="k">return</span> <span class="n">res</span><span class="o">.</span><span class="n">tools</span></div>
+</div>
+
+</pre></div>
+        
