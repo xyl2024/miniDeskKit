@@ -16,3 +16,11 @@
 
 - 学习pyside6教程,写出真正健壮好看的界面
 - 为浮窗控件添加动画效果
+
+
+1. 下载视频工具: yt-dlp  (https://www.pavlinbg.com/posts/python-speech-to-text-guide)
+2. 语音转文字: 使用whisper模型  (https://www.pavlinbg.com/posts/python-speech-to-text-guide)
+3. 智能体框架: AgentScope
+通过上面三个工具, 可以完成一个学习, 归纳, 总结网络上的教学视频的智能体. 提高学习效率.
+
+4. 使用playwright或传统爬虫手段爬取技术技术文档(可通过html转md的方式), 构建知识库进行RAG, 实现文档智能问答.
