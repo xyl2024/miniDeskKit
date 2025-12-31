@@ -100,8 +100,11 @@ class MainWindow(QWidget):
 
             # 创建右键菜单
             self.tray_menu = QMenu()
+            settings_action = QAction("设置", self)
+            settings_action.triggered.connect(self.show_settings)
             quit_action = QAction("退出", self)
             quit_action.triggered.connect(self.quit_app)
+            self.tray_menu.addAction(settings_action)
             self.tray_menu.addAction(quit_action)
 
             self.tray_icon.setContextMenu(self.tray_menu)
@@ -113,6 +116,13 @@ class MainWindow(QWidget):
         """托盘图标激活事件"""
         if reason == QSystemTrayIcon.DoubleClick:
             self.hide() if self.isVisible() else self.show()
+
+    def show_settings(self):
+        """显示设置对话框"""
+        from settings_dialog import SettingsDialog
+
+        dialog = SettingsDialog(self)
+        dialog.exec()
 
     def quit_app(self):
         """退出应用"""

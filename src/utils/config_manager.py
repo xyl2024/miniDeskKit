@@ -54,14 +54,6 @@ class ConfigManager:
                     "D:",
                 ],  # 要监控的磁盘列表，如果为空则自动检测所有磁盘
             },
-            "audio_visualizer": {
-                "height": 30,
-                "line_color": "#FF5722",  # 橙红色，类似心电图
-                "line_width": 2,
-                "background_color": "#00000000",  # 透明
-                "wave_height": 20,
-                "speed": 2,
-            },
             "logging": {
                 "level": "INFO",  # DEBUG, INFO, WARNING, ERROR, CRITICAL
                 "max_file_size": 10485760,  # 10MB
@@ -111,10 +103,6 @@ class ConfigManager:
         """获取系统监控配置"""
         return self.config.get("system_monitor", {})
 
-    def get_audio_visualizer_config(self):
-        """获取音频可视化配置"""
-        return self.config.get("audio_visualizer", {})
-
     def get_logging_config(self):
         """获取日志配置"""
         return self.config.get("logging", {})
@@ -122,3 +110,45 @@ class ConfigManager:
     def get_minutely_weather_config(self):
         """获取分钟级天气组件配置"""
         return self.config.get("minutely_weather", {})
+
+    def set_window_config(self, key, value):
+        """设置窗口配置"""
+        if "window" not in self.config:
+            self.config["window"] = {}
+        self.config["window"][key] = value
+        self.save_config()
+
+    def set_progress_bar_config(self, key, value):
+        """设置进度条配置"""
+        if "progress_bars" not in self.config:
+            self.config["progress_bars"] = {}
+        self.config["progress_bars"][key] = value
+        self.save_config()
+
+    def set_label_config(self, key, value):
+        """设置标签配置"""
+        if "labels" not in self.config:
+            self.config["labels"] = {}
+        self.config["labels"][key] = value
+        self.save_config()
+
+    def set_system_monitor_config(self, key, value):
+        """设置系统监控配置"""
+        if "system_monitor" not in self.config:
+            self.config["system_monitor"] = {}
+        self.config["system_monitor"][key] = value
+        self.save_config()
+
+    def set_weather_config(self, key, value):
+        """设置天气配置"""
+        if "minutely_weather" not in self.config:
+            self.config["minutely_weather"] = {}
+        self.config["minutely_weather"][key] = value
+        self.save_config()
+
+    def set_logging_config(self, key, value):
+        """设置日志配置"""
+        if "logging" not in self.config:
+            self.config["logging"] = {}
+        self.config["logging"][key] = value
+        self.save_config()
