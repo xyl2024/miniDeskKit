@@ -124,6 +124,12 @@ class MainWindow(QWidget):
         dialog = SettingsDialog(self)
         dialog.exec()
 
+    def moveEvent(self, event):
+        """窗口移动事件，保存位置"""
+        super().moveEvent(event)
+        pos = self.pos()
+        self.config_manager.set_window_position(pos.x(), pos.y())
+
     def quit_app(self):
         """退出应用"""
         logger.info("退出应用")
@@ -131,6 +137,7 @@ class MainWindow(QWidget):
             self.tray_icon.hide()
         self.close()
         QApplication.quit()
+        sys.exit(0)
 
 
 if __name__ == "__main__":

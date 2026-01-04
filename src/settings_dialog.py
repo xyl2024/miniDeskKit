@@ -51,9 +51,12 @@ class SettingsDialog(QDialog):
         button_layout = QHBoxLayout()
         save_button = QPushButton("保存")
         save_button.clicked.connect(self.save_and_close)
+        apply_button = QPushButton("应用")
+        apply_button.clicked.connect(self.apply_config)
         cancel_button = QPushButton("取消")
         cancel_button.clicked.connect(self.reject)
         button_layout.addWidget(save_button)
+        button_layout.addWidget(apply_button)
         button_layout.addWidget(cancel_button)
         layout.addLayout(button_layout)
 
@@ -95,6 +98,14 @@ class SettingsDialog(QDialog):
         self.spacing_spin.setRange(0, 20)
         self.spacing_spin.setSuffix(" px")
 
+        self.position_x_spin = QSpinBox()
+        self.position_x_spin.setRange(0, 4096)
+        self.position_x_spin.setSuffix(" px")
+
+        self.position_y_spin = QSpinBox()
+        self.position_y_spin.setRange(0, 4096)
+        self.position_y_spin.setSuffix(" px")
+
         layout.addRow("窗口宽度:", self.window_width_spin)
         layout.addRow("背景颜色:", self.bg_color_button)
         layout.addRow("", self.bg_color_label)
@@ -104,6 +115,8 @@ class SettingsDialog(QDialog):
         layout.addRow("右边距:", self.margin_right_spin)
         layout.addRow("下边距:", self.margin_bottom_spin)
         layout.addRow("间距:", self.spacing_spin)
+        layout.addRow("X坐标:", self.position_x_spin)
+        layout.addRow("Y坐标:", self.position_y_spin)
 
         return widget
 
@@ -288,6 +301,10 @@ class SettingsDialog(QDialog):
 
         self.spacing_spin.setValue(window_config.get("spacing", 3))
 
+        position = window_config.get("position", {"x": 100, "y": 100})
+        self.position_x_spin.setValue(position.get("x", 100))
+        self.position_y_spin.setValue(position.get("y", 100))
+
         self.pb_height_spin.setValue(progress_config.get("height", 8))
         self.pb_border_width_spin.setValue(progress_config.get("border_width", 1))
         self.pb_border_radius_spin.setValue(progress_config.get("border_radius", 2))
@@ -417,8 +434,18 @@ class SettingsDialog(QDialog):
         for item in self.disk_list.selectedItems():
             self.disk_list.takeItem(self.disk_list.row(item))
 
-    def save_and_close(self):
-        """保存并关闭"""
+    def apply_config(self):
+        """应用当前配置"""
+        self.save_config_to_manager()
+        logger.info("配置已应用")
+        if self.parent():
+            self.parent().window_config = self.config_manager.get_window_config()
+            self.parent().setFixedWidth(self.parent().window_config.get("width", 48))
+            pos = self.config_manager.get_window_position()
+            self.parent().move(pos)
+
+    def save_config_to_manager(self):
+        """保存配置到配置管理器"""
         window_config = {
             "width": self.window_width_spin.value(),
             "background_color": f"rgba({self.current_bg_color.red()}, {self.current_bg_color.green()}, {self.current_bg_color.blue()}, {self.current_bg_color.alpha()})",
@@ -430,6 +457,10 @@ class SettingsDialog(QDialog):
                 "bottom": self.margin_bottom_spin.value(),
             },
             "spacing": self.spacing_spin.value(),
+            "position": {
+                "x": self.position_x_spin.value(),
+                "y": self.position_y_spin.value(),
+            },
         }
 
         progress_config = {
@@ -482,5 +513,8 @@ class SettingsDialog(QDialog):
 
         self.config_manager.save_config()
 
+    def save_and_close(self):
+        """保存并关闭"""
+        self.save_config_to_manager()
         logger.info("配置已保存")
         self.accept()
