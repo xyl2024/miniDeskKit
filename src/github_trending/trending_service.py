@@ -16,12 +16,20 @@ from utils.logger import logger
 
 TRENDING_URL = "https://github.com/trending"
 SCHEMA_VERSION = 5
+VALID_SINCE_VALUES = {"daily", "weekly", "monthly"}
 
 
 @dataclass(frozen=True)
 class TrendingOptions:
     since: str = "daily"
     language: str | None = None
+
+
+def normalize_since(since: str | None) -> str:
+    s = (since or "").strip().lower()
+    if s in VALID_SINCE_VALUES:
+        return s
+    return "daily"
 
 
 def _today() -> date:
@@ -42,10 +50,25 @@ def cache_dir() -> Path:
     return path
 
 
-def daily_cache_paths(d: date | str | None = None) -> tuple[Path, Path]:
+def _cache_stem(d: date | str | None, options: TrendingOptions | None) -> str:
     ds = date_str(d)
-    md_path = cache_dir() / f"{ds}.md"
-    json_path = cache_dir() / f"{ds}.json"
+    if options is None:
+        return ds
+    since = normalize_since(options.since)
+    language = (options.language or "").strip()
+    suffix_parts = [f"since-{since}"]
+    if language:
+        safe_lang = re.sub(r"[^a-zA-Z0-9._-]+", "_", language)
+        suffix_parts.append(f"lang-{safe_lang}")
+    return ds + "__" + "__".join(suffix_parts)
+
+
+def daily_cache_paths(
+    d: date | str | None = None, options: TrendingOptions | None = None
+) -> tuple[Path, Path]:
+    stem = _cache_stem(d, options)
+    md_path = cache_dir() / f"{stem}.md"
+    json_path = cache_dir() / f"{stem}.json"
     return md_path, json_path
 
 
@@ -85,8 +108,7 @@ def repo_readme_html_path(full_name: str, d: date | str | None = None) -> Path:
     return daily_readme_html_dir(d) / f"{safe}.html"
 
 
-def load_cached_payload(d: date | str | None = None) -> dict[str, Any] | None:
-    _, json_path = daily_cache_paths(d)
+def _load_cached_payload_from_path(json_path: Path) -> dict[str, Any] | None:
     if not json_path.exists():
         return None
     try:
@@ -98,25 +120,46 @@ def load_cached_payload(d: date | str | None = None) -> dict[str, Any] | None:
     return None
 
 
-def has_success_cache(d: date | str | None = None) -> bool:
-    md_path, json_path = daily_cache_paths(d)
-    if not (md_path.exists() and json_path.exists()):
-        return False
-    payload = load_cached_payload(d)
+def load_cached_payload(
+    d: date | str | None = None, options: TrendingOptions | None = None
+) -> dict[str, Any] | None:
+    _, json_path = daily_cache_paths(d, options)
+    payload = _load_cached_payload_from_path(json_path)
+    if payload is not None:
+        return payload
+    if options is not None:
+        _, legacy_json_path = daily_cache_paths(d, None)
+        return _load_cached_payload_from_path(legacy_json_path)
+    return None
+
+
+def has_success_cache(d: date | str | None = None, options: TrendingOptions | None = None) -> bool:
+    md_path, json_path = daily_cache_paths(d, options)
+    legacy_md_path, legacy_json_path = daily_cache_paths(d, None)
+    if options is None:
+        if not (md_path.exists() and json_path.exists()):
+            return False
+    else:
+        if not (md_path.exists() and json_path.exists()):
+            if not (legacy_md_path.exists() and legacy_json_path.exists()):
+                return False
+            md_path, json_path = legacy_md_path, legacy_json_path
+
+    payload = _load_cached_payload_from_path(json_path)
     if not payload:
         return False
     version = payload.get("schema_version")
     if not isinstance(version, int) or version < SCHEMA_VERSION:
         return False
-    try:
-        from utils.openai_llm import get_openai_settings
-
-        openai_enabled_now = bool(get_openai_settings().api_key)
-    except Exception:
-        openai_enabled_now = False
-    openai_enabled_cache = payload.get("openai_enabled")
-    if openai_enabled_now and openai_enabled_cache is not True:
-        return False
+    if options is not None:
+        cache_since = normalize_since(payload.get("since") if isinstance(payload, dict) else None)
+        want_since = normalize_since(options.since)
+        if cache_since != want_since:
+            return False
+        cache_language = payload.get("language")
+        want_language = options.language
+        if (cache_language or None) != (want_language or None):
+            return False
     items = payload.get("items")
     return isinstance(items, list) and len(items) > 0
 
@@ -133,8 +176,10 @@ def _atomic_write_json(path: Path, data: dict[str, Any]) -> None:
     _atomic_write_text(path, text + "\n")
 
 
-def load_cached_items(d: date | str | None = None) -> list[dict[str, Any]] | None:
-    payload = load_cached_payload(d)
+def load_cached_items(
+    d: date | str | None = None, options: TrendingOptions | None = None
+) -> list[dict[str, Any]] | None:
+    payload = load_cached_payload(d, options)
     if not payload:
         return None
     version = payload.get("schema_version")
@@ -143,10 +188,29 @@ def load_cached_items(d: date | str | None = None) -> list[dict[str, Any]] | Non
             f"Trending 缓存版本过旧，忽略: date={payload.get('date')}, schema_version={version}"
         )
         return None
+    if options is not None:
+        cache_since = normalize_since(payload.get("since") if isinstance(payload, dict) else None)
+        want_since = normalize_since(options.since)
+        if cache_since != want_since:
+            return None
+        cache_language = payload.get("language")
+        want_language = options.language
+        if (cache_language or None) != (want_language or None):
+            return None
     items = payload.get("items")
     if isinstance(items, list):
         return items
     return None
+
+
+def summaries_complete(d: date | str | None = None, options: TrendingOptions | None = None) -> bool:
+    payload = load_cached_payload(d, options)
+    if not payload:
+        return False
+    v = payload.get("summaries_complete")
+    if isinstance(v, bool):
+        return v
+    return True
 
 
 def load_latest_cached_items() -> list[dict[str, Any]] | None:
@@ -219,15 +283,16 @@ def build_daily_markdown(
     ds = date_str(d)
     url = TRENDING_URL
     params: list[str] = []
-    if options.since:
-        params.append(f"since={options.since}")
+    since = normalize_since(options.since)
+    if since:
+        params.append(f"since={since}")
     if options.language:
         params.append(f"language={options.language}")
     if params:
         url = url + "?" + "&".join(params)
 
     lines: list[str] = []
-    lines.append(f"# GitHub Trending ({ds})")
+    lines.append(f"# GitHub Trending ({ds}, {since})")
     lines.append("")
     lines.append(f"Source: {url}")
     lines.append("")
@@ -469,54 +534,14 @@ def build_repo_html(item: dict[str, Any]) -> str:
 
 
 def enrich_items_with_readme(items: list[dict[str, Any]], timeout_s: int = 12) -> None:
-    from utils.openai_llm import summarize_readme_markdown
-
-    session = _build_github_session()
-    logger.info(f"开始获取 README: count={len(items)}")
-    for item in items:
-        full_name = str(item.get("full_name") or "")
-        try:
-            readme_raw_md = fetch_repo_readme_md(session, full_name, timeout_s=timeout_s)
-            readme_md, summary_source = summarize_readme_markdown(
-                readme_raw_md or "", full_name
-            )
-            readme_html = (
-                render_markdown_to_html(
-                    session,
-                    readme_md or "",
-                    context=full_name,
-                    timeout_s=timeout_s,
-                )
-                if readme_md
-                else None
-            )
-        except Exception as e:
-            logger.warning(f"Fetch README failed: {full_name} ({e})")
-            item["readme_md"] = None
-            item["readme_html"] = None
-            item["readme_source"] = "error"
-            item["readme"] = build_repo_markdown(item)
-            continue
-
-        if readme_raw_md:
-            item["readme_md"] = readme_md
-            item["readme_source"] = summary_source
-            item["readme_html"] = readme_html
-        else:
-            item["readme_md"] = None
-            item["readme_html"] = None
-            item["readme_source"] = "missing"
-        item["readme"] = build_repo_markdown(item)
-        item["readme_html_page"] = build_repo_html(item)
-        logger.info(
-            f"README 获取完成: {full_name}, source={item.get('readme_source')}, md={bool(readme_md)}, html={bool(readme_html)}"
-        )
+    raise RuntimeError("enrich_items_with_readme 已废弃，请使用 fetch_and_cache_daily 内的两阶段流程")
 
 
 def fetch_trending(options: TrendingOptions, timeout_s: int = 12) -> list[dict[str, Any]]:
     params: dict[str, str] = {}
-    if options.since:
-        params["since"] = options.since
+    since = normalize_since(options.since)
+    if since:
+        params["since"] = since
     if options.language:
         params["language"] = options.language
 
@@ -539,8 +564,121 @@ def fetch_trending(options: TrendingOptions, timeout_s: int = 12) -> list[dict[s
     if not items:
         raise RuntimeError("Parsed trending items is empty")
     logger.info(f"Trending 列表解析完成: count={len(items)}")
-    enrich_items_with_readme(items, timeout_s=timeout_s)
     return items
+
+
+def _all_summaries_done(items: list[dict[str, Any]]) -> bool:
+    done_states = {"openai", "heuristic", "missing", "error"}
+    for item in items:
+        state = str(item.get("readme_source") or "none")
+        if state not in done_states:
+            return False
+    return True
+
+
+def fetch_all_raw_readmes(
+    items: list[dict[str, Any]],
+    d: date | str | None,
+    timeout_s: int = 12,
+) -> None:
+    session = _build_github_session()
+    logger.info(f"开始获取原始 README: count={len(items)}")
+    for item in items:
+        full_name = str(item.get("full_name") or "")
+        if not full_name:
+            item["readme_source"] = "missing"
+            continue
+        try:
+            readme_raw_md = fetch_repo_readme_md(session, full_name, timeout_s=timeout_s)
+        except Exception as e:
+            logger.warning(f"Fetch README failed: {full_name} ({e})")
+            item["readme_source"] = "error"
+            continue
+        if not readme_raw_md:
+            item["readme_source"] = "missing"
+            continue
+        raw_path = repo_readme_path(full_name, d)
+        _atomic_write_text(raw_path, readme_raw_md.strip() + "\n")
+        item["readme_raw_path"] = str(raw_path)
+        item["readme_source"] = "raw"
+
+
+def summarize_all_readmes_from_raw(
+    items: list[dict[str, Any]],
+    d: date | str | None,
+    options: TrendingOptions,
+    timeout_s: int = 12,
+    cache_json_path: Path | None = None,
+    cache_payload: dict[str, Any] | None = None,
+    persist_every: int = 5,
+) -> None:
+    from utils.openai_llm import summarize_readme_markdown
+
+    session = _build_github_session()
+    logger.info(f"开始总结 README: count={len(items)}")
+    updated_count = 0
+    for item in items:
+        full_name = str(item.get("full_name") or "")
+        state = str(item.get("readme_source") or "none")
+        if state != "raw":
+            continue
+        raw_path = item.get("readme_raw_path")
+        if not isinstance(raw_path, str) or not raw_path:
+            item["readme_source"] = "missing"
+            continue
+        try:
+            raw_text = Path(raw_path).read_text(encoding="utf-8")
+        except Exception as e:
+            logger.warning(f"读取原始 README 失败: {full_name} ({e})")
+            item["readme_source"] = "error"
+            continue
+
+        try:
+            readme_md, summary_source = summarize_readme_markdown(raw_text or "", full_name)
+            readme_html = (
+                render_markdown_to_html(
+                    session,
+                    readme_md or "",
+                    context=full_name,
+                    timeout_s=timeout_s,
+                )
+                if readme_md
+                else None
+            )
+        except Exception as e:
+            logger.warning(f"总结 README 失败: {full_name} ({e})")
+            item["readme_md"] = None
+            item["readme_html"] = None
+            item["readme_source"] = "error"
+            continue
+
+        item["readme_md"] = readme_md
+        item["readme_source"] = summary_source
+        item["readme_html"] = readme_html
+        item["readme"] = build_repo_markdown(item)
+        item["readme_html_page"] = build_repo_html(item)
+        if isinstance(readme_md, str) and readme_md.strip() and full_name:
+            _atomic_write_text(
+                repo_readme_summary_path(full_name, d), readme_md.strip() + "\n"
+            )
+            item["readme_path"] = str(repo_readme_summary_path(full_name, d))
+        html_page = item.get("readme_html_page")
+        if isinstance(html_page, str) and html_page.strip() and full_name:
+            _atomic_write_text(repo_readme_html_path(full_name, d), html_page.strip() + "\n")
+            item["readme_html_path"] = str(repo_readme_html_path(full_name, d))
+        logger.info(
+            f"README 总结完成: {full_name}, source={item.get('readme_source')}, md={bool(readme_md)}, html={bool(readme_html)}"
+        )
+        updated_count += 1
+        if (
+            cache_json_path is not None
+            and cache_payload is not None
+            and persist_every > 0
+            and updated_count % persist_every == 0
+        ):
+            cache_payload["items"] = items
+            cache_payload["summaries_complete"] = _all_summaries_done(items)
+            _atomic_write_json(cache_json_path, cache_payload)
 
 
 def fetch_and_cache_daily(
@@ -549,23 +687,52 @@ def fetch_and_cache_daily(
 ) -> tuple[list[dict[str, Any]], bool]:
     if options is None:
         options = TrendingOptions()
+    options = TrendingOptions(since=normalize_since(options.since), language=options.language)
     if d is not None and date_str(d) != date_str():
-        if has_success_cache(d):
-            cached = load_cached_items(d)
+        if has_success_cache(d, options):
+            cached = load_cached_items(d, options)
             if cached is not None:
                 logger.info(f"使用历史缓存: date={date_str(d)}, count={len(cached)}")
                 return cached, False
         raise ValueError("GitHub Trending 不支持按历史日期在线爬取，仅支持读取已缓存数据")
-    if has_success_cache(d):
-        cached = load_cached_items(d)
+
+    md_path, json_path = daily_cache_paths(d, options)
+    if has_success_cache(d, options):
+        cached = load_cached_items(d, options)
         if cached is not None:
-            logger.info(f"使用今日缓存: date={date_str(d)}, count={len(cached)}")
-            return cached, False
+            if summaries_complete(d, options):
+                logger.info(
+                    f"使用今日缓存: date={date_str(d)}, since={options.since}, count={len(cached)}"
+                )
+                return cached, False
+            logger.info(
+                f"今日缓存存在但总结未完成，继续总结: date={date_str(d)}, since={options.since}, count={len(cached)}"
+            )
+            payload = load_cached_payload(d, options) or {}
+            summarize_all_readmes_from_raw(
+                cached,
+                d=d,
+                options=options,
+                cache_json_path=json_path,
+                cache_payload=payload,
+            )
+            md_text = build_daily_markdown(d, options, cached)
+            payload.update(
+                {
+                    "schema_version": SCHEMA_VERSION,
+                    "date": date_str(d),
+                    "since": options.since,
+                    "language": options.language,
+                    "summaries_complete": _all_summaries_done(cached),
+                    "items": cached,
+                }
+            )
+            _atomic_write_text(md_path, md_text)
+            _atomic_write_json(json_path, payload)
+            return cached, True
 
     logger.info(f"开始抓取 Trending 并写入缓存: date={date_str(d)}")
     items = fetch_trending(options)
-    md_text = build_daily_markdown(d, options, items)
-    md_path, json_path = daily_cache_paths(d)
 
     try:
         from utils.openai_llm import get_openai_settings
@@ -577,6 +744,8 @@ def fetch_and_cache_daily(
         openai_enabled = False
         openai_model = None
 
+    fetch_all_raw_readmes(items, d=d)
+
     payload: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "date": date_str(d),
@@ -584,26 +753,33 @@ def fetch_and_cache_daily(
         "language": options.language,
         "openai_enabled": openai_enabled,
         "openai_model": openai_model,
+        "summaries_complete": False,
         "items": items,
     }
-    for item in items:
-        full_name = str(item.get("full_name") or "")
-        readme_summary = item.get("readme_md")
-        if (
-            not full_name
-            or not isinstance(readme_summary, str)
-            or not readme_summary.strip()
-        ):
-            continue
-        _atomic_write_text(
-            repo_readme_summary_path(full_name, d), readme_summary.strip() + "\n"
-        )
-        item["readme_path"] = str(repo_readme_summary_path(full_name, d))
-        html_page = item.get("readme_html_page")
-        if isinstance(html_page, str) and html_page.strip():
-            _atomic_write_text(repo_readme_html_path(full_name, d), html_page.strip() + "\n")
-            item["readme_html_path"] = str(repo_readme_html_path(full_name, d))
+    _atomic_write_text(md_path, build_daily_markdown(d, options, items))
+    _atomic_write_json(json_path, payload)
+
+    summarize_all_readmes_from_raw(
+        items,
+        d=d,
+        options=options,
+        cache_json_path=json_path,
+        cache_payload=payload,
+    )
+    payload["summaries_complete"] = _all_summaries_done(items)
+    md_text = build_daily_markdown(d, options, items)
     _atomic_write_text(md_path, md_text)
     _atomic_write_json(json_path, payload)
-    logger.info(f"Trending 缓存写入完成: md={md_path}, json={json_path}, count={len(items)}")
+    logger.info(
+        f"Trending 缓存写入完成: md={md_path}, json={json_path}, count={len(items)}, summaries_complete={payload['summaries_complete']}"
+    )
     return items, True
+
+
+def has_success_cache_all_periods(
+    d: date | str | None = None, language: str | None = None
+) -> bool:
+    for since in ("daily", "weekly", "monthly"):
+        if not has_success_cache(d, TrendingOptions(since=since, language=language)):
+            return False
+    return True
