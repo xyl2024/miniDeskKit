@@ -1,5 +1,7 @@
-from PySide6.QtCore import Qt, QPoint
-from PySide6.QtGui import QFont
+from pathlib import Path
+
+from PySide6.QtCore import Qt, QPoint, QSize
+from PySide6.QtGui import QFont, QPixmap
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QToolTip, QWidget
 
 from utils.config_manager import ConfigManager
@@ -15,6 +17,7 @@ class PrecipWidget(QWidget):
         self.weather_config = self.config_manager.get_minutely_weather_config()
         self.data = None
         self.precip_summary = ""
+        self.precip_worker = None
 
         self.setup_ui()
         self.setup_emojis_widget()
@@ -27,9 +30,9 @@ class PrecipWidget(QWidget):
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        # 创建一个标签来显示天气emoji(后续可能改为显示gif/png)
-        self.precip_label = QLabel("")
+        self.precip_label = QLabel()
         self.precip_label.setAlignment(Qt.AlignCenter)
+        self.precip_label.setFixedSize(22, 22)
         self.precip_label.setFont(QFont("Arial", 16))
 
         # 启用鼠标跟踪和工具提示
@@ -121,9 +124,20 @@ class PrecipWidget(QWidget):
             precip = float(i.get("precip", 0))
             total_precip += precip
 
-        # 根据是否有雨决定emoji
-        emoji = self.get_precip_emoji(total_precip)
-        self.precip_label.setText(emoji)
+        icon_name, fallback_emoji = self.get_precip_icon(total_precip)
+        icon_path = Path(__file__).resolve().parent / icon_name
+        pixmap = QPixmap(str(icon_path))
+        if pixmap.isNull():
+            self.precip_label.setPixmap(QPixmap())
+            self.precip_label.setText(fallback_emoji)
+        else:
+            scaled = pixmap.scaled(
+                QSize(18, 18),
+                Qt.KeepAspectRatio,
+                Qt.SmoothTransformation,
+            )
+            self.precip_label.setText("")
+            self.precip_label.setPixmap(scaled)
 
         # 如果降水数据Emojis当前正在显示, 则更新降水数据Emojis数据
         if self.emojis_visible and self.data:
@@ -144,14 +158,12 @@ class PrecipWidget(QWidget):
                 self.precip_label,
             )
 
-    def get_precip_emoji(self, total_precip):
-        """根据降水量返回对应的emoji"""
+    def get_precip_icon(self, total_precip):
         threshold = 0.0
 
         if total_precip > threshold:
-            return "🌧️"
-        else:
-            return "🌤️"
+            return "rainy.png", "🌧️"
+        return "sunny.png", "🌤️"
 
     def on_weather_error(self, error_msg):
         """处理天气组件错误"""
