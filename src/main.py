@@ -1,5 +1,8 @@
 import sys
 
+from utils.env_loader import load_env
+load_env()
+
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPainterPath, QRegion
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon, QVBoxLayout, QWidget
@@ -20,6 +23,10 @@ class MainWindow(QWidget):
     def setup_inner_widgets(self):
         """设置内部组件, 后续可以增加设置功能, 在这里按需加载哪些部件"""
         self.create_main_layout()
+
+        from github_trending.trending_widget import GithubTrendingWidget
+        self.github_trending_widget = GithubTrendingWidget()
+        self.add_widget(self.github_trending_widget)
 
         from weather.precip_widget import PrecipWidget
 
